@@ -1,0 +1,158 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
+@import 'tailwindcss';
+
+@theme inline {
+  --font-sans: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+  --color-primary: #F97316;
+  --color-primary-dark: #EA6C0A;
+  --color-secondary: #16A34A;
+  --color-accent: #FACC15;
+  --color-bg: #FFF8F0;
+  --color-text: #1F2937;
+  --radius-card: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background-color: #FFF8F0;
+  color: #1F2937;
+  margin: 0;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #F97316;
+  border-radius: 9999px;
+}
+
+/* Batik pattern overlay utility */
+.batik-bg {
+  position: relative;
+  overflow: hidden;
+}
+.batik-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(249,115,22,0.08) 0%, transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(22,163,74,0.08) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(250,204,21,0.05) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.card-hover {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(249,115,22,0.15);
+}
+
+.btn-primary {
+  background: #F97316;
+  color: white;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+.btn-primary:hover {
+  background: #EA6C0A;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(249,115,22,0.35);
+}
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background: #16A34A;
+  color: white;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+.btn-secondary:hover {
+  background: #15803D;
+  transform: translateY(-1px);
+}
+
+.btn-outline {
+  background: transparent;
+  color: #F97316;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  border-radius: 10px;
+  border: 2px solid #F97316;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-outline:hover {
+  background: #F97316;
+  color: white;
+  transform: translateY(-1px);
+}
+
+.input-field {
+  font-family: 'Poppins', sans-serif;
+  border: 1.5px solid #E5E7EB;
+  border-radius: 10px;
+  padding: 10px 14px;
+  width: 100%;
+  background: white;
+  color: #1F2937;
+  font-size: 0.875rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  outline: none;
+}
+.input-field:focus {
+  border-color: #F97316;
+  box-shadow: 0 0 0 3px rgba(249,115,22,0.12);
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: 8px;
+}
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in {
+  animation: fadeIn 0.4s ease forwards;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+}
+
+.star-filled { color: #FACC15; }
+.star-empty { color: #D1D5DB; }
