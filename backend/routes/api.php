@@ -30,390 +30,89 @@ Route::prefix('auth')->group(function () {
 Route::prefix('products')->group(function () {
     Route::get('/', [ProductController::class, 'index']);
     Route::get('/{product}', [ProductController::class, 'show']);
-    Route::post('/products/{product}/reviews', [ReviewController::class, 'index']);
+    Route::get('/{product}/reviews', [ReviewController::class, 'index']);
 });
 
+Route::prefix('categories')->group(function () {
+    Route::get('/', [CategoryController::class, 'index']);
+    Route::get('/{category}', [CategoryController::class, 'show']);
+});
 
-
-
-/*
-|--------------------------------------------------------------------------
-| CATEGORIES
-|--------------------------------------------------------------------------
-*/
-
-Route::get('/categories', [
-    CategoryController::class,
-    'index'
-]);
-
-Route::get('/categories/{category}', [
-    CategoryController::class,
-    'show'
-]);
-
-
-/*
-|--------------------------------------------------------------------------
-| SHIPPING METHODS
-|--------------------------------------------------------------------------
-*/
-
-Route::get('/shipping-methods', [
-    ShippingMethodController::class,
-    'index'
-]);
-
-Route::get('/shipping-methods/{shippingMethod}', [
-    ShippingMethodController::class,
-    'show'
-]);
-
-
-/*
-|--------------------------------------------------------------------------
-| AUTHENTICATED ROUTES
-|--------------------------------------------------------------------------
-|
-| Semua route di bawah membutuhkan login menggunakan Sanctum.
-|
-*/
+Route::prefix('shipping-methods')->group(function () {
+    Route::get('/', [ShippingMethodController::class, 'index']);
+    Route::get('/{shippingMethod}', [ShippingMethodController::class, 'show']);
+});
 
 Route::middleware('auth:sanctum')->group(function () {
 
-    /*
-    |--------------------------------------------------------------------------
-    | AUTH
-    |--------------------------------------------------------------------------
-    */
-
     Route::prefix('auth')->group(function () {
-
-        Route::post('/logout', [
-            AuthController::class,
-            'logout'
-        ]);
-
-        Route::get('/me', [
-            AuthController::class,
-            'me'
-        ]);
+        Route::post('/logout', [AuthController::class, 'logout']);
+        Route::get('/me', [AuthController::class, 'me']);
     });
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | USER PROFILE / ADDRESS
-    |--------------------------------------------------------------------------
-    */
-
-    Route::apiResource(
-        'addresses',
-        AddressController::class
-    );
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | CART
-    |--------------------------------------------------------------------------
-    */
+    Route::apiResource('addresses', AddressController::class);
 
     Route::prefix('cart')->group(function () {
-
-        Route::get('/', [
-            CartController::class,
-            'index'
-        ]);
-
-        Route::post('/items', [
-            CartController::class,
-            'addItem'
-        ]);
-
-        Route::put('/items/{item}', [
-            CartController::class,
-            'updateItem'
-        ]);
-
-        Route::delete('/items/{item}', [
-            CartController::class,
-            'removeItem'
-        ]);
-
-        Route::delete('/', [
-            CartController::class,
-            'clear'
-        ]);
+        Route::get('/', [CartController::class, 'index']);
+        Route::post('/items', [CartController::class, 'addItem']);
+        Route::put('/items/{item}', [CartController::class, 'updateItem']);
+        Route::delete('/items/{item}', [CartController::class, 'removeItem']);
+        Route::delete('/', [CartController::class, 'clear']);
     });
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | WISHLIST
-    |--------------------------------------------------------------------------
-    */
 
     Route::prefix('wishlist')->group(function () {
-
-        Route::get('/', [
-            WishlistController::class,
-            'index'
-        ]);
-
-        Route::get('/{product}', [
-            WishlistController::class,
-            'check'
-        ]);
-
-        Route::post('/{product}', [
-            WishlistController::class,
-            'store'
-        ]);
-
-        Route::delete('/{product}', [
-            WishlistController::class,
-            'destroy'
-        ]);
+        Route::get('/', [WishlistController::class, 'index']);
+        Route::get('/{product}', [WishlistController::class, 'check']);
+        Route::post('/{product}', [WishlistController::class, 'store']);
+        Route::delete('/{product}', [WishlistController::class, 'destroy']);
     });
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | ORDERS
-    |--------------------------------------------------------------------------
-    */
 
     Route::prefix('orders')->group(function () {
-
-        Route::get('/', [
-            OrderController::class,
-            'index'
-        ]);
-
-        Route::post('/', [
-            OrderController::class,
-            'store'
-        ]);
-
-        Route::get('/{order}', [
-            OrderController::class,
-            'show'
-        ]);
-
-        Route::post('/{order}/cancel', [
-            OrderController::class,
-            'cancel'
-        ]);
+        Route::get('/', [OrderController::class, 'index']);
+        Route::post('/', [OrderController::class, 'store']);
+        Route::get('/{order}', [OrderController::class, 'show']);
+        Route::post('/{order}/cancel', [OrderController::class, 'cancel']);
     });
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | PAYMENT
-    |--------------------------------------------------------------------------
-    */
 
     Route::prefix('orders/{order}/payment')->group(function () {
-
-        Route::get('/', [
-            PaymentController::class,
-            'show'
-        ]);
-
-        Route::post('/', [
-            PaymentController::class,
-            'store'
-        ]);
+        Route::get('/', [PaymentController::class, 'show']);
+        Route::post('/', [PaymentController::class, 'store']);
     });
 
+    Route::post('/products/{product}/reviews', [ReviewController::class, 'store']);
 
-    /*
-    |--------------------------------------------------------------------------
-    | REVIEW
-    |--------------------------------------------------------------------------
-    */
-
-    Route::post('/products/{product}/reviews', [
-        ReviewController::class,
-        'store'
-    ]);
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | ADMIN ROUTES
-    |--------------------------------------------------------------------------
-    |
-    | Semua route di bawah hanya dapat digunakan oleh admin.
-    |
-    */
-
-    Route::middleware('role:admin')
-        ->prefix('admin')
-        ->group(function () {
-
-            /*
-            |--------------------------------------------------------------------------
-            | DASHBOARD
-            |--------------------------------------------------------------------------
-            */
-
-            Route::get('/dashboard', [
-                DashboardController::class,
-                'index'
-            ]);
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | PRODUCTS
-            |--------------------------------------------------------------------------
-            */
-
-            Route::apiResource(
-                'products',
-                AdminProductController::class
-            );
-
-            Route::prefix(
-                'products/{product}/images'
-            )->group(function () {
-
-                Route::post('/', [
-                    ProductImageController::class,
-                    'store'
-                ]);
-
-                Route::delete('/{image}', [
-                    ProductImageController::class,
-                    'destroy'
-                ]);
-
-                Route::patch('/{image}/primary', [
-                    ProductImageController::class,
-                    'setPrimary'
-                ]);
-            });
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | CATEGORIES
-            |--------------------------------------------------------------------------
-            */
-
-            Route::apiResource(
-                'categories',
-                AdminCategoryController::class
-            );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | SHIPPING METHODS
-            |--------------------------------------------------------------------------
-            */
-
-            Route::apiResource(
-                'shipping-methods',
-                AdminShippingMethodController::class
-            );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | ORDERS
-            |--------------------------------------------------------------------------
-            */
-
-            Route::get('/orders', [
-                AdminOrderController::class,
-                'index'
-            ]);
-
-            Route::get('/orders/{order}', [
-                AdminOrderController::class,
-                'show'
-            ]);
-
-            Route::patch('/orders/{order}/status', [
-                AdminOrderController::class,
-                'updateStatus'
-            ]);
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | PAYMENT VERIFICATION
-            |--------------------------------------------------------------------------
-            */
-
-            Route::get('/payments', [
-                AdminPaymentController::class,
-                'index'
-            ]);
-
-            Route::get('/payments/{payment}', [
-                AdminPaymentController::class,
-                'show'
-            ]);
-
-            Route::patch('/payments/{payment}/verify', [
-                AdminPaymentController::class,
-                'verify'
-            ]);
-
-            Route::patch('/payments/{payment}/reject', [
-                AdminPaymentController::class,
-                'reject'
-            ]);
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | USERS
-            |--------------------------------------------------------------------------
-            */
-
-            Route::get('/users', [
-                AdminUserController::class,
-                'index'
-            ]);
-
-            Route::get('/users/{user}', [
-                AdminUserController::class,
-                'show'
-            ]);
-
-            Route::patch('/users/{user}/role', [
-                AdminUserController::class,
-                'updateRole'
-            ]);
-
-            Route::delete('/users/{user}', [
-                AdminUserController::class,
-                'destroy'
-            ]);
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | SALES REPORT
-            |--------------------------------------------------------------------------
-            */
-
-            Route::prefix('reports')->group(function () {
-
-                Route::get('/sales', [
-                    DashboardController::class,
-                    'salesReport'
-                ]);
-
-                Route::get('/products', [
-                    DashboardController::class,
-                    'productReport'
-                ]);
-            });
+    Route::middleware('role:admin')->prefix('admin')->group(function () {
+        Route::get('/dashboard', [DashboardController::class, 'index']);
+        
+        Route::apiResource('products', AdminProductController::class);
+        
+        Route::prefix('products/{product}/images')->group(function () {
+            Route::post('/', [ProductImageController::class, 'store']);
+            Route::delete('/{image}', [ProductImageController::class, 'destroy']);
+            Route::patch('/{image}/primary', [ProductImageController::class, 'setPrimary']);
         });
+
+        Route::apiResource('categories', AdminCategoryController::class);
+
+        Route::apiResource('shipping-methods', AdminShippingMethodController::class);
+
+        Route::get('/orders', [AdminOrderController::class, 'index']);
+        Route::get('/orders/{order}', [AdminOrderController::class, 'show']);
+        Route::patch('/orders/{order}/status', [AdminOrderController::class, 'updateStatus']);
+
+        Route::get('/payments', [AdminPaymentController::class, 'index']);
+        Route::get('/payments/{payment}', [AdminPaymentController::class, 'show']);
+        Route::patch('/payments/{payment}/verify', [AdminPaymentController::class, 'verify']);
+        Route::patch('/payments/{payment}/reject', [AdminPaymentController::class, 'reject']);
+
+        Route::get('/users', [AdminUserController::class, 'index']);
+        Route::get('/users/{user}', [AdminUserController::class, 'show']);
+        Route::patch('/users/{user}/role', [AdminUserController::class, 'updateRole']);
+        Route::delete('/users/{user}', [AdminUserController::class, 'destroy']);
+
+        Route::prefix('reports')->group(function () {
+            Route::get('/sales', [DashboardController::class, 'salesReport']);
+            Route::get('/products', [DashboardController::class, 'productReport']);
+        });
+    });
 });

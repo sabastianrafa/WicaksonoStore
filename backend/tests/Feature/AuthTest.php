@@ -45,7 +45,7 @@ class AuthTest extends TestCase
             'email' => 'existing@example.com',
         ]);
 
-        $response = $this->postJson('/api/register', [
+        $response = $this->postJson('/api/auth/register', [
             'name' => 'Duplicate User',
             'email' => 'existing@example.com',
             'password' => 'password123',
@@ -93,7 +93,7 @@ class AuthTest extends TestCase
             'password' => 'password123',
         ]);
 
-        $response = $this->postJson('/api/login', [
+        $response = $this->postJson('/api/auth/login', [
             'email' => 'user@test.com',
             'password' => 'wrongpassword',
         ]);
@@ -103,6 +103,7 @@ class AuthTest extends TestCase
 
     public function test_authenticated_user_can_get_profile_and_logout(): void
     {
+        /** @var User $user */
         $user = User::factory()->create([
             'role' => UserRole::USER,
         ]);
@@ -137,6 +138,7 @@ class AuthTest extends TestCase
             'role' => UserRole::USER,
         ]);
 
+        /** @var User $user */
         $response = $this->actingAs($user)
             ->getJson('/api/admin/dashboard');
 
@@ -153,6 +155,7 @@ class AuthTest extends TestCase
             'role' => UserRole::ADMIN,
         ]);
 
+        /** @var User $admin */
         $response = $this->actingAs($admin)
             ->getJson('/api/admin/dashboard');
 
