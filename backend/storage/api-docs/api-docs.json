@@ -1,0 +1,2945 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "WicaksonoStore API",
+        "description": "Dokumentasi REST API WicaksonoStore",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://127.0.0.1:8000",
+            "description": "Local Development Server"
+        }
+    ],
+    "paths": {
+        "/api/register": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Register user",
+                "operationId": "54e442bdbbafe775c0c5a3b017d10fa4",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "email",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Bastian"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "user@example.com"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "08123456789"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "password123"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "password123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Registrasi berhasil"
+                    },
+                    "422": {
+                        "description": "Validasi gagal"
+                    }
+                }
+            }
+        },
+        "/api/auth/register": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Register user",
+                "operationId": "f8ad9cffa878adc4c03d9f329edb4241",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "email",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Bastian"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "user@example.com"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "08123456789"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "password123"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "password123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Registrasi berhasil"
+                    },
+                    "422": {
+                        "description": "Validasi gagal"
+                    }
+                }
+            }
+        },
+        "/api/login": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Login user",
+                "operationId": "2f105156e67e20859158dbefbe7ce2cf",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "user@example.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "password123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Login berhasil"
+                    },
+                    "422": {
+                        "description": "Email atau password salah"
+                    }
+                }
+            }
+        },
+        "/api/auth/login": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Login user",
+                "operationId": "c0a597891418d293e4d0093d70ca1c5e",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "user@example.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "password123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Login berhasil"
+                    },
+                    "422": {
+                        "description": "Email atau password salah"
+                    }
+                }
+            }
+        },
+        "/api/products": {
+            "get": {
+                "tags": [
+                    "Products"
+                ],
+                "summary": "Daftar produk aktif",
+                "operationId": "399ac9af229b1cd1dda68a3e8cbc9149",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "search",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "category_id",
+                        "in": "query",
+                        "description": "category_id",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "min_price",
+                        "in": "query",
+                        "description": "min_price",
+                        "required": false,
+                        "schema": {
+                            "type": "number"
+                        }
+                    },
+                    {
+                        "name": "max_price",
+                        "in": "query",
+                        "description": "max_price",
+                        "required": false,
+                        "schema": {
+                            "type": "number"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "sort",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "latest",
+                                "price_low",
+                                "price_high",
+                                "name_asc",
+                                "name_desc"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "per_page",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Daftar produk berhasil diambil"
+                    }
+                }
+            }
+        },
+        "/api/products/{product}": {
+            "get": {
+                "tags": [
+                    "Products"
+                ],
+                "summary": "Detail produk",
+                "operationId": "f8fa374f71faed3fe3a9f1cdca99c131",
+                "parameters": [
+                    {
+                        "name": "product",
+                        "in": "path",
+                        "description": "product",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Detail produk berhasil diambil"
+                    },
+                    "404": {
+                        "description": "Produk tidak ditemukan"
+                    }
+                }
+            }
+        },
+        "/api/products/{product}/reviews": {
+            "get": {
+                "tags": [
+                    "Reviews"
+                ],
+                "summary": "Daftar ulasan produk",
+                "operationId": "aec60ad758555f3e3c35877e4c4c549e",
+                "parameters": [
+                    {
+                        "name": "product",
+                        "in": "path",
+                        "description": "product",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "per_page",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Ulasan berhasil diambil"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Reviews"
+                ],
+                "summary": "Tambah ulasan produk",
+                "operationId": "5afe7a6b1669218eed2cc432659b322a",
+                "parameters": [
+                    {
+                        "name": "product",
+                        "in": "path",
+                        "description": "product",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "order_id",
+                                    "rating"
+                                ],
+                                "properties": {
+                                    "order_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "rating": {
+                                        "type": "integer",
+                                        "example": 5
+                                    },
+                                    "comment": {
+                                        "type": "string",
+                                        "example": "Produknya enak"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Ulasan berhasil disimpan"
+                    },
+                    "404": {
+                        "description": "Pesanan tidak ditemukan"
+                    },
+                    "422": {
+                        "description": "Ulasan tidak memenuhi syarat"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/categories": {
+            "get": {
+                "tags": [
+                    "Categories"
+                ],
+                "summary": "Daftar kategori aktif",
+                "operationId": "08410f5257146a0f1cf09dca09e71f1f",
+                "responses": {
+                    "200": {
+                        "description": "Daftar kategori berhasil diambil"
+                    }
+                }
+            }
+        },
+        "/api/categories/{category}": {
+            "get": {
+                "tags": [
+                    "Categories"
+                ],
+                "summary": "Detail kategori",
+                "operationId": "4fbed13958fb471a70bbe779ee98a12a",
+                "parameters": [
+                    {
+                        "name": "category",
+                        "in": "path",
+                        "description": "category",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Detail kategori berhasil diambil"
+                    },
+                    "404": {
+                        "description": "Kategori tidak ditemukan"
+                    }
+                }
+            }
+        },
+        "/api/shipping-methods": {
+            "get": {
+                "tags": [
+                    "Shipping Methods"
+                ],
+                "summary": "Daftar metode pengiriman aktif",
+                "operationId": "4ce9117dbf174788d07863a87713ea7e",
+                "responses": {
+                    "200": {
+                        "description": "Daftar metode pengiriman berhasil diambil"
+                    }
+                }
+            }
+        },
+        "/api/shipping-methods/{shippingMethod}": {
+            "get": {
+                "tags": [
+                    "Shipping Methods"
+                ],
+                "summary": "Detail metode pengiriman",
+                "operationId": "fc69da72d3e30cf49d33974024b4f0a2",
+                "parameters": [
+                    {
+                        "name": "shippingMethod",
+                        "in": "path",
+                        "description": "shippingMethod",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Detail metode pengiriman berhasil diambil"
+                    },
+                    "404": {
+                        "description": "Metode tidak ditemukan"
+                    }
+                }
+            }
+        },
+        "/api/logout": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Logout",
+                "operationId": "9577ec815e67a4845387f5f2628ae0fb",
+                "responses": {
+                    "200": {
+                        "description": "Logout berhasil"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/user": {
+            "get": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "User yang sedang login",
+                "operationId": "04f4cabeac18bc3cfffa02ad8131f671",
+                "responses": {
+                    "200": {
+                        "description": "Data user berhasil diambil"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/logout": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Logout",
+                "operationId": "0252a31ceba3472e0dd5a66b29ba36a4",
+                "responses": {
+                    "200": {
+                        "description": "Logout berhasil"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/me": {
+            "get": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "User yang sedang login",
+                "operationId": "7f3853766192962d942f6e7cbb1ab5e7",
+                "responses": {
+                    "200": {
+                        "description": "Data user berhasil diambil"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/addresses": {
+            "get": {
+                "tags": [
+                    "Addresses"
+                ],
+                "summary": "Daftar alamat user",
+                "operationId": "20f0d934a635877f557bcdd9727ac008",
+                "responses": {
+                    "200": {
+                        "description": "Alamat berhasil diambil"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Addresses"
+                ],
+                "summary": "Tambah alamat",
+                "operationId": "1b3c1bd0555a4b082db7b964b5d15a4d",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "label",
+                                    "name",
+                                    "phone",
+                                    "province",
+                                    "city",
+                                    "postal_code",
+                                    "address"
+                                ],
+                                "properties": {
+                                    "label": {
+                                        "type": "string",
+                                        "example": "Rumah"
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Bastian"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "08123456789"
+                                    },
+                                    "province": {
+                                        "type": "string",
+                                        "example": "Jawa Timur"
+                                    },
+                                    "city": {
+                                        "type": "string",
+                                        "example": "Malang"
+                                    },
+                                    "postal_code": {
+                                        "type": "string",
+                                        "example": "65145"
+                                    },
+                                    "address": {
+                                        "type": "string",
+                                        "example": "Jl. Contoh No. 1"
+                                    },
+                                    "is_default": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Alamat berhasil ditambahkan"
+                    },
+                    "422": {
+                        "description": "Validasi gagal"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/addresses/{address}": {
+            "get": {
+                "tags": [
+                    "Addresses"
+                ],
+                "summary": "Detail alamat",
+                "operationId": "f28667613c9ee42f564c12261de1eec8",
+                "parameters": [
+                    {
+                        "name": "address",
+                        "in": "path",
+                        "description": "address",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Alamat berhasil diambil"
+                    },
+                    "404": {
+                        "description": "Alamat tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Addresses"
+                ],
+                "summary": "Perbarui alamat",
+                "operationId": "85d6577695a502e6acc4fa4d52d7d8f0",
+                "parameters": [
+                    {
+                        "name": "address",
+                        "in": "path",
+                        "description": "address",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [],
+                                "properties": {
+                                    "label": {
+                                        "type": "string",
+                                        "example": "Rumah"
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Bastian"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "08123456789"
+                                    },
+                                    "province": {
+                                        "type": "string",
+                                        "example": "Jawa Timur"
+                                    },
+                                    "city": {
+                                        "type": "string",
+                                        "example": "Malang"
+                                    },
+                                    "postal_code": {
+                                        "type": "string",
+                                        "example": "65145"
+                                    },
+                                    "address": {
+                                        "type": "string",
+                                        "example": "Jl. Contoh No. 1"
+                                    },
+                                    "is_default": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Alamat berhasil diperbarui"
+                    },
+                    "404": {
+                        "description": "Alamat tidak ditemukan"
+                    },
+                    "422": {
+                        "description": "Validasi gagal"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Addresses"
+                ],
+                "summary": "Hapus alamat",
+                "operationId": "28a3ed044db9647e88dcd82ca4547548",
+                "parameters": [
+                    {
+                        "name": "address",
+                        "in": "path",
+                        "description": "address",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Alamat berhasil dihapus"
+                    },
+                    "404": {
+                        "description": "Alamat tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/cart": {
+            "get": {
+                "tags": [
+                    "Cart"
+                ],
+                "summary": "Isi keranjang user",
+                "operationId": "e6f2756a46e033e326a465eb68f06861",
+                "responses": {
+                    "200": {
+                        "description": "Keranjang berhasil diambil"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Cart"
+                ],
+                "summary": "Kosongkan keranjang",
+                "operationId": "65b21f2a1f7a2ce966cc5fcbb0e4e0fd",
+                "responses": {
+                    "200": {
+                        "description": "Keranjang berhasil dikosongkan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/cart/items": {
+            "post": {
+                "tags": [
+                    "Cart"
+                ],
+                "summary": "Tambah item ke keranjang",
+                "operationId": "5f7a6813dabbf2c2847c298e9f1356f7",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "product_id",
+                                    "quantity"
+                                ],
+                                "properties": {
+                                    "product_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "quantity": {
+                                        "type": "integer",
+                                        "example": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Item berhasil ditambahkan"
+                    },
+                    "422": {
+                        "description": "Validasi atau stok gagal"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/cart/items/{item}": {
+            "put": {
+                "tags": [
+                    "Cart"
+                ],
+                "summary": "Ubah quantity item",
+                "operationId": "d6a8d44bcee1d514483c0fe7ca9026c7",
+                "parameters": [
+                    {
+                        "name": "item",
+                        "in": "path",
+                        "description": "item",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "quantity"
+                                ],
+                                "properties": {
+                                    "quantity": {
+                                        "type": "integer",
+                                        "example": 2
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Quantity berhasil diperbarui"
+                    },
+                    "404": {
+                        "description": "Item tidak ditemukan"
+                    },
+                    "422": {
+                        "description": "Validasi atau stok gagal"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Cart"
+                ],
+                "summary": "Hapus item keranjang",
+                "operationId": "3e47de11368204942e81d651edd968c7",
+                "parameters": [
+                    {
+                        "name": "item",
+                        "in": "path",
+                        "description": "item",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Item berhasil dihapus"
+                    },
+                    "404": {
+                        "description": "Item tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/wishlist": {
+            "get": {
+                "tags": [
+                    "Wishlist"
+                ],
+                "summary": "Daftar wishlist",
+                "operationId": "cce3a4fcbb55791d0d5cae49023f34f8",
+                "responses": {
+                    "200": {
+                        "description": "Wishlist berhasil diambil"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/wishlist/{product}": {
+            "get": {
+                "tags": [
+                    "Wishlist"
+                ],
+                "summary": "Cek produk di wishlist",
+                "operationId": "1a495c97a37aa35cf99a2c9e852faa87",
+                "parameters": [
+                    {
+                        "name": "product",
+                        "in": "path",
+                        "description": "product",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Status wishlist berhasil dicek"
+                    },
+                    "404": {
+                        "description": "Produk tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Wishlist"
+                ],
+                "summary": "Tambah produk ke wishlist",
+                "operationId": "8b1c07a3426b92dce7bae7e43db41f2f",
+                "parameters": [
+                    {
+                        "name": "product",
+                        "in": "path",
+                        "description": "product",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Produk berhasil ditambahkan"
+                    },
+                    "404": {
+                        "description": "Produk tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Wishlist"
+                ],
+                "summary": "Hapus produk dari wishlist",
+                "operationId": "a03c959fb8e66220b4ddd70356c7905c",
+                "parameters": [
+                    {
+                        "name": "product",
+                        "in": "path",
+                        "description": "product",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Produk berhasil dihapus"
+                    },
+                    "404": {
+                        "description": "Produk tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/orders": {
+            "get": {
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Daftar pesanan user",
+                "operationId": "aa088a9d0450ee056e374cd09b4a71ad",
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "status",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "pending",
+                                "confirmed",
+                                "processing",
+                                "shipped",
+                                "completed",
+                                "cancelled"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "per_page",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pesanan berhasil diambil"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Checkout dan membuat pesanan",
+                "operationId": "b8eaa7fa19909403ab7a50c69bc69f44",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "address_id",
+                                    "shipping_method_id"
+                                ],
+                                "properties": {
+                                    "address_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "shipping_method_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "payment_method": {
+                                        "type": "string",
+                                        "example": "transfer_bank"
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "example": "Tolong dikirim sore hari"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Pesanan berhasil dibuat"
+                    },
+                    "422": {
+                        "description": "Checkout gagal"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/orders/{order}": {
+            "get": {
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Detail pesanan user",
+                "operationId": "851a4098517d424dd41031e1b2201163",
+                "parameters": [
+                    {
+                        "name": "order",
+                        "in": "path",
+                        "description": "order",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Detail pesanan berhasil diambil"
+                    },
+                    "404": {
+                        "description": "Pesanan tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/orders/{order}/cancel": {
+            "post": {
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Batalkan pesanan",
+                "operationId": "cf5d727767b0cf143fd22472fc91cb5c",
+                "parameters": [
+                    {
+                        "name": "order",
+                        "in": "path",
+                        "description": "order",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pesanan berhasil dibatalkan"
+                    },
+                    "404": {
+                        "description": "Pesanan tidak ditemukan"
+                    },
+                    "422": {
+                        "description": "Pesanan tidak dapat dibatalkan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/orders/{order}/payment": {
+            "get": {
+                "tags": [
+                    "Payments"
+                ],
+                "summary": "Detail pembayaran",
+                "operationId": "1080650fd19bd3bdd09afedb8b1fc311",
+                "parameters": [
+                    {
+                        "name": "order",
+                        "in": "path",
+                        "description": "order",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pembayaran berhasil diambil"
+                    },
+                    "404": {
+                        "description": "Pesanan tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Payments"
+                ],
+                "summary": "Upload bukti pembayaran",
+                "operationId": "a6c18f2416a783c276ee5f32905258e1",
+                "parameters": [
+                    {
+                        "name": "order",
+                        "in": "path",
+                        "description": "order",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [],
+                                "properties": {
+                                    "proof": {
+                                        "type": "s",
+                                        "format": "binary",
+                                        "example": "t"
+                                    },
+                                    "method": {
+                                        "type": "string",
+                                        "example": "transfer_bank"
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "example": "Pembayaran via transfer"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Bukti pembayaran berhasil diunggah"
+                    },
+                    "422": {
+                        "description": "Validasi pembayaran gagal"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/dashboard": {
+            "get": {
+                "tags": [
+                    "Admin Dashboard"
+                ],
+                "summary": "Ringkasan dashboard admin",
+                "operationId": "d003177d98fc346c8dbde22f48296697",
+                "responses": {
+                    "200": {
+                        "description": "Dashboard berhasil diambil"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/reports/sales": {
+            "get": {
+                "tags": [
+                    "Admin Reports"
+                ],
+                "summary": "Laporan penjualan",
+                "operationId": "319311d747f360218c9c349ab9da73ab",
+                "parameters": [
+                    {
+                        "name": "start_date",
+                        "in": "query",
+                        "description": "start_date",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "end_date",
+                        "in": "query",
+                        "description": "end_date",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Laporan penjualan berhasil diambil"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/reports/products": {
+            "get": {
+                "tags": [
+                    "Admin Reports"
+                ],
+                "summary": "Laporan produk dan stok",
+                "operationId": "6c87332463684ef4c958a3c412c86352",
+                "responses": {
+                    "200": {
+                        "description": "Laporan produk berhasil diambil"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/products": {
+            "get": {
+                "tags": [
+                    "Admin Products"
+                ],
+                "summary": "Daftar produk admin",
+                "operationId": "19636d1ecd7f8b18643ff58ec9c598c8",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "search",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "category_id",
+                        "in": "query",
+                        "description": "category_id",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "is_active",
+                        "in": "query",
+                        "description": "is_active",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "per_page",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Produk berhasil diambil"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Admin Products"
+                ],
+                "summary": "Tambah produk",
+                "operationId": "7c924ebd0a0aff06f5185909e124165c",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "category_id",
+                                    "name",
+                                    "price",
+                                    "stock"
+                                ],
+                                "properties": {
+                                    "category_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Keripik Tempe"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Keripik tempe khas Malang"
+                                    },
+                                    "price": {
+                                        "type": "number",
+                                        "example": 15000
+                                    },
+                                    "original_price": {
+                                        "type": "number",
+                                        "example": 18000
+                                    },
+                                    "stock": {
+                                        "type": "integer",
+                                        "example": 100
+                                    },
+                                    "discount": {
+                                        "type": "integer",
+                                        "example": 10
+                                    },
+                                    "image": {
+                                        "type": "string",
+                                        "example": "products/keripik.jpg"
+                                    },
+                                    "is_active": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Produk berhasil dibuat"
+                    },
+                    "422": {
+                        "description": "Validasi gagal"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/products/{product}": {
+            "get": {
+                "tags": [
+                    "Admin Products"
+                ],
+                "summary": "Detail produk admin",
+                "operationId": "f80f58385cef06a6ccc35d4d5de4e8cd",
+                "parameters": [
+                    {
+                        "name": "product",
+                        "in": "path",
+                        "description": "product",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Produk berhasil diambil"
+                    },
+                    "404": {
+                        "description": "Produk tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Admin Products"
+                ],
+                "summary": "Perbarui produk",
+                "operationId": "ad70f77602dea370db88211774fbc3ec",
+                "parameters": [
+                    {
+                        "name": "product",
+                        "in": "path",
+                        "description": "product",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [],
+                                "properties": {
+                                    "category_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Keripik Tempe"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Keripik tempe khas Malang"
+                                    },
+                                    "price": {
+                                        "type": "number",
+                                        "example": 15000
+                                    },
+                                    "original_price": {
+                                        "type": "number",
+                                        "example": 18000
+                                    },
+                                    "stock": {
+                                        "type": "integer",
+                                        "example": 100
+                                    },
+                                    "discount": {
+                                        "type": "integer",
+                                        "example": 10
+                                    },
+                                    "image": {
+                                        "type": "string",
+                                        "example": "products/keripik.jpg"
+                                    },
+                                    "is_active": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Produk berhasil diperbarui"
+                    },
+                    "404": {
+                        "description": "Produk tidak ditemukan"
+                    },
+                    "422": {
+                        "description": "Validasi gagal"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Admin Products"
+                ],
+                "summary": "Hapus produk",
+                "operationId": "9d01dc0360ddc34843854a5442bf5eb0",
+                "parameters": [
+                    {
+                        "name": "product",
+                        "in": "path",
+                        "description": "product",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Produk berhasil dihapus"
+                    },
+                    "404": {
+                        "description": "Produk tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/products/{product}/images": {
+            "post": {
+                "tags": [
+                    "Admin Product Images"
+                ],
+                "summary": "Upload gambar produk",
+                "operationId": "6b6585e727a6cd327f669a34147bdcbb",
+                "parameters": [
+                    {
+                        "name": "product",
+                        "in": "path",
+                        "description": "product",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "image"
+                                ],
+                                "properties": {
+                                    "image": {
+                                        "type": "s",
+                                        "format": "binary",
+                                        "example": "t"
+                                    },
+                                    "alt_text": {
+                                        "type": "string",
+                                        "example": "Foto produk"
+                                    },
+                                    "is_primary": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Gambar berhasil diupload"
+                    },
+                    "422": {
+                        "description": "Validasi file gagal"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/products/{product}/images/{image}": {
+            "delete": {
+                "tags": [
+                    "Admin Product Images"
+                ],
+                "summary": "Hapus gambar produk",
+                "operationId": "e6e71d4ad32d37af678793bae0423b10",
+                "parameters": [
+                    {
+                        "name": "product",
+                        "in": "path",
+                        "description": "product",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "image",
+                        "in": "path",
+                        "description": "image",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Gambar berhasil dihapus"
+                    },
+                    "404": {
+                        "description": "Gambar tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/products/{product}/images/{image}/primary": {
+            "patch": {
+                "tags": [
+                    "Admin Product Images"
+                ],
+                "summary": "Jadikan gambar utama",
+                "operationId": "70ff568869ec3ab863c9b88be61110d1",
+                "parameters": [
+                    {
+                        "name": "product",
+                        "in": "path",
+                        "description": "product",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "image",
+                        "in": "path",
+                        "description": "image",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Gambar utama berhasil diubah"
+                    },
+                    "404": {
+                        "description": "Gambar tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/categories": {
+            "get": {
+                "tags": [
+                    "Admin Categories"
+                ],
+                "summary": "Daftar kategori admin",
+                "operationId": "f8ccb11eb080b4ce0212c7376c483e9e",
+                "responses": {
+                    "200": {
+                        "description": "Kategori berhasil diambil"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Admin Categories"
+                ],
+                "summary": "Tambah kategori",
+                "operationId": "03351d9831dc475bedd6c5bd0a13c1de",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Makanan Khas Malang"
+                                    },
+                                    "icon": {
+                                        "type": "string",
+                                        "example": "🍪"
+                                    },
+                                    "color": {
+                                        "type": "string",
+                                        "example": "#E24E32"
+                                    },
+                                    "is_active": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Kategori berhasil dibuat"
+                    },
+                    "422": {
+                        "description": "Validasi gagal"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/categories/{category}": {
+            "get": {
+                "tags": [
+                    "Admin Categories"
+                ],
+                "summary": "Detail kategori admin",
+                "operationId": "59230e41ee282c4be9ebc94eb9b779f3",
+                "parameters": [
+                    {
+                        "name": "category",
+                        "in": "path",
+                        "description": "category",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Kategori berhasil diambil"
+                    },
+                    "404": {
+                        "description": "Kategori tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Admin Categories"
+                ],
+                "summary": "Perbarui kategori",
+                "operationId": "c03659ccfbfcd80c8dd61ba81c26ecc5",
+                "parameters": [
+                    {
+                        "name": "category",
+                        "in": "path",
+                        "description": "category",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Makanan Khas Malang"
+                                    },
+                                    "icon": {
+                                        "type": "string",
+                                        "example": "🍪"
+                                    },
+                                    "color": {
+                                        "type": "string",
+                                        "example": "#E24E32"
+                                    },
+                                    "is_active": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Kategori berhasil diperbarui"
+                    },
+                    "404": {
+                        "description": "Kategori tidak ditemukan"
+                    },
+                    "422": {
+                        "description": "Validasi gagal"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Admin Categories"
+                ],
+                "summary": "Hapus kategori",
+                "operationId": "62cdac2fb9f0556fc2b4b6901972de81",
+                "parameters": [
+                    {
+                        "name": "category",
+                        "in": "path",
+                        "description": "category",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Kategori berhasil dihapus"
+                    },
+                    "404": {
+                        "description": "Kategori tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/shipping-methods": {
+            "get": {
+                "tags": [
+                    "Admin Shipping"
+                ],
+                "summary": "Daftar metode pengiriman admin",
+                "operationId": "e5c70d2585942cfa4b221d578dfcb4a3",
+                "responses": {
+                    "200": {
+                        "description": "Metode pengiriman berhasil diambil"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Admin Shipping"
+                ],
+                "summary": "Tambah metode pengiriman",
+                "operationId": "c87dcdc78ded1af6dd1c0fb7de8229c1",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "code",
+                                    "cost"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "JNE Reguler"
+                                    },
+                                    "code": {
+                                        "type": "string",
+                                        "example": "JNE_REG"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Pengiriman reguler"
+                                    },
+                                    "cost": {
+                                        "type": "number",
+                                        "example": 15000
+                                    },
+                                    "estimated_days": {
+                                        "type": "string",
+                                        "example": "2-4 hari"
+                                    },
+                                    "is_active": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "sort_order": {
+                                        "type": "integer",
+                                        "example": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Metode pengiriman berhasil dibuat"
+                    },
+                    "422": {
+                        "description": "Validasi gagal"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/shipping-methods/{shippingMethod}": {
+            "get": {
+                "tags": [
+                    "Admin Shipping"
+                ],
+                "summary": "Detail metode pengiriman admin",
+                "operationId": "c46477c8e4b4148f38d5518ae7608dd7",
+                "parameters": [
+                    {
+                        "name": "shippingMethod",
+                        "in": "path",
+                        "description": "shippingMethod",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Metode pengiriman berhasil diambil"
+                    },
+                    "404": {
+                        "description": "Metode tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Admin Shipping"
+                ],
+                "summary": "Perbarui metode pengiriman",
+                "operationId": "85d8615396540694673688a95cf8b2dc",
+                "parameters": [
+                    {
+                        "name": "shippingMethod",
+                        "in": "path",
+                        "description": "shippingMethod",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "JNE Reguler"
+                                    },
+                                    "code": {
+                                        "type": "string",
+                                        "example": "JNE_REG"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Pengiriman reguler"
+                                    },
+                                    "cost": {
+                                        "type": "number",
+                                        "example": 15000
+                                    },
+                                    "estimated_days": {
+                                        "type": "string",
+                                        "example": "2-4 hari"
+                                    },
+                                    "is_active": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "sort_order": {
+                                        "type": "integer",
+                                        "example": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Metode pengiriman berhasil diperbarui"
+                    },
+                    "404": {
+                        "description": "Metode tidak ditemukan"
+                    },
+                    "422": {
+                        "description": "Validasi gagal"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Admin Shipping"
+                ],
+                "summary": "Hapus metode pengiriman",
+                "operationId": "49b261db365b65bc04241aaaffe7e495",
+                "parameters": [
+                    {
+                        "name": "shippingMethod",
+                        "in": "path",
+                        "description": "shippingMethod",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Metode pengiriman berhasil dihapus"
+                    },
+                    "404": {
+                        "description": "Metode tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/orders": {
+            "get": {
+                "tags": [
+                    "Admin Orders"
+                ],
+                "summary": "Daftar semua pesanan",
+                "operationId": "e57b53d7902b6122da7c75a330a4385a",
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "status",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "pending",
+                                "confirmed",
+                                "processing",
+                                "shipped",
+                                "completed",
+                                "cancelled"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "search",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "start_date",
+                        "in": "query",
+                        "description": "start_date",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "end_date",
+                        "in": "query",
+                        "description": "end_date",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "sort",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "latest",
+                                "oldest",
+                                "total_desc",
+                                "total_asc"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "per_page",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pesanan berhasil diambil"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/orders/{order}": {
+            "get": {
+                "tags": [
+                    "Admin Orders"
+                ],
+                "summary": "Detail pesanan admin",
+                "operationId": "4c959a61d9aa8a1ffb77121b9d5d9eb7",
+                "parameters": [
+                    {
+                        "name": "order",
+                        "in": "path",
+                        "description": "order",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Detail pesanan berhasil diambil"
+                    },
+                    "404": {
+                        "description": "Pesanan tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/orders/{order}/status": {
+            "patch": {
+                "tags": [
+                    "Admin Orders"
+                ],
+                "summary": "Ubah status pesanan",
+                "operationId": "d261208e996c33e99c10df0c4b80a977",
+                "parameters": [
+                    {
+                        "name": "order",
+                        "in": "path",
+                        "description": "order",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "status"
+                                ],
+                                "properties": {
+                                    "status": {
+                                        "type": "string",
+                                        "example": "confirmed"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Status pesanan berhasil diperbarui"
+                    },
+                    "422": {
+                        "description": "Status tidak valid"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/payments": {
+            "get": {
+                "tags": [
+                    "Admin Payments"
+                ],
+                "summary": "Daftar pembayaran",
+                "operationId": "616a790ffb0760402f779d3901f1d567",
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "status",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "pending",
+                                "paid",
+                                "rejected"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "method",
+                        "in": "query",
+                        "description": "method",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "search",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "per_page",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pembayaran berhasil diambil"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/payments/{payment}": {
+            "get": {
+                "tags": [
+                    "Admin Payments"
+                ],
+                "summary": "Detail pembayaran",
+                "operationId": "dd5cb51f0d6be798fbc9a12b4044a66d",
+                "parameters": [
+                    {
+                        "name": "payment",
+                        "in": "path",
+                        "description": "payment",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Detail pembayaran berhasil diambil"
+                    },
+                    "404": {
+                        "description": "Pembayaran tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/payments/{payment}/verify": {
+            "patch": {
+                "tags": [
+                    "Admin Payments"
+                ],
+                "summary": "Verifikasi pembayaran",
+                "operationId": "d344fe31e98d2b7483965a0505f84ca2",
+                "parameters": [
+                    {
+                        "name": "payment",
+                        "in": "path",
+                        "description": "payment",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [],
+                                "properties": {
+                                    "notes": {
+                                        "type": "string",
+                                        "example": "Pembayaran valid"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Pembayaran berhasil diverifikasi"
+                    },
+                    "422": {
+                        "description": "Validasi gagal"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/payments/{payment}/reject": {
+            "patch": {
+                "tags": [
+                    "Admin Payments"
+                ],
+                "summary": "Tolak pembayaran",
+                "operationId": "84c591210f5ce79b86664106bb1b5ce0",
+                "parameters": [
+                    {
+                        "name": "payment",
+                        "in": "path",
+                        "description": "payment",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [],
+                                "properties": {
+                                    "notes": {
+                                        "type": "string",
+                                        "example": "Bukti pembayaran tidak jelas"
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "example": "Bukti tidak valid"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Pembayaran ditolak"
+                    },
+                    "422": {
+                        "description": "Validasi gagal"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/users": {
+            "get": {
+                "tags": [
+                    "Admin Users"
+                ],
+                "summary": "Daftar pengguna",
+                "operationId": "cfe3ce725b036c50cf1d0c2f42518fa4",
+                "parameters": [
+                    {
+                        "name": "role",
+                        "in": "query",
+                        "description": "role",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "user",
+                                "admin"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "search",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "per_page",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pengguna berhasil diambil"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/users/{user}": {
+            "get": {
+                "tags": [
+                    "Admin Users"
+                ],
+                "summary": "Detail pengguna",
+                "operationId": "e333fe7a38a1a837a944820a7813aca4",
+                "parameters": [
+                    {
+                        "name": "user",
+                        "in": "path",
+                        "description": "user",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pengguna berhasil diambil"
+                    },
+                    "404": {
+                        "description": "Pengguna tidak ditemukan"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Admin Users"
+                ],
+                "summary": "Hapus pengguna",
+                "operationId": "a2b1e067ad02425a226d94b41c236ba5",
+                "parameters": [
+                    {
+                        "name": "user",
+                        "in": "path",
+                        "description": "user",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pengguna berhasil dihapus"
+                    },
+                    "422": {
+                        "description": "Tidak dapat menghapus akun sendiri"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/users/{user}/role": {
+            "patch": {
+                "tags": [
+                    "Admin Users"
+                ],
+                "summary": "Ubah role pengguna",
+                "operationId": "8635c7116a3374b7fd2e56b3f94a676d",
+                "parameters": [
+                    {
+                        "name": "user",
+                        "in": "path",
+                        "description": "user",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "role"
+                                ],
+                                "properties": {
+                                    "role": {
+                                        "type": "string",
+                                        "example": "user"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Role berhasil diperbarui"
+                    },
+                    "422": {
+                        "description": "Role tidak valid"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "sanctum": {
+                "type": "http",
+                "description": "Masukkan token Sanctum tanpa prefix Bearer",
+                "bearerFormat": "Sanctum Token",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Authentication",
+            "description": "Authentication"
+        },
+        {
+            "name": "Products",
+            "description": "Products"
+        },
+        {
+            "name": "Reviews",
+            "description": "Reviews"
+        },
+        {
+            "name": "Categories",
+            "description": "Categories"
+        },
+        {
+            "name": "Shipping Methods",
+            "description": "Shipping Methods"
+        },
+        {
+            "name": "Addresses",
+            "description": "Addresses"
+        },
+        {
+            "name": "Cart",
+            "description": "Cart"
+        },
+        {
+            "name": "Wishlist",
+            "description": "Wishlist"
+        },
+        {
+            "name": "Orders",
+            "description": "Orders"
+        },
+        {
+            "name": "Payments",
+            "description": "Payments"
+        },
+        {
+            "name": "Admin Dashboard",
+            "description": "Admin Dashboard"
+        },
+        {
+            "name": "Admin Reports",
+            "description": "Admin Reports"
+        },
+        {
+            "name": "Admin Products",
+            "description": "Admin Products"
+        },
+        {
+            "name": "Admin Product Images",
+            "description": "Admin Product Images"
+        },
+        {
+            "name": "Admin Categories",
+            "description": "Admin Categories"
+        },
+        {
+            "name": "Admin Shipping",
+            "description": "Admin Shipping"
+        },
+        {
+            "name": "Admin Orders",
+            "description": "Admin Orders"
+        },
+        {
+            "name": "Admin Payments",
+            "description": "Admin Payments"
+        },
+        {
+            "name": "Admin Users",
+            "description": "Admin Users"
+        }
+    ]
+}
