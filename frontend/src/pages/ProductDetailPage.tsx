@@ -1,9 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  getProduct,
-  getProducts,
-  formatPrice,
-} from "../api/products";
+import { getProduct, getProducts, formatPrice } from "../api/products";
 import type { Product } from "../api/products";
 import ProductCard from "../components/ProductCard";
 import type { Page } from "../App";
@@ -14,6 +10,7 @@ interface ProductDetailPageProps {
   onAddToCart: (product: Product & { quantity: number }) => void;
 }
 
+// dummy
 const mockReviews = [
   {
     name: "Ahmad F.",
@@ -106,6 +103,9 @@ export default function ProductDetailPage({
       return;
     }
 
+    // Simpan sebagai Product yang sudah dipastikan tidak null
+    const currentProduct = detailProduct;
+
     async function loadRelatedProducts() {
       try {
         setLoadingRelated(true);
@@ -115,17 +115,14 @@ export default function ProductDetailPage({
         const related = products
           .filter(
             (p) =>
-              p.id !== detailProduct.id &&
-              p.categoryId === detailProduct.categoryId,
+              p.id !== currentProduct.id &&
+              p.categoryId === currentProduct.categoryId,
           )
           .slice(0, 4);
 
         setRelatedProducts(related);
       } catch (error) {
-        console.error(
-          "Gagal mengambil produk terkait:",
-          error,
-        );
+        console.error("Gagal mengambil produk terkait:", error);
 
         setRelatedProducts([]);
       } finally {
@@ -151,8 +148,7 @@ export default function ProductDetailPage({
           justifyContent: "center",
           padding: "80px 24px",
           textAlign: "center",
-        }}
-      >
+        }}>
         <div
           style={{
             width: 48,
@@ -170,8 +166,7 @@ export default function ProductDetailPage({
             fontSize: "1.2rem",
             fontWeight: 700,
             color: "#374151",
-          }}
-        >
+          }}>
           Memuat detail produk...
         </h2>
 
@@ -180,8 +175,7 @@ export default function ProductDetailPage({
             margin: 0,
             fontSize: "0.85rem",
             color: "#9CA3AF",
-          }}
-        >
+          }}>
           Mohon tunggu sebentar
         </p>
 
@@ -217,8 +211,7 @@ export default function ProductDetailPage({
           justifyContent: "center",
           padding: "80px 24px",
           textAlign: "center",
-        }}
-      >
+        }}>
         <div
           style={{
             width: 64,
@@ -231,8 +224,7 @@ export default function ProductDetailPage({
             justifyContent: "center",
             fontSize: 30,
             marginBottom: 16,
-          }}
-        >
+          }}>
           !
         </div>
 
@@ -242,8 +234,7 @@ export default function ProductDetailPage({
             fontSize: "1.25rem",
             fontWeight: 800,
             color: "#1F2937",
-          }}
-        >
+          }}>
           Gagal Memuat Produk
         </h2>
 
@@ -254,10 +245,8 @@ export default function ProductDetailPage({
             color: "#6B7280",
             fontSize: "0.9rem",
             lineHeight: 1.6,
-          }}
-        >
-          {productError ||
-            "Data produk tidak ditemukan."}
+          }}>
+          {productError || "Data produk tidak ditemukan."}
         </p>
 
         <div
@@ -266,8 +255,7 @@ export default function ProductDetailPage({
             gap: 10,
             justifyContent: "center",
             flexWrap: "wrap",
-          }}
-        >
+          }}>
           <button
             type="button"
             onClick={loadProductDetail}
@@ -276,8 +264,7 @@ export default function ProductDetailPage({
               padding: "12px 20px",
               border: "none",
               cursor: "pointer",
-            }}
-          >
+            }}>
             Coba Lagi
           </button>
 
@@ -288,8 +275,7 @@ export default function ProductDetailPage({
             style={{
               padding: "12px 20px",
               cursor: "pointer",
-            }}
-          >
+            }}>
             Kembali ke Katalog
           </button>
         </div>
@@ -307,9 +293,9 @@ export default function ProductDetailPage({
   // IMAGE
   // =========================================================
 
-  const extraImages = currentProduct.image
-    ? [currentProduct.image]
-    : [];
+  const extraImages = currentProduct.image ? [currentProduct.image] : [];
+  const DEFAULT_PRODUCT_IMAGE =
+    "../../public/images/logo/wicaksono_logo_1.webp";
 
   // =========================================================
   // ADD TO CART
@@ -341,9 +327,7 @@ export default function ProductDetailPage({
   };
 
   const increaseQty = () => {
-    setQty((current) =>
-      Math.min(currentProduct.stock, current + 1),
-    );
+    setQty((current) => Math.min(currentProduct.stock, current + 1));
   };
 
   // =========================================================
@@ -356,8 +340,7 @@ export default function ProductDetailPage({
         maxWidth: 1280,
         margin: "0 auto",
         padding: "32px 24px",
-      }}
-    >
+      }}>
       {/* =====================================================
           BREADCRUMB
       ===================================================== */}
@@ -371,8 +354,7 @@ export default function ProductDetailPage({
           fontSize: "0.8rem",
           color: "#9CA3AF",
           flexWrap: "wrap",
-        }}
-      >
+        }}>
         <button
           type="button"
           onClick={() => navigate("home")}
@@ -383,8 +365,7 @@ export default function ProductDetailPage({
             color: "#F97316",
             fontFamily: "Poppins",
             fontSize: "0.8rem",
-          }}
-        >
+          }}>
           Beranda
         </button>
 
@@ -400,8 +381,7 @@ export default function ProductDetailPage({
             color: "#F97316",
             fontFamily: "Poppins",
             fontSize: "0.8rem",
-          }}
-        >
+          }}>
           Katalog
         </button>
 
@@ -411,8 +391,7 @@ export default function ProductDetailPage({
           style={{
             color: "#1F2937",
             fontWeight: 600,
-          }}
-        >
+          }}>
           {currentProduct.name}
         </span>
       </div>
@@ -427,8 +406,7 @@ export default function ProductDetailPage({
           gridTemplateColumns: "1fr 1fr",
           gap: 48,
           marginBottom: 48,
-        }}
-      >
+        }}>
         {/* ===================================================
             IMAGE GALLERY
         =================================================== */}
@@ -442,22 +420,31 @@ export default function ProductDetailPage({
               background: "#FFF8F0",
               aspectRatio: "1",
               boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
-            }}
-          >
-            {extraImages.length > 0 &&
-            extraImages[selectedImg] ? (
+            }}>
+            {extraImages.length > 0 && extraImages[selectedImg] ? (
               <img
-                src={extraImages[selectedImg]}
-                alt={currentProduct.name}
-                onError={(event) => {
-                  event.currentTarget.style.display =
-                    "none";
-                }}
+                src={extraImages[selectedImg] || DEFAULT_PRODUCT_IMAGE}
+                alt={product.name}
                 style={{
                   width: "100%",
                   height: "100%",
                   objectFit: "cover",
                   transition: "opacity 0.3s",
+                }}
+                onError={(e) => {
+                  const img = e.currentTarget;
+
+                  // Hindari infinite loop ketika default image juga gagal
+                  if (!img.src.endsWith(DEFAULT_PRODUCT_IMAGE)) {
+                    img.src = DEFAULT_PRODUCT_IMAGE;
+
+                    // Style khusus untuk gambar default
+                    Object.assign(img.style, {
+                      objectFit: "contain",
+                      padding: "24px",
+                      backgroundColor: "#FFF8F0",
+                    });
+                  }
                 }}
               />
             ) : (
@@ -470,8 +457,7 @@ export default function ProductDetailPage({
                   justifyContent: "center",
                   color: "#9CA3AF",
                   fontSize: "0.9rem",
-                }}
-              >
+                }}>
                 Gambar tidak tersedia
               </div>
             )}
@@ -484,8 +470,7 @@ export default function ProductDetailPage({
               style={{
                 display: "flex",
                 gap: 8,
-              }}
-            >
+              }}>
               {extraImages.map((img, i) => (
                 <button
                   type="button"
@@ -497,9 +482,7 @@ export default function ProductDetailPage({
                     borderRadius: 10,
                     overflow: "hidden",
                     border: `2px solid ${
-                      selectedImg === i
-                        ? "#F97316"
-                        : "transparent"
+                      selectedImg === i ? "#F97316" : "transparent"
                     }`,
                     background: "none",
                     cursor: "pointer",
@@ -509,15 +492,31 @@ export default function ProductDetailPage({
                         ? "0 4px 12px rgba(249,115,22,0.25)"
                         : "none",
                     transition: "border-color 0.2s",
-                  }}
-                >
+                  }}>
                   <img
-                    src={img}
-                    alt={`${currentProduct.name} thumbnail`}
+                    src={product.image || DEFAULT_PRODUCT_IMAGE}
+                    alt={product.name}
                     style={{
                       width: "100%",
                       height: "100%",
                       objectFit: "cover",
+                      transition: "opacity 0.3s ease",
+                    }}
+                    onError={(e) => {
+                      const img = e.currentTarget;
+
+                      if (!img.dataset.fallback) {
+                        img.dataset.fallback = "true";
+
+                        img.src = DEFAULT_PRODUCT_IMAGE;
+
+                        Object.assign(img.style, {
+                          objectFit: "contain",
+                          width: "100%",
+                          height: "100%",
+                          padding: "20px",
+                        });
+                      }
                     }}
                   />
                 </button>
@@ -539,8 +538,7 @@ export default function ProductDetailPage({
               gap: 8,
               marginBottom: 12,
               flexWrap: "wrap",
-            }}
-          >
+            }}>
             <span
               style={{
                 background: "rgba(249,115,22,0.1)",
@@ -550,8 +548,7 @@ export default function ProductDetailPage({
                 fontSize: "0.75rem",
                 fontWeight: 600,
                 textTransform: "capitalize",
-              }}
-            >
+              }}>
               {currentProduct.category}
             </span>
 
@@ -564,8 +561,7 @@ export default function ProductDetailPage({
                   borderRadius: 100,
                   padding: "4px 12px",
                   fontSize: "0.75rem",
-                }}
-              >
+                }}>
                 {tag}
               </span>
             ))}
@@ -580,8 +576,7 @@ export default function ProductDetailPage({
               color: "#1F2937",
               margin: "0 0 12px",
               lineHeight: 1.3,
-            }}
-          >
+            }}>
             {currentProduct.name}
           </h1>
 
@@ -594,27 +589,23 @@ export default function ProductDetailPage({
               gap: 12,
               marginBottom: 20,
               flexWrap: "wrap",
-            }}
-          >
+            }}>
             <div
               style={{
                 display: "flex",
                 gap: 2,
-              }}
-            >
+              }}>
               {[1, 2, 3, 4, 5].map((i) => (
                 <span
                   key={i}
                   className={
-                    i <=
-                    Math.round(currentProduct.rating)
+                    i <= Math.round(currentProduct.rating)
                       ? "star-filled"
                       : "star-empty"
                   }
                   style={{
                     fontSize: 16,
-                  }}
-                >
+                  }}>
                   ★
                 </span>
               ))}
@@ -625,8 +616,7 @@ export default function ProductDetailPage({
                 fontWeight: 600,
                 color: "#1F2937",
                 fontSize: "0.9rem",
-              }}
-            >
+              }}>
               {currentProduct.rating}
             </span>
 
@@ -634,8 +624,7 @@ export default function ProductDetailPage({
               style={{
                 color: "#9CA3AF",
                 fontSize: "0.85rem",
-              }}
-            >
+              }}>
               ({currentProduct.reviews} ulasan)
             </span>
 
@@ -643,12 +632,8 @@ export default function ProductDetailPage({
               style={{
                 color: "#9CA3AF",
                 fontSize: "0.85rem",
-              }}
-            >
-              ·{" "}
-              {Number(
-                currentProduct.sold ?? 0,
-              ).toLocaleString("id-ID")}{" "}
+              }}>
+              · {Number(currentProduct.sold ?? 0).toLocaleString("id-ID")}{" "}
               terjual
             </span>
           </div>
@@ -657,33 +642,26 @@ export default function ProductDetailPage({
 
           <div
             style={{
-              background:
-                "linear-gradient(135deg, #FFF8F0, #FEFCE8)",
+              background: "linear-gradient(135deg, #FFF8F0, #FEFCE8)",
               borderRadius: 14,
               padding: "20px",
               marginBottom: 24,
-              border:
-                "1px solid rgba(249,115,22,0.15)",
-            }}
-          >
+              border: "1px solid rgba(249,115,22,0.15)",
+            }}>
             <div
               style={{
                 display: "flex",
                 alignItems: "baseline",
                 gap: 10,
                 flexWrap: "wrap",
-              }}
-            >
+              }}>
               <span
                 style={{
                   fontSize: "2rem",
                   fontWeight: 900,
                   color: "#F97316",
-                }}
-              >
-                {formatPrice(
-                  Number(currentProduct.price ?? 0),
-                )}
+                }}>
+                {formatPrice(Number(currentProduct.price ?? 0))}
               </span>
 
               {currentProduct.discount > 0 && (
@@ -691,11 +669,9 @@ export default function ProductDetailPage({
                   <span
                     style={{
                       color: "#9CA3AF",
-                      textDecoration:
-                        "line-through",
+                      textDecoration: "line-through",
                       fontSize: "1.1rem",
-                    }}
-                  >
+                    }}>
                     {formatPrice(
                       Number(
                         currentProduct.originalPrice ??
@@ -713,8 +689,7 @@ export default function ProductDetailPage({
                       padding: "2px 8px",
                       fontSize: "0.8rem",
                       fontWeight: 700,
-                    }}
-                  >
+                    }}>
                     -{currentProduct.discount}%
                   </span>
                 </>
@@ -728,20 +703,14 @@ export default function ProductDetailPage({
                   fontSize: "0.8rem",
                   color: "#16A34A",
                   fontWeight: 600,
-                }}
-              >
+                }}>
                 Hemat{" "}
                 {formatPrice(
                   Math.max(
                     0,
                     Number(
-                      currentProduct.originalPrice ??
-                        currentProduct.price ??
-                        0,
-                    ) -
-                      Number(
-                        currentProduct.price ?? 0,
-                      ),
+                      currentProduct.originalPrice ?? currentProduct.price ?? 0,
+                    ) - Number(currentProduct.price ?? 0),
                   ),
                 )}
                 !
@@ -757,30 +726,22 @@ export default function ProductDetailPage({
               alignItems: "center",
               gap: 8,
               marginBottom: 20,
-            }}
-          >
+            }}>
             <div
               style={{
                 width: 8,
                 height: 8,
                 borderRadius: "50%",
-                background:
-                  currentProduct.stock > 0
-                    ? "#16A34A"
-                    : "#DC2626",
+                background: currentProduct.stock > 0 ? "#16A34A" : "#DC2626",
               }}
             />
 
             <span
               style={{
                 fontSize: "0.85rem",
-                color:
-                  currentProduct.stock > 0
-                    ? "#16A34A"
-                    : "#DC2626",
+                color: currentProduct.stock > 0 ? "#16A34A" : "#DC2626",
                 fontWeight: 600,
-              }}
-            >
+              }}>
               {currentProduct.stock > 0
                 ? `Stok tersedia (${currentProduct.stock} unit)`
                 : "Stok habis"}
@@ -796,15 +757,13 @@ export default function ProductDetailPage({
               gap: 16,
               marginBottom: 24,
               flexWrap: "wrap",
-            }}
-          >
+            }}>
             <span
               style={{
                 fontWeight: 600,
                 color: "#374151",
                 fontSize: "0.9rem",
-              }}
-            >
+              }}>
               Jumlah:
             </span>
 
@@ -815,8 +774,7 @@ export default function ProductDetailPage({
                 border: "1.5px solid #E5E7EB",
                 borderRadius: 10,
                 overflow: "hidden",
-              }}
-            >
+              }}>
               <button
                 type="button"
                 onClick={decreaseQty}
@@ -825,19 +783,12 @@ export default function ProductDetailPage({
                   width: 40,
                   height: 40,
                   border: "none",
-                  background:
-                    qty <= 1
-                      ? "#F3F4F6"
-                      : "#F9FAFB",
-                  cursor:
-                    qty <= 1
-                      ? "not-allowed"
-                      : "pointer",
+                  background: qty <= 1 ? "#F3F4F6" : "#F9FAFB",
+                  cursor: qty <= 1 ? "not-allowed" : "pointer",
                   fontSize: 18,
                   color: "#374151",
                   fontFamily: "Poppins",
-                }}
-              >
+                }}>
                 −
               </button>
 
@@ -847,8 +798,7 @@ export default function ProductDetailPage({
                   textAlign: "center",
                   fontWeight: 700,
                   color: "#1F2937",
-                }}
-              >
+                }}>
                 {qty}
               </span>
 
@@ -856,28 +806,24 @@ export default function ProductDetailPage({
                 type="button"
                 onClick={increaseQty}
                 disabled={
-                  currentProduct.stock <= 0 ||
-                  qty >= currentProduct.stock
+                  currentProduct.stock <= 0 || qty >= currentProduct.stock
                 }
                 style={{
                   width: 40,
                   height: 40,
                   border: "none",
                   background:
-                    currentProduct.stock <= 0 ||
-                    qty >= currentProduct.stock
+                    currentProduct.stock <= 0 || qty >= currentProduct.stock
                       ? "#F3F4F6"
                       : "#F9FAFB",
                   cursor:
-                    currentProduct.stock <= 0 ||
-                    qty >= currentProduct.stock
+                    currentProduct.stock <= 0 || qty >= currentProduct.stock
                       ? "not-allowed"
                       : "pointer",
                   fontSize: 18,
                   color: "#374151",
                   fontFamily: "Poppins",
-                }}
-              >
+                }}>
                 +
               </button>
             </div>
@@ -886,8 +832,7 @@ export default function ProductDetailPage({
               style={{
                 color: "#9CA3AF",
                 fontSize: "0.8rem",
-              }}
-            >
+              }}>
               Maks. {currentProduct.stock}
             </span>
           </div>
@@ -899,8 +844,7 @@ export default function ProductDetailPage({
               display: "flex",
               gap: 10,
               marginBottom: 24,
-            }}
-          >
+            }}>
             <button
               type="button"
               onClick={handleAddToCart}
@@ -909,19 +853,10 @@ export default function ProductDetailPage({
               style={{
                 flex: 1,
                 padding: "14px",
-                cursor:
-                  currentProduct.stock <= 0
-                    ? "not-allowed"
-                    : "pointer",
-                opacity:
-                  currentProduct.stock <= 0
-                    ? 0.5
-                    : 1,
-              }}
-            >
-              {added
-                ? "✓ Ditambahkan!"
-                : "🛒 Tambah ke Keranjang"}
+                cursor: currentProduct.stock <= 0 ? "not-allowed" : "pointer",
+                opacity: currentProduct.stock <= 0 ? 0.5 : 1,
+              }}>
+              {added ? "✓ Ditambahkan!" : "🛒 Tambah ke Keranjang"}
             </button>
 
             <button
@@ -932,16 +867,9 @@ export default function ProductDetailPage({
               style={{
                 flex: 1,
                 padding: "14px",
-                cursor:
-                  currentProduct.stock <= 0
-                    ? "not-allowed"
-                    : "pointer",
-                opacity:
-                  currentProduct.stock <= 0
-                    ? 0.5
-                    : 1,
-              }}
-            >
+                cursor: currentProduct.stock <= 0 ? "not-allowed" : "pointer",
+                opacity: currentProduct.stock <= 0 ? 0.5 : 1,
+              }}>
               ⚡ Beli Sekarang
             </button>
           </div>
@@ -956,8 +884,7 @@ export default function ProductDetailPage({
               padding: "16px",
               background: "#F9FAFB",
               borderRadius: 12,
-            }}
-          >
+            }}>
             {[
               {
                 icon: "🚚",
@@ -978,16 +905,14 @@ export default function ProductDetailPage({
                   display: "flex",
                   gap: 10,
                   alignItems: "flex-start",
-                }}
-              >
+                }}>
                 <span>{icon}</span>
 
                 <span
                   style={{
                     fontSize: "0.8rem",
                     color: "#4B5563",
-                  }}
-                >
+                  }}>
                   {text}
                 </span>
               </div>
@@ -1003,21 +928,15 @@ export default function ProductDetailPage({
       <div
         style={{
           marginBottom: 40,
-        }}
-      >
+        }}>
         <div
           style={{
             display: "flex",
             gap: 4,
             borderBottom: "2px solid #F3F4F6",
             marginBottom: 24,
-          }}
-        >
-          {[
-            "deskripsi",
-            "ulasan",
-            "pengiriman",
-          ].map((tab) => (
+          }}>
+          {["deskripsi", "ulasan", "pengiriman"].map((tab) => (
             <button
               type="button"
               key={tab}
@@ -1030,20 +949,15 @@ export default function ProductDetailPage({
                   activeTab === tab
                     ? "2px solid #F97316"
                     : "2px solid transparent",
-                color:
-                  activeTab === tab
-                    ? "#F97316"
-                    : "#6B7280",
+                color: activeTab === tab ? "#F97316" : "#6B7280",
                 fontFamily: "Poppins",
-                fontWeight:
-                  activeTab === tab ? 700 : 500,
+                fontWeight: activeTab === tab ? 700 : 500,
                 fontSize: "0.875rem",
                 cursor: "pointer",
                 marginBottom: -2,
                 textTransform: "capitalize",
                 transition: "all 0.2s",
-              }}
-            >
+              }}>
               {tab === "deskripsi"
                 ? "Deskripsi"
                 : tab === "ulasan"
@@ -1061,18 +975,15 @@ export default function ProductDetailPage({
           <div
             style={{
               maxWidth: 720,
-            }}
-          >
+            }}>
             <p
               style={{
                 color: "#4B5563",
                 lineHeight: 1.8,
                 margin: 0,
                 fontSize: "0.95rem",
-              }}
-            >
-              {currentProduct.description ||
-                "Tidak ada deskripsi produk."}
+              }}>
+              {currentProduct.description || "Tidak ada deskripsi produk."}
             </p>
           </div>
         )}
@@ -1085,8 +996,7 @@ export default function ProductDetailPage({
           <div
             style={{
               maxWidth: 720,
-            }}
-          >
+            }}>
             <div
               style={{
                 display: "flex",
@@ -1095,20 +1005,17 @@ export default function ProductDetailPage({
                 padding: "20px",
                 background: "#FFF8F0",
                 borderRadius: 14,
-              }}
-            >
+              }}>
               <div
                 style={{
                   textAlign: "center",
-                }}
-              >
+                }}>
                 <div
                   style={{
                     fontSize: "3rem",
                     fontWeight: 900,
                     color: "#F97316",
-                  }}
-                >
+                  }}>
                   {currentProduct.rating}
                 </div>
 
@@ -1116,8 +1023,7 @@ export default function ProductDetailPage({
                   style={{
                     color: "#FACC15",
                     fontSize: 20,
-                  }}
-                >
+                  }}>
                   {"★".repeat(5)}
                 </div>
 
@@ -1126,8 +1032,7 @@ export default function ProductDetailPage({
                     fontSize: "0.8rem",
                     color: "#9CA3AF",
                     marginTop: 4,
-                  }}
-                >
+                  }}>
                   {currentProduct.reviews} ulasan
                 </div>
               </div>
@@ -1139,74 +1044,63 @@ export default function ProductDetailPage({
                   flexDirection: "column",
                   gap: 8,
                   justifyContent: "center",
-                }}
-              >
-                {[5, 4, 3, 2, 1].map(
-                  (star) => {
-                    const percentage =
-                      [78, 15, 5, 1, 1][
-                        5 - star
-                      ];
+                }}>
+                {[5, 4, 3, 2, 1].map((star) => {
+                  const percentage = [78, 15, 5, 1, 1][5 - star];
 
-                    return (
-                      <div
-                        key={star}
+                  return (
+                    <div
+                      key={star}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}>
+                      <span
                         style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: "0.8rem",
-                            color: "#6B7280",
-                            minWidth: 16,
-                          }}
-                        >
-                          {star}
-                        </span>
+                          fontSize: "0.8rem",
+                          color: "#6B7280",
+                          minWidth: 16,
+                        }}>
+                        {star}
+                      </span>
 
-                        <span
-                          style={{
-                            color: "#FACC15",
-                            fontSize: 12,
-                          }}
-                        >
-                          ★
-                        </span>
+                      <span
+                        style={{
+                          color: "#FACC15",
+                          fontSize: 12,
+                        }}>
+                        ★
+                      </span>
 
+                      <div
+                        style={{
+                          flex: 1,
+                          height: 6,
+                          background: "#F3F4F6",
+                          borderRadius: 100,
+                          overflow: "hidden",
+                        }}>
                         <div
                           style={{
-                            flex: 1,
-                            height: 6,
-                            background: "#F3F4F6",
+                            height: "100%",
+                            background: "#FACC15",
                             borderRadius: 100,
-                            overflow: "hidden",
+                            width: `${percentage}%`,
                           }}
-                        >
-                          <div
-                            style={{
-                              height: "100%",
-                              background: "#FACC15",
-                              borderRadius: 100,
-                              width: `${percentage}%`,
-                            }}
-                          />
-                        </div>
-
-                        <span
-                          style={{
-                            fontSize: "0.75rem",
-                            color: "#9CA3AF",
-                          }}
-                        >
-                          {percentage}%
-                        </span>
+                        />
                       </div>
-                    );
-                  },
-                )}
+
+                      <span
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#9CA3AF",
+                        }}>
+                        {percentage}%
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -1217,8 +1111,7 @@ export default function ProductDetailPage({
                 display: "flex",
                 flexDirection: "column",
                 gap: 16,
-              }}
-            >
+              }}>
               {mockReviews.map((review, i) => (
                 <div
                   key={i}
@@ -1226,25 +1119,20 @@ export default function ProductDetailPage({
                     background: "white",
                     borderRadius: 12,
                     padding: "20px",
-                    boxShadow:
-                      "0 2px 8px rgba(0,0,0,0.05)",
-                  }}
-                >
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+                  }}>
                   <div
                     style={{
                       display: "flex",
-                      justifyContent:
-                        "space-between",
+                      justifyContent: "space-between",
                       marginBottom: 8,
-                    }}
-                  >
+                    }}>
                     <div
                       style={{
                         display: "flex",
                         alignItems: "center",
                         gap: 8,
-                      }}
-                    >
+                      }}>
                       <div
                         style={{
                           width: 36,
@@ -1256,8 +1144,7 @@ export default function ProductDetailPage({
                           alignItems: "center",
                           justifyContent: "center",
                           fontWeight: 700,
-                        }}
-                      >
+                        }}>
                         {review.name[0]}
                       </div>
 
@@ -1267,8 +1154,7 @@ export default function ProductDetailPage({
                             fontWeight: 600,
                             fontSize: "0.875rem",
                             color: "#1F2937",
-                          }}
-                        >
+                          }}>
                           {review.name}
                         </div>
 
@@ -1276,11 +1162,8 @@ export default function ProductDetailPage({
                           style={{
                             color: "#FACC15",
                             fontSize: 12,
-                          }}
-                        >
-                          {"★".repeat(
-                            review.rating,
-                          )}
+                          }}>
+                          {"★".repeat(review.rating)}
                         </div>
                       </div>
                     </div>
@@ -1289,8 +1172,7 @@ export default function ProductDetailPage({
                       style={{
                         fontSize: "0.75rem",
                         color: "#9CA3AF",
-                      }}
-                    >
+                      }}>
                       {review.date}
                     </span>
                   </div>
@@ -1301,8 +1183,7 @@ export default function ProductDetailPage({
                       fontSize: "0.875rem",
                       color: "#4B5563",
                       lineHeight: 1.6,
-                    }}
-                  >
+                    }}>
                     {review.comment}
                   </p>
                 </div>
@@ -1319,15 +1200,13 @@ export default function ProductDetailPage({
           <div
             style={{
               maxWidth: 720,
-            }}
-          >
+            }}>
             <div
               style={{
                 display: "flex",
                 flexDirection: "column",
                 gap: 12,
-              }}
-            >
+              }}>
               {[
                 {
                   label: "JNE Regular",
@@ -1353,77 +1232,60 @@ export default function ProductDetailPage({
                   price: "Rp 14.000",
                   icon: "🏃",
                 },
-              ].map(
-                ({
-                  label,
-                  time,
-                  price,
-                  icon,
-                }) => (
+              ].map(({ label, time, price, icon }) => (
+                <div
+                  key={label}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "16px",
+                    background: "white",
+                    borderRadius: 12,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+                  }}>
                   <div
-                    key={label}
                     style={{
                       display: "flex",
-                      justifyContent:
-                        "space-between",
+                      gap: 12,
                       alignItems: "center",
-                      padding: "16px",
-                      background: "white",
-                      borderRadius: 12,
-                      boxShadow:
-                        "0 2px 8px rgba(0,0,0,0.05)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: 12,
-                        alignItems: "center",
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: 20,
-                        }}
-                      >
-                        {icon}
-                      </span>
-
-                      <div>
-                        <div
-                          style={{
-                            fontWeight: 600,
-                            color: "#1F2937",
-                            fontSize:
-                              "0.875rem",
-                          }}
-                        >
-                          {label}
-                        </div>
-
-                        <div
-                          style={{
-                            fontSize:
-                              "0.75rem",
-                            color: "#9CA3AF",
-                          }}
-                        >
-                          Estimasi {time}
-                        </div>
-                      </div>
-                    </div>
-
+                    }}>
                     <span
                       style={{
-                        fontWeight: 700,
-                        color: "#F97316",
-                      }}
-                    >
-                      {price}
+                        fontSize: 20,
+                      }}>
+                      {icon}
                     </span>
+
+                    <div>
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          color: "#1F2937",
+                          fontSize: "0.875rem",
+                        }}>
+                        {label}
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#9CA3AF",
+                        }}>
+                        Estimasi {time}
+                      </div>
+                    </div>
                   </div>
-                ),
-              )}
+
+                  <span
+                    style={{
+                      fontWeight: 700,
+                      color: "#F97316",
+                    }}>
+                    {price}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -1440,47 +1302,40 @@ export default function ProductDetailPage({
             textAlign: "center",
             color: "#9CA3AF",
             fontSize: "0.9rem",
-          }}
-        >
+          }}>
           Memuat produk terkait...
         </div>
       )}
 
-      {!loadingRelated &&
-        relatedProducts.length > 0 && (
-          <div>
-            <h2
-              style={{
-                fontSize: "1.4rem",
-                fontWeight: 800,
-                color: "#1F2937",
-                margin: "0 0 24px",
-              }}
-            >
-              Produk Terkait
-            </h2>
+      {!loadingRelated && relatedProducts.length > 0 && (
+        <div>
+          <h2
+            style={{
+              fontSize: "1.4rem",
+              fontWeight: 800,
+              color: "#1F2937",
+              margin: "0 0 24px",
+            }}>
+            Produk Terkait
+          </h2>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fill, minmax(200px, 1fr))",
-                gap: 16,
-              }}
-            >
-              {relatedProducts.map(
-                (relatedProduct) => (
-                  <ProductCard
-                    key={relatedProduct.id}
-                    product={relatedProduct}
-                    navigate={navigate}
-                    onAddToCart={onAddToCart}
-                  />
-                ),
-              )}
-            </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+              gap: 16,
+            }}>
+            {relatedProducts.map((relatedProduct) => (
+              <ProductCard
+                key={relatedProduct.id}
+                product={relatedProduct}
+                navigate={navigate}
+                onAddToCart={onAddToCart}
+              />
+            ))}
           </div>
-        )}
+        </div>
+      )}
     </div>
   );
 }
