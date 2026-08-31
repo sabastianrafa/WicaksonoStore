@@ -4,7 +4,7 @@ export default function Footer({ navigate }: { navigate: (page: Page) => void })
   return (
     <footer style={{ background: '#1F2937', color: '#F9FAFB', marginTop: 80 }}>
       {/* Top CTA strip */}
-      <div style={{
+      {/* <div style={{
         background: 'linear-gradient(135deg, #F97316, #EA6C0A)',
         padding: '32px 24px', textAlign: 'center',
       }}>
@@ -25,7 +25,7 @@ export default function Footer({ navigate }: { navigate: (page: Page) => void })
             </button>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Main footer */}
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '48px 24px 32px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 40 }}>

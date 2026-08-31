@@ -1,4 +1,4 @@
-import { formatPrice } from '../data';
+import { formatPrice } from '../api/products';
 import type { Page } from '../App';
 
 interface Product {
