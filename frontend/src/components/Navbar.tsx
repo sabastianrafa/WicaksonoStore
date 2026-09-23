@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Page } from "../App";
+import { FaShoppingCart } from "react-icons/fa";
 
 interface NavbarProps {
   currentPage: Page;
@@ -13,267 +14,232 @@ export default function Navbar({
   cartCount,
 }: NavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const navLinks: { label: string; page: Page }[] = [
     { label: "Beranda", page: "home" },
     { label: "Produk", page: "catalog" },
-    { label: "Kategori", page: "catalog" },
-    { label: "Tentang", page: "home" },
-    { label: "Kontak", page: "home" },
+    { label: "Tentang Kami", page: "about" },
+    { label: "Kontak", page: "contact" },
   ];
 
+  const handleNavigate = (page: Page) => {
+    navigate(page);
+    setMenuOpen(false);
+  };
+
   return (
-    <nav
-      style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
-        background: "rgba(255,248,240,0.92)",
-        backdropFilter: "blur(12px)",
-        borderBottom: "1px solid rgba(249,115,22,0.12)",
-        boxShadow: "0 2px 16px rgba(0,0,0,0.06)",
-      }}>
-      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            height: 80,
-          }}>
-          {/* Logo */}
-          <button
-            onClick={() => navigate("home")}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: 0,
-              display: "flex",
-              alignItems: "center",
-              flexShrink: 0,
-            }}>
+    <>
+      <style>{`
+        /* 1. Pemisah Visual: Shadow & Border diatur lebih tegas */
+        .navbar {
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          background: ${scrolled ? "rgba(255, 255, 255, 0.98)" : "rgba(255,248,240,0.95)"};
+          backdrop-filter: blur(10px);
+          border-bottom: 1px solid rgba(223, 64, 31, ${scrolled ? "0.15" : "0.08"});
+          box-shadow: ${scrolled ? "0 4px 16px rgba(0,0,0,0.06)" : "none"};
+          transition: all 0.3s ease;
+        }
+
+        .nav-container { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
+        .nav-content { display: flex; align-items: center; justify-content: space-between; height: ${scrolled ? "70px" : "86px"}; transition: height 0.3s; }
+        
+        .logo-img { height: ${scrolled ? "48px" : "56px"}; transition: 0.3s; cursor: pointer; }
+        
+        /* 2. Indikator Menu Aktif Desktop */
+        .nav-link {
+          position: relative;
+          background: none; border: none; cursor: pointer;
+          padding: 8px 12px; border-radius: 6px;
+          font-family: "Poppins", sans-serif; font-weight: 500; font-size: 0.95rem;
+          color: #374151; transition: 0.2s;
+        }
+        .nav-link:hover, .nav-link.active { color: #DF401F; }
+        .nav-link::after {
+          content: ''; position: absolute; width: 0; height: 2px;
+          bottom: 2px; left: 50%; background: #DF401F;
+          transition: all 0.3s ease; transform: translateX(-50%); border-radius: 2px;
+        }
+        .nav-link:hover::after, .nav-link.active::after { width: 60%; } /* Garis bawah elegan */
+
+        /* 3 & 4. Kerapatan Aksi & Gaya Tombol Modern */
+        .action-group { display: flex; align-items: center; gap: 16px; } /* Jarak lega antara cart & hamburger/auth */
+        .auth-group { display: flex; align-items: center; gap: 10px; } /* Jarak rapat antara tombol masuk & daftar */
+        
+        .btn { 
+          padding: 8px 20px; border-radius: 8px; /* Mengganti gaya kapsul menjadi 8px */
+          font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: 0.2s; border: none; 
+          font-family: "Poppins", sans-serif;
+        }
+        .btn-outline { background: transparent; color: #DF401F; border: 1.5px solid #DF401F; }
+        .btn-outline:hover { background: rgba(223, 64, 31, 0.05); }
+        .btn-primary { background: #DF401F; color: white; border: 1.5px solid #DF401F; }
+        .btn-primary:hover { background: #c53517; border-color: #c53517; box-shadow: 0 4px 10px rgba(223,64,31,0.2); }
+
+        /* Cart */
+        .cart-btn {
+          position: relative; background: transparent; border: none; cursor: pointer;
+          width: 42px; height: 42px;
+          display: flex; align-items: center; justify-content: center; 
+        }
+        
+        /* Tambahkan transisi khusus pada ikon (svg) di dalam tombol */
+        .cart-btn svg {
+          transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s ease;
+        }
+
+        /* Saat di-hover, ikon membesar dan warnanya berubah opsional */
+        .cart-btn:hover { background: transparent; }
+        .cart-btn:hover svg {
+          transform: scale(1.25); /* Ikon membesar 25% */
+          color: #DF401F !important; /* (Opsional) Berubah oranye saat di-hover */
+        }
+
+        .cart-badge {
+          position: absolute; top: -2px; right: -2px;
+          background: #DF401F; color: white; font-size: 0.7rem; font-weight: bold;
+          width: 20px; height: 20px; border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* Hamburger Mobile */
+        .hamburger {
+          display: none; flex-direction: column; gap: 5px; background: none; border: none; cursor: pointer; padding: 6px;
+        }
+        .hamburger span {
+          display: block; width: 24px; height: 2.5px; background: #374151; border-radius: 3px; transition: 0.3s;
+        }
+        .hamburger.open span:nth-child(1) { transform: translateY(7.5px) rotate(45deg); background: #DF401F; }
+        .hamburger.open span:nth-child(2) { opacity: 0; }
+        .hamburger.open span:nth-child(3) { transform: translateY(-7.5px) rotate(-45deg); background: #DF401F; }
+
+        /* Mobile Menu */
+        .mobile-menu {
+          overflow: hidden; max-height: ${menuOpen ? "400px" : "0"}; opacity: ${menuOpen ? "1" : "0"};
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .mobile-menu-inner { padding: 8px 0 24px; border-top: 1px solid rgba(223,64,31,0.08); }
+        .mobile-link {
+          display: block; width: 100%; text-align: left; padding: 14px 16px; margin-bottom: 4px;
+          background: transparent; border: none; border-radius: 8px; font-weight: 500; color: #374151; font-size: 1rem;
+        }
+        .mobile-link.active { color: #DF401F; background: rgba(223,64,31,0.05); font-weight: 600; }
+
+        .flex-center { display: flex; align-items: center; gap: 8px; }
+        .mobile-only { display: none; }
+
+        @media (max-width: 768px) {
+          .desktop-only { display: none; }
+          .mobile-only { display: flex; }
+          .hamburger { display: flex; }
+        }
+      `}</style>
+
+      <nav className="navbar">
+        <div className="nav-container">
+          <div className="nav-content">
+            {/* Logo */}
             <img
               src="/images/logo/wicaksono_logo_2.webp"
-              alt="Wicaksono Oleh-Oleh Khas Malang"
-              style={{
-                width: "auto",
-                height: 64,
-                maxWidth: 220,
-                objectFit: "contain",
-                display: "block",
-              }}
+              alt="Wicaksono Logo"
+              className="logo-img"
+              onClick={() => handleNavigate("home")}
             />
-          </button>
 
-          {/* Desktop Nav */}
-          <div
-            style={{ display: "flex", alignItems: "center", gap: 4 }}
-            className="hidden-mobile">
-            {navLinks.map(({ label, page }) => (
-              <button
-                key={label}
-                onClick={() => navigate(page)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: "8px 14px",
-                  borderRadius: 8,
-                  fontFamily: "Poppins, sans-serif",
-                  fontWeight: 500,
-                  fontSize: "0.875rem",
-                  color:
-                    currentPage === page && label === "Beranda"
-                      ? "#DE3E1D"
-                      : "#374151",
-                  transition: "all 0.2s",
-                }}
-                onMouseEnter={(e) => {
-                  (e.target as HTMLElement).style.color = "#DE3E1D";
-                  (e.target as HTMLElement).style.background =
-                    "rgba(249,115,22,0.08)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.target as HTMLElement).style.color = "#374151";
-                  (e.target as HTMLElement).style.background = "transparent";
-                }}>
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {/* Actions */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {/* Cart */}
-            <button
-              onClick={() => navigate("cart")}
-              style={{
-                position: "relative",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                width: 40,
-                height: 40,
-                borderRadius: 10,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                transition: "background 0.2s",
-              }}
-              onMouseEnter={(e) => {
-                (e.target as HTMLElement).style.background =
-                  "rgba(249,115,22,0.1)";
-              }}
-              onMouseLeave={(e) => {
-                (e.target as HTMLElement).style.background = "transparent";
-              }}>
-              <span style={{ fontSize: 20 }}>🛒</span>
-              {cartCount > 0 && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: 4,
-                    right: 4,
-                    background: "#DE3E1D",
-                    color: "white",
-                    fontSize: "0.65rem",
-                    fontWeight: 700,
-                    width: 16,
-                    height: 16,
-                    borderRadius: "50%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}>
-                  {cartCount > 9 ? "9+" : cartCount}
-                </span>
-              )}
-            </button>
-
-            <div style={{ display: "flex", gap: 8 }} className="hidden-mobile">
-              <button
-                onClick={() => navigate("login")}
-                className="btn-outline"
-                style={{ padding: "8px 16px", fontSize: "0.8rem" }}>
-                Masuk
-              </button>
-              <button
-                onClick={() => navigate("register")}
-                className="btn-primary"
-                style={{ padding: "8px 16px", fontSize: "0.8rem" }}>
-                Daftar
-              </button>
+            {/* Desktop Nav */}
+            <div className="flex-center desktop-only" style={{ gap: "12px" }}>
+              {navLinks.map(({ label, page }) => (
+                <button
+                  key={label}
+                  onClick={() => handleNavigate(page)}
+                  className={`nav-link ${currentPage === page ? "active" : ""}`}>
+                  {label}
+                </button>
+              ))}
             </div>
 
-            {/* Mobile hamburger */}
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                display: "none",
-                flexDirection: "column",
-                gap: 5,
-                padding: 8,
-              }}
-              className="show-mobile">
-              <span
+            {/* Aksi Kanan */}
+            <div className="action-group">
+              {/* Cart Button */}
+              <button
+                className="cart-btn"
+                onClick={() => handleNavigate("cart")}>
+                <FaShoppingCart size={22} color="#374151" />
+                {cartCount > 0 && (
+                  <span className="cart-badge">
+                    {cartCount > 9 ? "9+" : cartCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Desktop Auth */}
+              <div className="auth-group desktop-only">
+                <button
+                  className="btn btn-outline"
+                  onClick={() => handleNavigate("login")}>
+                  Masuk
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => handleNavigate("register")}>
+                  Daftar
+                </button>
+              </div>
+
+              {/* Mobile Hamburger */}
+              <button
+                className={`hamburger ${menuOpen ? "open" : ""}`}
+                onClick={() => setMenuOpen(!menuOpen)}>
+                <span />
+                <span />
+                <span />
+              </button>
+            </div>
+          </div>
+
+          {/* Mobile Menu Dropdown */}
+          <div className="mobile-menu">
+            <div className="mobile-menu-inner">
+              {navLinks.map(({ label, page }) => (
+                <button
+                  key={label}
+                  onClick={() => handleNavigate(page)}
+                  className={`mobile-link ${currentPage === page ? "active" : ""}`}>
+                  {label}
+                </button>
+              ))}
+              <div
                 style={{
-                  display: "block",
-                  width: 22,
-                  height: 2,
-                  background: "#374151",
-                  borderRadius: 2,
-                  transition: "all 0.2s",
-                  transform: menuOpen
-                    ? "rotate(45deg) translate(5px,5px)"
-                    : "none",
-                }}
-              />
-              <span
-                style={{
-                  display: "block",
-                  width: 22,
-                  height: 2,
-                  background: "#374151",
-                  borderRadius: 2,
-                  opacity: menuOpen ? 0 : 1,
-                }}
-              />
-              <span
-                style={{
-                  display: "block",
-                  width: 22,
-                  height: 2,
-                  background: "#374151",
-                  borderRadius: 2,
-                  transition: "all 0.2s",
-                  transform: menuOpen
-                    ? "rotate(-45deg) translate(5px,-5px)"
-                    : "none",
-                }}
-              />
-            </button>
+                  display: "flex",
+                  gap: "12px",
+                  padding: "16px 16px 0",
+                }}>
+                <button
+                  className="btn btn-outline"
+                  style={{ flex: 1, padding: "12px" }}
+                  onClick={() => handleNavigate("login")}>
+                  Masuk
+                </button>
+                <button
+                  className="btn btn-primary"
+                  style={{ flex: 1, padding: "12px" }}
+                  onClick={() => handleNavigate("register")}>
+                  Daftar
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* Mobile menu */}
-        {menuOpen && (
-          <div
-            style={{
-              paddingBottom: 16,
-              borderTop: "1px solid rgba(249,115,22,0.12)",
-              paddingTop: 12,
-            }}>
-            {navLinks.map(({ label, page }) => (
-              <button
-                key={label}
-                onClick={() => {
-                  navigate(page);
-                  setMenuOpen(false);
-                }}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "10px 16px",
-                  borderRadius: 8,
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  fontFamily: "Poppins, sans-serif",
-                  fontWeight: 500,
-                  fontSize: "0.9rem",
-                  color: "#374151",
-                }}>
-                {label}
-              </button>
-            ))}
-            <div style={{ display: "flex", gap: 8, padding: "8px 16px 0" }}>
-              <button
-                onClick={() => {
-                  navigate("login");
-                  setMenuOpen(false);
-                }}
-                className="btn-outline"
-                style={{ flex: 1, padding: "10px", fontSize: "0.875rem" }}>
-                Masuk
-              </button>
-              <button
-                onClick={() => {
-                  navigate("register");
-                  setMenuOpen(false);
-                }}
-                className="btn-primary"
-                style={{ flex: 1, padding: "10px", fontSize: "0.875rem" }}>
-                Daftar
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </nav>
+      </nav>
+    </>
   );
 }
