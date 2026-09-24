@@ -9,9 +9,10 @@ import {
 
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
-
-import HomePage from "./pages/HomePage";
-import CatalogPage from "./pages/CatalogPage";
+import HomePage from "./pages/navbar/HomePage";
+import CatalogPage from "./pages/navbar/CatalogPage";
+import AboutPage from "./pages/navbar/AboutPage";
+import ContactPage from "./pages/navbar/ContactPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
@@ -19,9 +20,15 @@ import { LoginPage, RegisterPage } from "./pages/AuthPages";
 import DashboardPage from "./pages/DashboardPage";
 import AdminPage from "./pages/AdminPage";
 
+/* =========================================================
+   PAGE TYPE
+========================================================= */
+
 export type Page =
   | "home"
   | "catalog"
+  | "about"
+  | "contact"
   | "product-detail"
   | "cart"
   | "checkout"
@@ -29,6 +36,10 @@ export type Page =
   | "register"
   | "dashboard"
   | "admin";
+
+/* =========================================================
+   CART TYPE
+========================================================= */
 
 interface CartItem {
   id: number;
@@ -39,6 +50,10 @@ interface CartItem {
   category: string;
 }
 
+/* =========================================================
+   TOAST
+========================================================= */
+
 interface ToastProps {
   message: string;
   visible: boolean;
@@ -47,60 +62,72 @@ interface ToastProps {
 function Toast({ message, visible }: ToastProps) {
   return (
     <div
-      style={{
-        position: "fixed",
-        bottom: 24,
-        right: 24,
-        zIndex: 9999,
-        background: "#1F2937",
-        color: "white",
-        borderRadius: 12,
-        padding: "14px 20px",
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
-        transform: visible ? "translateY(0)" : "translateY(80px)",
-        opacity: visible ? 1 : 0,
-        transition: "all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)",
-        pointerEvents: "none",
-        maxWidth: 320,
-      }}>
+      className={`
+        fixed
+        bottom-6
+        right-6
+        z-[9999]
+        flex
+        max-w-[320px]
+        items-center
+        gap-2.5
+        rounded-xl
+        bg-gray-800
+        px-5
+        py-3.5
+        text-white
+        shadow-[0_8px_32px_rgba(0,0,0,0.15)]
+        transition-all
+        duration-300
+        ease-[cubic-bezier(0.34,1.56,0.64,1)]
+        pointer-events-none
+
+        ${
+          visible
+            ? "translate-y-0 opacity-100"
+            : "translate-y-20 opacity-0"
+        }
+      `}
+    >
+      {/* Icon */}
       <div
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: 8,
-          background: "#16A34A",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}>
+        className="
+          flex
+          h-7
+          w-7
+          shrink-0
+          items-center
+          justify-center
+          rounded-lg
+          bg-green-600
+          text-sm
+          font-bold
+        "
+      >
         ✓
       </div>
 
-      <span
-        style={{
-          fontFamily: "Poppins",
-          fontSize: "0.875rem",
-          fontWeight: 500,
-        }}>
+      {/* Message */}
+      <span className="font-[Poppins] text-sm font-medium">
         {message}
       </span>
     </div>
   );
 }
 
-/*
-|--------------------------------------------------------------------------
-| App Content
-|--------------------------------------------------------------------------
-*/
+/* =========================================================
+   APP CONTENT
+========================================================= */
 
 function AppContent() {
   const routerNavigate = useNavigate();
   const location = useLocation();
+
+  /* =======================================================
+     STATE
+  ======================================================= */
+
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const [cart, setCart] = useState<CartItem[]>([]);
 
@@ -109,21 +136,29 @@ function AppContent() {
     visible: false,
   });
 
-  /*
-  |--------------------------------------------------------------------------
-  | Convert URL -> Page
-  |--------------------------------------------------------------------------
-  */
+  /* =======================================================
+     CURRENT PAGE
+  ======================================================= */
 
   const getCurrentPage = (): Page => {
-    const path = location.pathname;
+    const path = location.pathname
+      .toLowerCase()
+      .replace(/\/$/, "");
 
-    if (path === "/") {
+    if (path === "" || path === "/") {
       return "home";
     }
 
     if (path === "/produk") {
       return "catalog";
+    }
+
+    if (path === "/tentang") {
+      return "about";
+    }
+
+    if (path === "/kontak") {
+      return "contact";
     }
 
     if (path.startsWith("/produk/")) {
@@ -159,11 +194,27 @@ function AppContent() {
 
   const currentPage = getCurrentPage();
 
-  /*
-  |--------------------------------------------------------------------------
-  | Navigation
-  |--------------------------------------------------------------------------
-  */
+  /* =======================================================
+     TOAST
+  ======================================================= */
+
+  const showToast = (message: string) => {
+    setToast({
+      message,
+      visible: true,
+    });
+
+    setTimeout(() => {
+      setToast((prev) => ({
+        ...prev,
+        visible: false,
+      }));
+    }, 3000);
+  };
+
+  /* =======================================================
+     NAVIGATION
+  ======================================================= */
 
   const navigate = (page: Page, data?: unknown) => {
     switch (page) {
@@ -173,6 +224,14 @@ function AppContent() {
 
       case "catalog":
         routerNavigate("/produk");
+        break;
+
+      case "about":
+        routerNavigate("/tentang");
+        break;
+
+      case "contact":
+        routerNavigate("/kontak");
         break;
 
       case "product-detail": {
@@ -186,11 +245,19 @@ function AppContent() {
       }
 
       case "cart":
-        routerNavigate("/keranjang");
+        if (!isLoggedIn) {
+          routerNavigate("/login");
+        } else {
+          routerNavigate("/keranjang");
+        }
         break;
 
       case "checkout":
-        routerNavigate("/checkout");
+        if (!isLoggedIn) {
+          routerNavigate("/login");
+        } else {
+          routerNavigate("/checkout");
+        }
         break;
 
       case "login":
@@ -219,33 +286,16 @@ function AppContent() {
     });
   };
 
-  /*
-  |--------------------------------------------------------------------------
-  | Toast
-  |--------------------------------------------------------------------------
-  */
-
-  const showToast = (message: string) => {
-    setToast({
-      message,
-      visible: true,
-    });
-
-    setTimeout(() => {
-      setToast((t) => ({
-        ...t,
-        visible: false,
-      }));
-    }, 2500);
-  };
-
-  /*
-  |--------------------------------------------------------------------------
-  | Add To Cart
-  |--------------------------------------------------------------------------
-  */
+  /* =======================================================
+     ADD TO CART
+  ======================================================= */
 
   const addToCart = (product: unknown) => {
+    if (!isLoggedIn) {
+      navigate("login");
+      return;
+    }
+
     const p = product as CartItem;
 
     setCart((prev) => {
@@ -258,7 +308,7 @@ function AppContent() {
                 ...item,
                 quantity: item.quantity + 1,
               }
-            : item,
+            : item
         );
       }
 
@@ -278,41 +328,103 @@ function AppContent() {
     showToast(`${p.name.slice(0, 28)}... ditambahkan ke keranjang`);
   };
 
-  const noNavPages: Page[] = ["login", "register", "admin"];
+  /* =======================================================
+     NAVBAR VISIBILITY
+  ======================================================= */
+
+  const noNavPages: Page[] = [
+    "login",
+    "register",
+    "admin",
+  ];
+
   const showNav = !noNavPages.includes(currentPage);
+
+  /* =======================================================
+     PRODUCT ID
+  ======================================================= */
 
   const productId = location.pathname.startsWith("/produk/")
     ? location.pathname.split("/")[2]
     : null;
 
+  /* =======================================================
+     RENDER
+  ======================================================= */
+
   return (
     <div
-      style={{
-        minHeight: "100vh",
-        background: "#FFF8F0",
-        fontFamily: "Poppins, sans-serif",
-      }}>
+      className="
+        min-h-screen
+        bg-[#FFF8F0]
+        font-[Poppins,sans-serif]
+      "
+    >
+      {/* ===================================================
+          NAVBAR
+      =================================================== */}
+
       {showNav && (
         <Navbar
           currentPage={currentPage}
           navigate={navigate}
-          cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
+          cartCount={cart.reduce(
+            (sum, item) => sum + item.quantity,
+            0
+          )}
         />
       )}
 
-      <main className="fade-in" key={location.pathname}>
+      {/* ===================================================
+          MAIN CONTENT
+      =================================================== */}
+
+      <main
+        key={location.pathname}
+        className="
+          fade-in
+        "
+      >
         <Routes>
           {/* HOME */}
           <Route
             path="/"
-            element={<HomePage navigate={navigate} onAddToCart={addToCart} />}
+            element={
+              <HomePage
+                navigate={navigate}
+                onAddToCart={addToCart}
+              />
+            }
           />
 
           {/* CATALOG */}
           <Route
             path="/produk"
             element={
-              <CatalogPage navigate={navigate} onAddToCart={addToCart} />
+              <CatalogPage
+                navigate={navigate}
+                onAddToCart={addToCart}
+              />
+            }
+          />
+
+          {/* ABOUT */}
+          <Route
+            path="/tentang"
+            element={
+              <AboutPage
+                navigate={navigate}
+              />
+            }
+          />
+
+          {/* CONTACT */}
+          <Route
+            path="/kontak"
+            element={
+              <ContactPage
+                navigate={navigate}
+              />
             }
           />
 
@@ -323,7 +435,7 @@ function AppContent() {
               <ProductDetailPage
                 product={{
                   id: Number(productId),
-                }}
+                } as any}
                 navigate={navigate}
                 onAddToCart={addToCart}
               />
@@ -334,44 +446,92 @@ function AppContent() {
           <Route
             path="/keranjang"
             element={
-              <CartPage cart={cart} setCart={setCart} navigate={navigate} />
+              <CartPage
+                cart={cart}
+                setCart={setCart}
+                navigate={navigate}
+              />
             }
           />
 
           {/* CHECKOUT */}
           <Route
             path="/checkout"
-            element={<CheckoutPage cart={cart} navigate={navigate} />}
+            element={
+              <CheckoutPage
+                cart={cart}
+                navigate={navigate}
+              />
+            }
           />
 
           {/* LOGIN */}
-          <Route path="/login" element={<LoginPage navigate={navigate} />} />
+          <Route
+            path="/login"
+            element={
+              <LoginPage
+                navigate={navigate}
+              />
+            }
+          />
 
           {/* REGISTER */}
           <Route
             path="/register"
-            element={<RegisterPage navigate={navigate} />}
+            element={
+              <RegisterPage
+                navigate={navigate}
+              />
+            }
           />
 
           {/* DASHBOARD */}
           <Route
             path="/dashboard"
-            element={<DashboardPage navigate={navigate} />}
+            element={
+              <DashboardPage
+                navigate={navigate}
+              />
+            }
           />
 
           {/* ADMIN */}
-          <Route path="/admin" element={<AdminPage navigate={navigate} />} />
+          <Route
+            path="/admin"
+            element={
+              <AdminPage
+                navigate={navigate}
+              />
+            }
+          />
         </Routes>
       </main>
 
-      {showNav && currentPage !== "cart" && currentPage !== "checkout" && (
-        <Footer navigate={navigate} />
-      )}
+      {/* ===================================================
+          FOOTER
+      =================================================== */}
 
-      <Toast message={toast.message} visible={toast.visible} />
+      {showNav &&
+        currentPage !== "cart" &&
+        currentPage !== "checkout" && (
+          <Footer navigate={navigate} />
+        )}
+
+      {/* ===================================================
+          TOAST
+      =================================================== */}
+
+      <Toast
+        message={toast.message}
+        visible={toast.visible}
+      />
     </div>
   );
 }
+
+/* =========================================================
+   APP
+========================================================= */
 
 export default function App() {
   return (

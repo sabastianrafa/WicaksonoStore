@@ -35,211 +35,149 @@ export default function Navbar({
   };
 
   return (
-    <>
-      <style>{`
-        /* 1. Pemisah Visual: Shadow & Border diatur lebih tegas */
-        .navbar {
-          position: sticky;
-          top: 0;
-          z-index: 100;
-          background: ${scrolled ? "rgba(255, 255, 255, 0.98)" : "rgba(255,248,240,0.95)"};
-          backdrop-filter: blur(10px);
-          border-bottom: 1px solid rgba(223, 64, 31, ${scrolled ? "0.15" : "0.08"});
-          box-shadow: ${scrolled ? "0 4px 16px rgba(0,0,0,0.06)" : "none"};
-          transition: all 0.3s ease;
-        }
+    <nav
+      className={`sticky top-0 z-50 transition-all duration-300 backdrop-blur-md border-b ${
+        scrolled
+          ? "bg-white/95 border-[#DF401F]/15 shadow-[0_4px_16px_rgba(0,0,0,0.06)]"
+          : "bg-[#FFF8F0]/95 border-[#DF401F]/10"
+      }`}>
+      <div className="max-w-[1280px] mx-auto px-6">
+        <div
+          className={`flex items-center justify-between transition-all duration-300 ${
+            scrolled ? "h-[70px]" : "h-[86px]"
+          }`}>
+          {/* Logo */}
+          <img
+            src="/images/logo/wicaksono_logo_2.webp"
+            alt="Wicaksono Logo"
+            onClick={() => handleNavigate("home")}
+            className={`cursor-pointer w-auto object-contain transition-all duration-300 ${
+              scrolled ? "h-12" : "h-14"
+            }`}
+          />
 
-        .nav-container { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
-        .nav-content { display: flex; align-items: center; justify-content: space-between; height: ${scrolled ? "70px" : "86px"}; transition: height 0.3s; }
-        
-        .logo-img { height: ${scrolled ? "48px" : "56px"}; transition: 0.3s; cursor: pointer; }
-        
-        /* 2. Indikator Menu Aktif Desktop */
-        .nav-link {
-          position: relative;
-          background: none; border: none; cursor: pointer;
-          padding: 8px 12px; border-radius: 6px;
-          font-family: "Poppins", sans-serif; font-weight: 500; font-size: 0.95rem;
-          color: #374151; transition: 0.2s;
-        }
-        .nav-link:hover, .nav-link.active { color: #DF401F; }
-        .nav-link::after {
-          content: ''; position: absolute; width: 0; height: 2px;
-          bottom: 2px; left: 50%; background: #DF401F;
-          transition: all 0.3s ease; transform: translateX(-50%); border-radius: 2px;
-        }
-        .nav-link:hover::after, .nav-link.active::after { width: 60%; } /* Garis bawah elegan */
-
-        /* 3 & 4. Kerapatan Aksi & Gaya Tombol Modern */
-        .action-group { display: flex; align-items: center; gap: 16px; } /* Jarak lega antara cart & hamburger/auth */
-        .auth-group { display: flex; align-items: center; gap: 10px; } /* Jarak rapat antara tombol masuk & daftar */
-        
-        .btn { 
-          padding: 8px 20px; border-radius: 8px; /* Mengganti gaya kapsul menjadi 8px */
-          font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: 0.2s; border: none; 
-          font-family: "Poppins", sans-serif;
-        }
-        .btn-outline { background: transparent; color: #DF401F; border: 1.5px solid #DF401F; }
-        .btn-outline:hover { background: rgba(223, 64, 31, 0.05); }
-        .btn-primary { background: #DF401F; color: white; border: 1.5px solid #DF401F; }
-        .btn-primary:hover { background: #c53517; border-color: #c53517; box-shadow: 0 4px 10px rgba(223,64,31,0.2); }
-
-        /* Cart */
-        .cart-btn {
-          position: relative; background: transparent; border: none; cursor: pointer;
-          width: 42px; height: 42px;
-          display: flex; align-items: center; justify-content: center; 
-        }
-        
-        /* Tambahkan transisi khusus pada ikon (svg) di dalam tombol */
-        .cart-btn svg {
-          transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s ease;
-        }
-
-        /* Saat di-hover, ikon membesar dan warnanya berubah opsional */
-        .cart-btn:hover { background: transparent; }
-        .cart-btn:hover svg {
-          transform: scale(1.25); /* Ikon membesar 25% */
-          color: #DF401F !important; /* (Opsional) Berubah oranye saat di-hover */
-        }
-
-        .cart-badge {
-          position: absolute; top: -2px; right: -2px;
-          background: #DF401F; color: white; font-size: 0.7rem; font-weight: bold;
-          width: 20px; height: 20px; border-radius: 50%;
-          display: flex; align-items: center; justify-content: center;
-          border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        /* Hamburger Mobile */
-        .hamburger {
-          display: none; flex-direction: column; gap: 5px; background: none; border: none; cursor: pointer; padding: 6px;
-        }
-        .hamburger span {
-          display: block; width: 24px; height: 2.5px; background: #374151; border-radius: 3px; transition: 0.3s;
-        }
-        .hamburger.open span:nth-child(1) { transform: translateY(7.5px) rotate(45deg); background: #DF401F; }
-        .hamburger.open span:nth-child(2) { opacity: 0; }
-        .hamburger.open span:nth-child(3) { transform: translateY(-7.5px) rotate(-45deg); background: #DF401F; }
-
-        /* Mobile Menu */
-        .mobile-menu {
-          overflow: hidden; max-height: ${menuOpen ? "400px" : "0"}; opacity: ${menuOpen ? "1" : "0"};
-          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .mobile-menu-inner { padding: 8px 0 24px; border-top: 1px solid rgba(223,64,31,0.08); }
-        .mobile-link {
-          display: block; width: 100%; text-align: left; padding: 14px 16px; margin-bottom: 4px;
-          background: transparent; border: none; border-radius: 8px; font-weight: 500; color: #374151; font-size: 1rem;
-        }
-        .mobile-link.active { color: #DF401F; background: rgba(223,64,31,0.05); font-weight: 600; }
-
-        .flex-center { display: flex; align-items: center; gap: 8px; }
-        .mobile-only { display: none; }
-
-        @media (max-width: 768px) {
-          .desktop-only { display: none; }
-          .mobile-only { display: flex; }
-          .hamburger { display: flex; }
-        }
-      `}</style>
-
-      <nav className="navbar">
-        <div className="nav-container">
-          <div className="nav-content">
-            {/* Logo */}
-            <img
-              src="/images/logo/wicaksono_logo_2.webp"
-              alt="Wicaksono Logo"
-              className="logo-img"
-              onClick={() => handleNavigate("home")}
-            />
-
-            {/* Desktop Nav */}
-            <div className="flex-center desktop-only" style={{ gap: "12px" }}>
-              {navLinks.map(({ label, page }) => (
+          {/* Desktop Nav */}
+          <div className="hidden md:flex items-center gap-3">
+            {navLinks.map(({ label, page }) => {
+              const isActive = currentPage === page;
+              return (
                 <button
                   key={label}
                   onClick={() => handleNavigate(page)}
-                  className={`nav-link ${currentPage === page ? "active" : ""}`}>
+                  className={`group relative px-3 py-2 rounded-md font-medium text-[0.95rem] transition-colors duration-200 ${
+                    isActive
+                      ? "text-[#DF401F]"
+                      : "text-gray-700 hover:text-[#DF401F]"
+                  }`}>
                   {label}
+                  {/* Efek Garis Bawah (Underline Animasi) */}
+                  <span
+                    className={`absolute bottom-1 left-1/2 h-[2px] bg-[#DF401F] rounded-sm -translate-x-1/2 transition-all duration-300 ${
+                      isActive ? "w-[60%]" : "w-0 group-hover:w-[60%]"
+                    }`}
+                  />
                 </button>
-              ))}
-            </div>
-
-            {/* Aksi Kanan */}
-            <div className="action-group">
-              {/* Cart Button */}
-              <button
-                className="cart-btn"
-                onClick={() => handleNavigate("cart")}>
-                <FaShoppingCart size={22} color="#374151" />
-                {cartCount > 0 && (
-                  <span className="cart-badge">
-                    {cartCount > 9 ? "9+" : cartCount}
-                  </span>
-                )}
-              </button>
-
-              {/* Desktop Auth */}
-              <div className="auth-group desktop-only">
-                <button
-                  className="btn btn-outline"
-                  onClick={() => handleNavigate("login")}>
-                  Masuk
-                </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={() => handleNavigate("register")}>
-                  Daftar
-                </button>
-              </div>
-
-              {/* Mobile Hamburger */}
-              <button
-                className={`hamburger ${menuOpen ? "open" : ""}`}
-                onClick={() => setMenuOpen(!menuOpen)}>
-                <span />
-                <span />
-                <span />
-              </button>
-            </div>
+              );
+            })}
           </div>
 
-          {/* Mobile Menu Dropdown */}
-          <div className="mobile-menu">
-            <div className="mobile-menu-inner">
-              {navLinks.map(({ label, page }) => (
+          {/* Aksi Kanan */}
+          <div className="flex items-center gap-4">
+            {/* Cart Button */}
+            <button
+              onClick={() => handleNavigate("cart")}
+              className="relative flex items-center justify-center w-11 h-11 bg-transparent border-none cursor-pointer group">
+              <FaShoppingCart
+                size={22}
+                className="text-gray-700 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-125 group-hover:text-[#DF401F]"
+              />
+              {cartCount > 0 && (
+                <span className="absolute top-0 right-0 bg-[#DF401F] text-white text-[0.7rem] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+                  {cartCount > 9 ? "9+" : cartCount}
+                </span>
+              )}
+            </button>
+
+            {/* Desktop Auth */}
+            <div className="hidden md:flex items-center gap-2.5">
+              <button
+                onClick={() => handleNavigate("login")}
+                className="px-5 py-2 rounded-lg font-semibold text-sm transition-all duration-200 border-[1.5px] border-[#DF401F] text-[#DF401F] bg-transparent hover:bg-[#DF401F]/5">
+                Masuk
+              </button>
+              <button
+                onClick={() => handleNavigate("register")}
+                className="px-5 py-2 rounded-lg font-semibold text-sm transition-all duration-200 border-[1.5px] border-[#DF401F] bg-[#DF401F] text-white hover:bg-[#c53517] hover:border-[#c53517] hover:shadow-[0_4px_10px_rgba(223,64,31,0.2)]">
+                Daftar
+              </button>
+            </div>
+
+            {/* Mobile Hamburger */}
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="flex flex-col gap-[5px] p-1.5 bg-transparent border-none cursor-pointer md:hidden">
+              <span
+                className={`block w-6 h-[2.5px] rounded-sm transition-all duration-300 ${
+                  menuOpen
+                    ? "translate-y-[7.5px] rotate-45 bg-[#DF401F]"
+                    : "bg-gray-700"
+                }`}
+              />
+              <span
+                className={`block w-6 h-[2.5px] rounded-sm transition-all duration-300 bg-gray-700 ${
+                  menuOpen ? "opacity-0" : "opacity-100"
+                }`}
+              />
+              <span
+                className={`block w-6 h-[2.5px] rounded-sm transition-all duration-300 ${
+                  menuOpen
+                    ? "-translate-y-[7.5px] -rotate-45 bg-[#DF401F]"
+                    : "bg-gray-700"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Menu Dropdown */}
+        <div
+          className="md:hidden overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
+          style={{
+            maxHeight: menuOpen ? "400px" : "0",
+            opacity: menuOpen ? 1 : 0,
+          }}>
+          <div className="py-2 pb-6 border-t border-[#DF401F]/10">
+            {navLinks.map(({ label, page }) => {
+              const isActive = currentPage === page;
+              return (
                 <button
                   key={label}
                   onClick={() => handleNavigate(page)}
-                  className={`mobile-link ${currentPage === page ? "active" : ""}`}>
+                  className={`block w-full text-left px-4 py-3.5 mb-1 rounded-lg text-base transition-colors ${
+                    isActive
+                      ? "text-[#DF401F] bg-[#DF401F]/5 font-semibold"
+                      : "text-gray-700 font-medium bg-transparent"
+                  }`}>
                   {label}
                 </button>
-              ))}
-              <div
-                style={{
-                  display: "flex",
-                  gap: "12px",
-                  padding: "16px 16px 0",
-                }}>
-                <button
-                  className="btn btn-outline"
-                  style={{ flex: 1, padding: "12px" }}
-                  onClick={() => handleNavigate("login")}>
-                  Masuk
-                </button>
-                <button
-                  className="btn btn-primary"
-                  style={{ flex: 1, padding: "12px" }}
-                  onClick={() => handleNavigate("register")}>
-                  Daftar
-                </button>
-              </div>
+              );
+            })}
+
+            <div className="flex gap-3 px-4 pt-4">
+              <button
+                onClick={() => handleNavigate("login")}
+                className="flex-1 px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-200 border-[1.5px] border-[#DF401F] text-[#DF401F] bg-transparent hover:bg-[#DF401F]/5">
+                Masuk
+              </button>
+              <button
+                onClick={() => handleNavigate("register")}
+                className="flex-1 px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-200 border-[1.5px] border-[#DF401F] bg-[#DF401F] text-white hover:bg-[#c53517] hover:border-[#c53517]">
+                Daftar
+              </button>
             </div>
           </div>
         </div>
-      </nav>
-    </>
+      </div>
+    </nav>
   );
 }
