@@ -7,6 +7,7 @@ use App\Enums\UserRole;
 use App\Models\Address;
 use App\Models\Category;
 use App\Models\Order;
+use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\ShippingMethod;
 use App\Models\User;
@@ -21,6 +22,7 @@ class OrderTest extends TestCase
     protected Address $address;
     protected ShippingMethod $shippingMethod;
     protected Product $product;
+    protected PaymentMethod $paymentMethod;
 
     protected function setUp(): void
     {
@@ -44,6 +46,13 @@ class OrderTest extends TestCase
             'name' => 'Pengantaran Mandiri Test',
             'code' => 'mandiri-test',
             'cost' => 10000,
+            'is_active' => true,
+        ]);
+
+        $this->paymentMethod = PaymentMethod::create([
+            'name' => 'Transfer Bank Test',
+            'code' => 'transfer_bank',
+            'requires_proof' => true,
             'is_active' => true,
         ]);
 

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\OrderStatus;
-use App\Enums\PaymentMethod;
+use App\Models\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
@@ -34,7 +34,7 @@ class PaymentController extends Controller
         if (!$payment) {
             $payment = Payment::create([
                 'order_id' => $order->id,
-                'method' => PaymentMethod::TRANSFER_BANK,
+                'method' => PaymentMethod::first()?->code ?? 'transfer_bank',
                 'amount' => $order->total,
                 'status' => PaymentStatus::PENDING,
             ]);
@@ -76,7 +76,7 @@ class PaymentController extends Controller
                 'mimes:jpg,jpeg,png,webp',
                 'max:5120',
             ],
-            'method' => ['nullable', Rule::enum(PaymentMethod::class)],
+            'method' => ['nullable', Rule::exists('payment_methods', 'code')],
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -86,7 +86,7 @@ class PaymentController extends Controller
             $payment = new Payment([
                 'order_id' => $order->id,
                 'amount' => $order->total,
-                'method' => $validated['method'] ?? PaymentMethod::TRANSFER_BANK->value,
+                'method' => $validated['method'] ?? PaymentMethod::first()?->code,
                 'status' => PaymentStatus::PENDING,
             ]);
         }

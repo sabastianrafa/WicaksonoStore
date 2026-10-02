@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\OrderStatus;
-use App\Enums\PaymentMethod;
+use App\Models\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Address;
@@ -64,7 +64,7 @@ class OrderController extends Controller
         $validated = $request->validate([
             'address_id' => ['required', 'exists:addresses,id'],
             'shipping_method_id' => ['required', 'exists:shipping_methods,id'],
-            'payment_method' => ['sometimes', Rule::enum(PaymentMethod::class)],
+            'payment_method' => ['sometimes', Rule::exists('payment_methods', 'code')],
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -170,7 +170,7 @@ class OrderController extends Controller
                 }
 
                 // Buat Payment pending
-                $paymentMethod = $validated['payment_method'] ?? PaymentMethod::TRANSFER_BANK->value;
+                $paymentMethod = $validated['payment_method'] ?? PaymentMethod::first()?->code;
                 Payment::create([
                     'order_id' => $order->id,
                     'method' => $paymentMethod,

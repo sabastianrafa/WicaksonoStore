@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ShippingMethodController;
+use App\Http\Controllers\Api\PaymentMethodController;
 use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\OrderController;
@@ -17,6 +18,7 @@ use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Api\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Api\Admin\ShippingMethodController as AdminShippingMethodController;
+use App\Http\Controllers\Api\Admin\PaymentMethodController as AdminPaymentMethodController;
 use App\Http\Controllers\Api\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\Admin\PaymentController as AdminPaymentController;
@@ -38,9 +40,18 @@ Route::prefix('categories')->group(function () {
     Route::get('/{category}', [CategoryController::class, 'show']);
 });
 
+Route::prefix('reviews')->group(function () {
+    Route::get('/', [ReviewController::class, 'latest']);
+});
+
 Route::prefix('shipping-methods')->group(function () {
     Route::get('/', [ShippingMethodController::class, 'index']);
     Route::get('/{shippingMethod}', [ShippingMethodController::class, 'show']);
+});
+
+Route::prefix('payment-methods')->group(function () {
+    Route::get('/', [PaymentMethodController::class, 'index']);
+    Route::get('/{paymentMethod}', [PaymentMethodController::class, 'show']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -83,9 +94,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('role:admin')->prefix('admin')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index']);
-        
+
         Route::apiResource('products', AdminProductController::class);
-        
+
         Route::prefix('products/{product}/images')->group(function () {
             Route::post('/', [ProductImageController::class, 'store']);
             Route::delete('/{image}', [ProductImageController::class, 'destroy']);
@@ -95,6 +106,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('categories', AdminCategoryController::class);
 
         Route::apiResource('shipping-methods', AdminShippingMethodController::class);
+
+        Route::apiResource('payment-methods', AdminPaymentMethodController::class);
 
         Route::get('/orders', [AdminOrderController::class, 'index']);
         Route::get('/orders/{order}', [AdminOrderController::class, 'show']);

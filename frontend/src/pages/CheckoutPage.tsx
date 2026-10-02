@@ -1,8 +1,48 @@
 import { useState } from 'react';
 import { formatPrice } from '../data';
+import { storageUrl } from '../api/client';
 import type { Page } from '../App';
 
-interface CartItem { id: number; name: string; price: number; image: string; quantity: number; }
+/*
+| Bentuk item keranjang mengikuti API /api/cart, sama dengan CartPage
+| dan App. Sebelumnya bentuk datar sendiri sehingga tidak cocok dengan
+| data yang dikirim keranjang.
+*/
+interface CartItem {
+  id: number;
+  product_id: number;
+  quantity: number;
+  subtotal: number;
+  product: {
+    id: number;
+    name: string;
+    price: string | number;
+    stock: number;
+    image?: string | null;
+    images?: { id: number; path: string; url?: string; is_primary?: boolean }[];
+  };
+}
+
+/** Item tanpa `product` dilewati agar tidak error saat render. */
+const validItems = (cart: CartItem[]) =>
+  cart.filter((item) => Boolean(item?.product));
+
+/** Gambar produk, dengan fallback ke path gambar pertama. */
+const productImage = (item: CartItem): string => {
+  const p = item.product;
+
+  const url =
+    p.images?.find((i) => i.is_primary)?.url ??
+    p.images?.[0]?.url ??
+    p.image ??
+    '';
+
+  if (!url) return '';
+
+  return url.startsWith('http://') || url.startsWith('https://')
+    ? url
+    : storageUrl(url);
+}
 interface CheckoutPageProps { cart: CartItem[]; navigate: (page: Page) => void; }
 
 export default function CheckoutPage({ cart, navigate }: CheckoutPageProps) {
@@ -12,7 +52,12 @@ export default function CheckoutPage({ cart, navigate }: CheckoutPageProps) {
   const [form, setForm] = useState({ name: '', phone: '', province: '', city: '', zip: '', address: '' });
   const [success, setSuccess] = useState(false);
 
-  const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+  const items = validItems(cart);
+
+  const subtotal = items.reduce(
+    (sum, i) => sum + Number(i.product.price) * i.quantity,
+    0
+  );
   const shippingFee = { 'jne-regular': 15000, 'jne-express': 25000, 'sicepat': 12000, 'jnt': 14000 }[courier] ?? 15000;
   const total = subtotal + shippingFee;
 
@@ -175,14 +220,14 @@ export default function CheckoutPage({ cart, navigate }: CheckoutPageProps) {
           <div style={{ background: 'white', borderRadius: 14, padding: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
             <h3 style={{ margin: '0 0 16px', fontWeight: 700, color: '#1F2937' }}>Ringkasan Pesanan</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-              {cart.map(item => (
+              {items.map(item => (
                 <div key={item.id} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <img src={item.image} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', background: '#FFF8F0' }} />
+                  <img src={productImage(item)} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', background: '#FFF8F0' }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 600, color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</p>
+                    <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 600, color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.product.name}</p>
                     <p style={{ margin: 0, fontSize: '0.75rem', color: '#9CA3AF' }}>×{item.quantity}</p>
                   </div>
-                  <span style={{ fontWeight: 600, color: '#1F2937', fontSize: '0.85rem', flexShrink: 0 }}>{formatPrice(item.price * item.quantity)}</span>
+                  <span style={{ fontWeight: 600, color: '#1F2937', fontSize: '0.85rem', flexShrink: 0 }}>{formatPrice(Number(item.product.price) * item.quantity)}</span>
                 </div>
               ))}
             </div>

@@ -2,16 +2,12 @@
 
 namespace App\Models;
 
-use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Payment extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
         'order_id',
         'method',
@@ -26,7 +22,8 @@ class Payment extends Model
     protected function casts(): array
     {
         return [
-            'method' => PaymentMethod::class,
+            // method sengaja tidak di-cast ke enum: nilainya sekarang
+            // berasal dari tabel payment_methods dan bisa bertambah.
             'status' => PaymentStatus::class,
             'amount' => 'decimal:2',
             'verified_at' => 'datetime',
@@ -45,6 +42,11 @@ class Payment extends Model
     public function verifier(): BelongsTo
     {
         return $this->belongsTo(User::class, 'verified_by');
+    }
+
+    public function paymentMethod(): BelongsTo
+    {
+        return $this->belongsTo(PaymentMethod::class, 'method', 'code');
     }
 
     public function getProofUrlAttribute(): ?string

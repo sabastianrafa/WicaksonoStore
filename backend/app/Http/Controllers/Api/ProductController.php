@@ -10,19 +10,21 @@ use Illuminate\Http\Request;
 class ProductController extends Controller
 {
     /**
-     * Menampilkan daftar produk.
-     *
      * GET /api/products
      *
-     * Query yang tersedia:
+     * Query:
+     * ?page=1
+     * ?per_page=6
      * ?search=keripik
      * ?category_id=1
      * ?min_price=10000
      * ?max_price=50000
-     * ?sort=latest
-     * ?sort=price_low
-     * ?sort=price_high
-     * ?per_page=12
+     * ?min_rating=4
+     * ?sort=terlaris
+     * ?sort=termurah
+     * ?sort=termahal
+     * ?sort=rating
+     * ?sort=terbaru
      */
     public function index(Request $request): JsonResponse
     {
@@ -40,7 +42,7 @@ class ProductController extends Controller
         */
 
         if ($request->filled('search')) {
-            $search = $request->input('search');
+            $search = trim($request->input('search'));
 
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
@@ -50,20 +52,20 @@ class ProductController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | CATEGORY FILTER
+        | CATEGORY
         |--------------------------------------------------------------------------
         */
 
         if ($request->filled('category_id')) {
             $query->where(
                 'category_id',
-                $request->input('category_id')
+                (int) $request->input('category_id')
             );
         }
 
         /*
         |--------------------------------------------------------------------------
-        | PRICE FILTER
+        | PRICE
         |--------------------------------------------------------------------------
         */
 
@@ -71,7 +73,7 @@ class ProductController extends Controller
             $query->where(
                 'price',
                 '>=',
-                $request->input('min_price')
+                (int) $request->input('min_price')
             );
         }
 
@@ -79,8 +81,39 @@ class ProductController extends Controller
             $query->where(
                 'price',
                 '<=',
-                $request->input('max_price')
+                (int) $request->input('max_price')
             );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | RATING
+        |--------------------------------------------------------------------------
+        */
+
+        if ($request->filled('min_rating')) {
+            $query->where(
+                'rating',
+                '>=',
+                (float) $request->input('min_rating')
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | PROMO / DISKON
+        |--------------------------------------------------------------------------
+        |
+        | Jika discounted=1 maka hanya mengambil produk
+        | yang memiliki diskon lebih dari 0.
+        |
+        | Contoh:
+        | /api/products?discounted=1
+        |
+        */
+
+        if ($request->boolean('discounted')) {
+            $query->where('discount', '>', 0);
         }
 
         /*
@@ -89,24 +122,32 @@ class ProductController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        switch ($request->input('sort')) {
-            case 'price_low':
+        switch ($request->input('sort', 'terbaru')) {
+            case 'terlaris':
+                $query->orderByDesc('sold');
+                break;
+
+            case 'termurah':
                 $query->orderBy('price', 'asc');
                 break;
 
-            case 'price_high':
+            case 'termahal':
                 $query->orderBy('price', 'desc');
                 break;
 
-            case 'name_asc':
+            case 'rating':
+                $query->orderByDesc('rating');
+                break;
+
+            case 'nama_asc':
                 $query->orderBy('name', 'asc');
                 break;
 
-            case 'name_desc':
+            case 'nama_desc':
                 $query->orderBy('name', 'desc');
                 break;
 
-            case 'latest':
+            case 'terbaru':
             default:
                 $query->latest();
                 break;
@@ -119,11 +160,17 @@ class ProductController extends Controller
         */
 
         $perPage = min(
-            max((int) $request->input('per_page', 12), 1),
+            max((int) $request->input('per_page', 10), 1),
             100
         );
 
         $products = $query->paginate($perPage);
+
+        /*
+        |--------------------------------------------------------------------------
+        | RESPONSE
+        |--------------------------------------------------------------------------
+        */
 
         return response()->json([
             'success' => true,
@@ -135,13 +182,13 @@ class ProductController extends Controller
                 'last_page' => $products->lastPage(),
                 'per_page' => $products->perPage(),
                 'total' => $products->total(),
+                'from' => $products->firstItem(),
+                'to' => $products->lastItem(),
             ],
         ]);
     }
 
     /**
-     * Menampilkan detail produk.
-     *
      * GET /api/products/{product}
      */
     public function show(Product $product): JsonResponse

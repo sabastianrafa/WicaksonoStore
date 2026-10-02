@@ -43,6 +43,56 @@ class ReviewController extends Controller
     }
 
     /**
+     * Menampilkan ulasan terbaru dari semua produk.
+     *
+     * Dipakai halaman depan untuk bagian testimonial.
+     *
+     * GET /api/reviews
+     */
+    public function latest(Request $request): JsonResponse
+    {
+        $perPage = min(max((int) $request->input('per_page', 10), 1), 50);
+
+        $query = Review::query()
+            ->with([
+                'user' => function ($q) {
+                    // User tidak menyimpan kolom avatar, jadi pilih id + name.
+                    $q->select('id', 'name');
+                },
+                'product:id,name',
+            ]);
+
+        /*
+        | Hanya ulasan yang punya komentar supaya kartu testimonial
+        | tidak tampil kosong.
+        */
+        $query->whereNotNull('comment')
+            ->where('comment', '!=', '');
+
+        if ($request->filled('min_rating')) {
+            $query->where(
+                'rating',
+                '>=',
+                (int) $request->input('min_rating')
+            );
+        }
+
+        $reviews = $query->latest()->paginate($perPage);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Data ulasan terbaru berhasil diambil.',
+            'data' => $reviews->items(),
+            'meta' => [
+                'current_page' => $reviews->currentPage(),
+                'last_page' => $reviews->lastPage(),
+                'per_page' => $reviews->perPage(),
+                'total' => $reviews->total(),
+            ],
+        ]);
+    }
+
+    /**
      * Menambahkan ulasan produk oleh user yang telah membeli.
      *
      * POST /api/products/{product}/reviews

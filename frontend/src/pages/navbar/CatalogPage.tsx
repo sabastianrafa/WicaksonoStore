@@ -1,991 +1,1610 @@
-import { useEffect, useState } from "react";
-import { getProducts, getCategories } from "../../api/products";
-import type { Product, Category } from "../../api/products";
-import ProductCard from "../../components/ProductCard";
-import type { Page } from "../../App";
-import { formatPrice } from "../../api/products";
-import { FiSliders, FiX, FiSearch } from "react-icons/fi";
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { formatPrice } from '../../data';
+import ProductCard from '../../components/ProductCard';
+import { apiFetch, storageUrl } from '../../api/client';
+import type { Page } from '../../App';
+
+interface Product {
+  id: number;
+  name: string;
+  category: string;
+  categoryId: number;
+  price: number;
+  originalPrice: number;
+  rating: number;
+  reviews: number;
+  sold: number;
+  stock: number;
+  discount: number;
+  image: string;
+  description: string;
+  tags: string[];
+}
+
+interface CatalogCategory {
+  id: number;
+  slug: string;
+  name: string;
+  icon?: string;
+  products_count?: number;
+}
+
+interface ProductResponse {
+  success?: boolean;
+  message?: string;
+  data?: any[];
+  meta?: {
+    current_page?: number;
+    last_page?: number;
+    per_page?: number;
+    total?: number;
+    from?: number | null;
+    to?: number | null;
+  };
+}
+
+interface CategoryResponse {
+  success?: boolean;
+  data?: CatalogCategory[];
+}
 
 interface CatalogPageProps {
   navigate: (page: Page, data?: unknown) => void;
   onAddToCart: (product: unknown) => void;
 }
 
+const normalizeProduct = (item: any): Product => {
+  const imageUrl =
+    item.images?.find(
+      (img: any) => img.is_primary
+    )?.url ??
+    item.images?.[0]?.url ??
+    item.image ??
+    '';
+
+  return {
+    id: Number(item.id),
+
+    name: item.name ?? '',
+
+    categoryId: Number(
+      item.category_id ??
+      item.category?.id ??
+      0
+    ),
+
+    category:
+      item.category?.slug ??
+      item.category?.name ??
+      item.category ??
+      'lainnya',
+
+    price: Number(item.price ?? 0),
+
+    originalPrice: Number(
+      item.original_price ??
+      item.price ??
+      0
+    ),
+
+    rating: Number(
+      item.rating ??
+      item.average_rating ??
+      0
+    ),
+
+    reviews: Number(
+      item.review_count ??
+      item.reviews_count ??
+      0
+    ),
+
+    sold: Number(item.sold ?? 0),
+
+    stock: Number(item.stock ?? 0),
+
+    discount: Number(item.discount ?? 0),
+
+    image:
+      imageUrl.startsWith('http://') ||
+      imageUrl.startsWith('https://')
+        ? imageUrl
+        : storageUrl(imageUrl),
+
+    description: item.description ?? '',
+
+    tags: ['baru', 'premium'],
+  };
+};
+
 export default function CatalogPage({
   navigate,
   onAddToCart,
 }: CatalogPageProps) {
-  const [search, setSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<number | "all">(
-    "all"
+  /*
+  |--------------------------------------------------------------------------
+  | FILTER STATE
+  |--------------------------------------------------------------------------
+  */
+
+  /*
+  | HomePageinality mengirim ?kategori=<id> saat kategori diklik, jadi
+  | katalog langsung terfilter ke kategori itu.
+  */
+  const [searchParams, setSearchParams] =
+    useSearchParams();
+
+  const initialCategory = Number(
+    searchParams.get('kategori')
   );
-  const [priceRange, setPriceRange] = useState([0, 200000]);
-  const [minRating, setMinRating] = useState(0);
-  const [sortBy, setSortBy] = useState("terlaris");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [showFilters, setShowFilters] = useState(false);
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [search, setSearch] = useState('');
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] =
+    useState<number | null>(
+      Number.isFinite(initialCategory) &&
+      initialCategory > 0
+        ? initialCategory
+        : null
+    );
 
-  const perPage = 8;
+  const [priceRange, setPriceRange] =
+    useState<[number, number]>([
+      0,
+      200000,
+    ]);
 
-  /* =========================================================
-     LOAD PRODUCTS
-  ========================================================= */
+  const [minRating, setMinRating] =
+    useState(0);
 
-  async function loadProducts() {
-    try {
-      setLoading(true);
-      setError(null);
+  const [sortBy, setSortBy] =
+    useState('terlaris');
 
-      const data = await getProducts();
+  /*
+  |--------------------------------------------------------------------------
+  | PAGINATION STATE
+  |--------------------------------------------------------------------------
+  */
 
-      setProducts(data);
-      setCategories(getCategories(data));
-      setCurrentPage(1);
-    } catch (err) {
-      console.error("Gagal mengambil produk:", err);
+  const [currentPage, setCurrentPage] =
+    useState(1);
 
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Gagal mengambil data produk"
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
+  const [lastPage, setLastPage] =
+    useState(1);
+
+  const [perPage] = useState(16);
+
+  const [productList, setProductList] =
+    useState<Product[]>([]);
+
+  const [productTotal, setProductTotal] =
+    useState(0);
+
+  /*
+  |--------------------------------------------------------------------------
+  | CATEGORY STATE
+  |--------------------------------------------------------------------------
+  */
+
+  /*
+  | Awal kosong, lalu diisi dari GET /categories.
+  | Sebelumnya diinisialisasi dari variabel `categories` yang tidak pernah
+  | diimpor, sehingga halaman crash saat render.
+  */
+  const [catalogCategories, setCatalogCategories] =
+    useState<CatalogCategory[]>([]);
+
+  const [categoryCounts, setCategoryCounts] =
+    useState<Record<number, number>>({});
+
+  /*
+  | Total produk aktif = jumlah products_count per kategori.
+  | Dipakai untuk angka di "Semua Kategori" supaya tidak ikut berubah
+  | saat filter lain aktif (productTotal ikut berubah karena hasil filter).
+  */
+  const totalActiveProducts =
+    Object.values(categoryCounts).reduce(
+      (total, count) => total + count,
+      0
+    );
+
+  /*
+  |--------------------------------------------------------------------------
+  | LOADING
+  |--------------------------------------------------------------------------
+  */
+
+  const [loading, setLoading] =
+    useState(false);
+
+  /*
+  |--------------------------------------------------------------------------
+  | CATEGORY DISPLAY
+  |--------------------------------------------------------------------------
+  */
+
+  const visibleCategories =
+    catalogCategories.slice(0, 6);
+
+  const otherCategories =
+    catalogCategories.slice(6);
+
+  /*
+  |--------------------------------------------------------------------------
+  | LOAD PRODUCTS
+  |--------------------------------------------------------------------------
+  |
+  | Semua filtering dan pagination dilakukan oleh Laravel.
+  |
+  */
 
   useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        setLoading(true);
+
+        const params = new URLSearchParams();
+
+        params.set(
+          'page',
+          String(currentPage)
+        );
+
+        params.set(
+          'per_page',
+          String(perPage)
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | SEARCH
+        |--------------------------------------------------------------------------
+        */
+
+        if (search.trim()) {
+          params.set(
+            'search',
+            search.trim()
+          );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | CATEGORY
+        |--------------------------------------------------------------------------
+        */
+
+        if (selectedCategory !== null) {
+          params.set(
+            'category_id',
+            String(selectedCategory)
+          );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | PRICE
+        |--------------------------------------------------------------------------
+        */
+
+        if (priceRange[0] > 0) {
+          params.set(
+            'min_price',
+            String(priceRange[0])
+          );
+        }
+
+        if (priceRange[1] < 200000) {
+          params.set(
+            'max_price',
+            String(priceRange[1])
+          );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | RATING
+        |--------------------------------------------------------------------------
+        */
+
+        if (minRating > 0) {
+          params.set(
+            'min_rating',
+            String(minRating)
+          );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | SORT
+        |--------------------------------------------------------------------------
+        */
+
+        params.set(
+          'sort',
+          sortBy
+        );
+
+        const response =
+          await apiFetch<ProductResponse>(
+            `/products?${params.toString()}`
+          );
+
+        setProductList(
+          (response.data ?? [])
+            .map(normalizeProduct)
+        );
+
+        setProductTotal(
+          response.meta?.total ?? 0
+        );
+
+        setLastPage(
+          response.meta?.last_page ?? 1
+        );
+
+      } catch (error) {
+        console.error(
+          'Gagal memuat produk catalog:',
+          error
+        );
+
+        setProductList([]);
+        setProductTotal(0);
+        setLastPage(1);
+
+      } finally {
+        setLoading(false);
+      }
+    };
+
     loadProducts();
+
+  }, [
+    currentPage,
+    perPage,
+    search,
+    selectedCategory,
+    priceRange,
+    minRating,
+    sortBy,
+  ]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | LOAD CATEGORIES
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    const loadCategoryCounts =
+      async () => {
+        try {
+          const response =
+            await apiFetch<CategoryResponse>(
+              '/categories'
+            );
+
+          const apiCategories =
+            response.data ?? [];
+
+          setCatalogCategories(
+            apiCategories
+          );
+
+          setCategoryCounts(
+            Object.fromEntries(
+              apiCategories.map(
+                category => [
+                  category.id,
+                  category.products_count ?? 0,
+                ]
+              )
+            )
+          );
+
+        } catch (error) {
+          console.error(
+            'Gagal memuat kategori:',
+            error
+          );
+        }
+      };
+
+    loadCategoryCounts();
+
   }, []);
 
-  /* =========================================================
-     FILTER + SORT
-  ========================================================= */
-
-  const filtered = products
-    .filter((p) => {
-      const matchSearch = p.name
-        .toLowerCase()
-        .includes(search.toLowerCase());
-
-      const matchCat =
-        selectedCategory === "all" ||
-        p.categoryId === selectedCategory;
-
-      const matchPrice =
-        p.price >= priceRange[0] &&
-        p.price <= priceRange[1];
-
-      const matchRating = p.rating >= minRating;
-
-      return (
-        matchSearch &&
-        matchCat &&
-        matchPrice &&
-        matchRating
-      );
-    })
-    .sort((a, b) => {
-      if (sortBy === "terlaris") {
-        return b.sold - a.sold;
-      }
-
-      if (sortBy === "termurah") {
-        return a.price - b.price;
-      }
-
-      if (sortBy === "termahal") {
-        return b.price - a.price;
-      }
-
-      if (sortBy === "rating") {
-        return b.rating - a.rating;
-      }
-
-      return 0;
-    });
-
-  /* =========================================================
-     PAGINATION
-  ========================================================= */
-
-  const totalPages = Math.ceil(filtered.length / perPage);
-
-  const paginated = filtered.slice(
-    (currentPage - 1) * perPage,
-    currentPage * perPage
-  );
-
-  /* =========================================================
-     ACTIVE FILTER COUNT
-  ========================================================= */
-
-  const activeFilterCount =
-    (selectedCategory !== "all" ? 1 : 0) +
-    (priceRange[1] < 200000 ? 1 : 0) +
-    (minRating > 0 ? 1 : 0);
-
-  /* =========================================================
-     RESET FILTER
-  ========================================================= */
+  /*
+  |--------------------------------------------------------------------------
+  | RESET FILTER
+  |--------------------------------------------------------------------------
+  */
 
   const resetFilters = () => {
-    setSelectedCategory("all");
-    setPriceRange([0, 200000]);
+    setSearch('');
+    setSelectedCategory(null);
+
+    if (searchParams.has('kategori')) {
+      searchParams.delete('kategori');
+      setSearchParams(searchParams, {
+        replace: true,
+      });
+    }
+
+    setPriceRange([
+      0,
+      200000,
+    ]);
     setMinRating(0);
-    setSearch("");
+    setSortBy('terlaris');
     setCurrentPage(1);
   };
 
-  /* =========================================================
-     LOADING
-  ========================================================= */
+  /*
+  |--------------------------------------------------------------------------
+  | CHANGE FILTER
+  |--------------------------------------------------------------------------
+  */
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center px-6 py-20 text-center">
-        <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[#DF3F1E] border-t-transparent" />
+  const changeCategory = (
+    categoryId: number | null
+  ) => {
+    setSelectedCategory(categoryId);
+    setCurrentPage(1);
 
-        <h2 className="text-xl font-semibold tracking-wide text-gray-700">
-          Memuat produk...
-        </h2>
+    // Jaga URL tetap mencerminkan filter, supaya link bisa dibagikan.
+    if (categoryId === null) {
+      searchParams.delete('kategori');
+    } else {
+      searchParams.set(
+        'kategori',
+        String(categoryId)
+      );
+    }
 
-        <p className="mt-1 text-sm text-gray-400">
-          Mohon tunggu sebentar
-        </p>
-      </div>
-    );
-  }
+    setSearchParams(searchParams, {
+      replace: true,
+    });
+  };
 
-  /* =========================================================
-     ERROR
-  ========================================================= */
+  const changePrice = (
+    min: number,
+    max: number
+  ) => {
+    setPriceRange([
+      min,
+      max,
+    ]);
 
-  if (error) {
-    return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center px-6 py-20 text-center">
-        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-red-500 shadow-sm">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-            className="h-8 w-8"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 9v3.75m9-.75a9 9 0 1 1-18 0Zm-9 3.75h.008v.008H12v-.008Z"
-            />
-          </svg>
-        </div>
+    setCurrentPage(1);
+  };
 
-        <h2 className="text-xl font-bold text-gray-800">
-          Gagal Memuat Produk
-        </h2>
+  const changeRating = (
+    rating: number
+  ) => {
+    setMinRating(rating);
+    setCurrentPage(1);
+  };
 
-        <p className="mb-6 mt-2 max-w-sm text-sm text-gray-500">
-          Terjadi masalah saat mengambil data dari server.
-          Silakan periksa koneksi internet Anda.
-        </p>
+  const changeSort = (
+    value: string
+  ) => {
+    setSortBy(value);
+    setCurrentPage(1);
+  };
 
-        <button
-          type="button"
-          onClick={loadProducts}
-          disabled={loading}
-          className="
-            rounded-lg
-            bg-[#DF3F1E]
-            px-5
-            py-2.5
-            text-sm
-            font-medium
-            text-white
-            shadow-sm
-            transition-all
-            duration-200
-            hover:bg-[#C93618]
-            active:scale-95
-            disabled:cursor-not-allowed
-            disabled:bg-red-400
-          "
-        >
-          Coba Lagi
-        </button>
-      </div>
-    );
-  }
+  /*
+  |--------------------------------------------------------------------------
+  | PAGE NAVIGATION
+  |--------------------------------------------------------------------------
+  */
 
-  /* =========================================================
-     FILTER PANEL
-  ========================================================= */
+  const goToPage = (
+    page: number
+  ) => {
+    if (
+      page < 1 ||
+      page > lastPage ||
+      page === currentPage
+    ) {
+      return;
+    }
 
-  const filterPanel = (
-    <div
-      className="
-        rounded-[14px]
-        border
-        border-black/5
-        bg-white
-        p-6
-        shadow-[0_2px_12px_rgba(0,0,0,0.06)]
-      "
-    >
-      {/* Header */}
-      <div className="mb-5 flex items-center justify-between">
-        <h3 className="font-bold text-gray-800">
-          Filter
-        </h3>
+    setCurrentPage(page);
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={resetFilters}
-            className="
-              border-none
-              bg-transparent
-              font-[Poppins]
-              text-xs
-              text-[#DF3F1E]
-              transition-colors
-              hover:text-[#C93618]
-            "
-          >
-            Reset
-          </button>
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    });
+  };
 
-          {/* Close mobile */}
-          <button
-            onClick={() => setShowFilters(false)}
-            aria-label="Tutup filter"
-            className="
-              flex
-              h-[30px]
-              w-[30px]
-              items-center
-              justify-center
-              rounded-lg
-              bg-gray-100
-              text-gray-600
-              transition-colors
-              hover:bg-gray-200
-              min-[901px]:hidden
-            "
-          >
-            <FiX size={16} />
-          </button>
-        </div>
-      </div>
+  /*
+  |--------------------------------------------------------------------------
+  | PAGINATION NUMBERS
+  |--------------------------------------------------------------------------
+  */
 
-      {/* =====================================================
-          CATEGORY
-      ===================================================== */}
+  const getPaginationPages =
+    () => {
+      const pages: number[] = [];
 
-      <div className="mb-6">
-        <h4
-          className="
-            mb-3
-            text-[0.85rem]
-            font-bold
-            uppercase
-            tracking-[1px]
-            text-gray-700
-          "
-        >
-          Kategori
-        </h4>
+      if (lastPage <= 7) {
+        for (
+          let i = 1;
+          i <= lastPage;
+          i++
+        ) {
+          pages.push(i);
+        }
 
-        <div className="flex flex-col gap-1.5">
-          {/* All */}
-          <button
-            onClick={() => {
-              setSelectedCategory("all");
-              setCurrentPage(1);
-            }}
-            className={`
-              flex
-              w-full
-              items-center
-              justify-between
-              rounded-lg
-              border-none
-              px-2.5
-              py-2
-              text-left
-              font-[Poppins]
-              text-sm
-              transition-all
-              duration-200
+        return pages;
+      }
 
-              ${
-                selectedCategory === "all"
-                  ? "bg-[#DF3F1E]/10 font-semibold text-[#DF3F1E]"
-                  : "bg-transparent font-normal text-gray-700 hover:bg-gray-50"
-              }
-            `}
-          >
-            <span>Semua Kategori</span>
-          </button>
+      pages.push(1);
 
-          {/* Categories */}
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => {
-                setSelectedCategory(cat.id);
-                setCurrentPage(1);
-              }}
-              className={`
-                flex
-                w-full
-                items-center
-                justify-between
-                rounded-lg
-                border-none
-                px-2.5
-                py-2
-                text-left
-                font-[Poppins]
-                text-sm
-                transition-all
-                duration-200
+      if (currentPage > 4) {
+        pages.push(-1);
+      }
 
-                ${
-                  selectedCategory === cat.id
-                    ? "bg-[#DF3F1E]/10 font-semibold text-[#DF3F1E]"
-                    : "bg-transparent font-normal text-gray-700 hover:bg-gray-50"
-                }
-              `}
-            >
-              <span>
-                {cat.icon} {cat.name}
-              </span>
+      const start =
+        Math.max(
+          2,
+          currentPage - 1
+        );
 
-              <span className="text-xs text-gray-400">
-                {cat.count}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
+      const end =
+        Math.min(
+          lastPage - 1,
+          currentPage + 1
+        );
 
-      {/* =====================================================
-          PRICE
-      ===================================================== */}
+      for (
+        let i = start;
+        i <= end;
+        i++
+      ) {
+        pages.push(i);
+      }
 
-      <div className="mb-6">
-        <h4
-          className="
-            mb-3
-            text-[0.85rem]
-            font-bold
-            uppercase
-            tracking-[1px]
-            text-gray-700
-          "
-        >
-          Harga
-        </h4>
+      if (
+        currentPage <
+        lastPage - 3
+      ) {
+        pages.push(-1);
+      }
 
-        <div className="mb-3 grid grid-cols-2 gap-2">
-          {[
-            [0, 25000],
-            [25000, 50000],
-            [50000, 100000],
-            [100000, 200000],
-          ].map(([min, max]) => {
-            const active =
-              priceRange[0] === min &&
-              priceRange[1] === max;
+      pages.push(lastPage);
 
-            return (
-              <button
-                key={`${min}-${max}`}
-                onClick={() => {
-                  setPriceRange([min, max]);
-                  setCurrentPage(1);
-                }}
-                className={`
-                  rounded-md
-                  border
-                  px-1
-                  py-1.5
-                  font-[Poppins]
-                  text-[0.7rem]
-                  transition-all
+      return pages;
+    };
 
-                  ${
-                    active
-                      ? "border-[#DF3F1E] bg-[#DF3F1E]/10 text-[#DF3F1E]"
-                      : "border-gray-200 bg-white text-gray-500 hover:border-[#DF3F1E]/40"
-                  }
-                `}
-              >
-                {formatPrice(max).replace("Rp ", "")}
-              </button>
-            );
-          })}
-        </div>
-
-        <input
-          type="range"
-          min={0}
-          max={200000}
-          step={5000}
-          value={priceRange[1]}
-          onChange={(e) => {
-            setPriceRange([0, +e.target.value]);
-            setCurrentPage(1);
-          }}
-          className="
-            w-full
-            accent-[#DF3F1E]
-          "
-        />
-
-        <div className="mt-1 flex justify-between text-xs text-gray-400">
-          <span>Rp 0</span>
-          <span>{formatPrice(priceRange[1])}</span>
-        </div>
-      </div>
-
-      {/* =====================================================
-          RATING
-      ===================================================== */}
-
-      <div>
-        <h4
-          className="
-            mb-3
-            text-[0.85rem]
-            font-bold
-            uppercase
-            tracking-[1px]
-            text-gray-700
-          "
-        >
-          Rating
-        </h4>
-
-        <div className="flex flex-col gap-1.5">
-          {[4.5, 4, 3.5, 0].map((r) => (
-            <button
-              key={r}
-              onClick={() => {
-                setMinRating(r);
-                setCurrentPage(1);
-              }}
-              className={`
-                flex
-                items-center
-                gap-2
-                rounded-lg
-                border-none
-                px-2.5
-                py-1.5
-                text-left
-                font-[Poppins]
-                text-sm
-                transition-all
-
-                ${
-                  minRating === r
-                    ? "bg-[#DF3F1E]/10"
-                    : "bg-transparent hover:bg-gray-50"
-                }
-              `}
-            >
-              <span className="text-yellow-400">
-                {"★".repeat(r >= 1 ? Math.floor(r) : 5)}
-              </span>
-
-              <span className="text-gray-500">
-                {r === 0 ? "Semua" : `${r}+`}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Mobile Apply */}
-      <button
-        onClick={() => setShowFilters(false)}
-        className="
-          mt-6
-          block
-          w-full
-          rounded-[10px]
-          bg-[#DF3F1E]
-          px-3
-          py-3
-          font-[Poppins]
-          font-bold
-          text-white
-          transition-colors
-          hover:bg-[#C93618]
-          min-[901px]:hidden
-        "
-      >
-        Terapkan Filter
-      </button>
-    </div>
-  );
-
-  /* =========================================================
-     PAGE
-  ========================================================= */
+  /*
+  |--------------------------------------------------------------------------
+  | RENDER
+  |--------------------------------------------------------------------------
+  */
 
   return (
-    <div className="mx-auto max-w-[1280px] px-6 py-8">
-      {/* =====================================================
-          BREADCRUMB
-      ===================================================== */}
+    <div
+      style={{
+        maxWidth: 1280,
+        margin: '0 auto',
+        padding: '32px 24px',
+      }}
+    >
 
-      <div className="mb-6 flex items-center gap-2 text-xs text-gray-400">
+      {/* Breadcrumb */}
+
+      <div
+        style={{
+          display: 'flex',
+          gap: 8,
+          alignItems: 'center',
+          marginBottom: 24,
+          fontSize: '0.8rem',
+          color: '#9CA3AF',
+        }}
+      >
         <button
-          onClick={() => navigate("home")}
-          className="
-            border-none
-            bg-transparent
-            font-[Poppins]
-            text-xs
-            text-[#DF3F1E]
-            transition-colors
-            hover:text-[#C93618]
-          "
+          onClick={() =>
+            navigate('home')
+          }
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: '#F97316',
+            fontFamily: 'Poppins',
+            fontSize: '0.8rem',
+          }}
         >
           Beranda
         </button>
 
         <span>/</span>
 
-        <span className="font-semibold text-gray-800">
+        <span
+          style={{
+            color: '#1F2937',
+            fontWeight: 600,
+          }}
+        >
           Katalog Produk
         </span>
       </div>
 
-      {/* =====================================================
-          TITLE
-      ===================================================== */}
+      {/* Title */}
 
       <h1
-        className="
-          mb-6
-          text-[clamp(1.4rem,3vw,1.8rem)]
-          font-extrabold
-          text-gray-800
-        "
+        style={{
+          fontSize: '1.8rem',
+          fontWeight: 800,
+          color: '#1F2937',
+          margin: '0 0 24px',
+        }}
       >
         Katalog Produk
       </h1>
 
-      {/* =====================================================
-          SEARCH + SORT
-      ===================================================== */}
+      {/* Search + Sort */}
 
       <div
-        className="
-          mb-6
-          flex
-          flex-wrap
-          gap-3
-          max-[480px]:flex-col
-        "
+        style={{
+          display: 'flex',
+          gap: 12,
+          marginBottom: 24,
+          flexWrap: 'wrap',
+        }}
       >
-        {/* Mobile Filter Button */}
-        <button
-          onClick={() => setShowFilters(true)}
-          className="
-            hidden
-            h-[47px]
-            items-center
-            gap-2
-            whitespace-nowrap
-            rounded-[10px]
-            border
-            border-gray-200
-            bg-white
-            px-4
-            font-[Poppins]
-            text-sm
-            font-semibold
-            text-gray-700
-            transition-colors
-            hover:bg-gray-50
-            max-[900px]:inline-flex
-          "
+        <div
+          style={{
+            position: 'relative',
+            flex: 1,
+            minWidth: 200,
+          }}
         >
-          <FiSliders size={16} />
-
-          Filter
-
-          {activeFilterCount > 0 && (
-            <span
-              className="
-                inline-flex
-                h-[18px]
-                w-[18px]
-                items-center
-                justify-center
-                rounded-full
-                bg-[#DF3F1E]
-                text-[0.65rem]
-                text-white
-              "
-            >
-              {activeFilterCount}
-            </span>
-          )}
-        </button>
-
-        {/* Search */}
-        <div className="relative min-w-[200px] flex-1">
-          <FiSearch
-            className="
-              absolute
-              left-3
-              top-1/2
-              -translate-y-1/2
-              text-gray-400
-            "
-            size={16}
-          />
+          <span
+            style={{
+              position: 'absolute',
+              left: 12,
+              top: '50%',
+              transform:
+                'translateY(-50%)',
+              fontSize: 16,
+            }}
+          >
+            🔍
+          </span>
 
           <input
+            className="input-field"
+            style={{
+              paddingLeft: 38,
+            }}
             placeholder="Cari produk oleh-oleh..."
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
+            onChange={e => {
+              setSearch(
+                e.target.value
+              );
+
               setCurrentPage(1);
             }}
-            className="
-              h-[47px]
-              w-full
-              rounded-[10px]
-              border
-              border-gray-200
-              bg-white
-              pl-[38px]
-              pr-4
-              font-[Poppins]
-              text-sm
-              text-gray-700
-              outline-none
-              transition-all
-              placeholder:text-gray-400
-              focus:border-[#DF3F1E]
-              focus:ring-2
-              focus:ring-[#DF3F1E]/10
-            "
           />
         </div>
 
-        {/* Sort */}
         <select
+          className="input-field"
+          style={{
+            width: 'auto',
+            minWidth: 160,
+            cursor: 'pointer',
+          }}
           value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className="
-            h-[47px]
-            min-w-[160px]
-            cursor-pointer
-            rounded-[10px]
-            border
-            border-gray-200
-            bg-white
-            px-4
-            font-[Poppins]
-            text-sm
-            text-gray-700
-            outline-none
-            focus:border-[#DF3F1E]
-            focus:ring-2
-            focus:ring-[#DF3F1E]/10
-            max-[480px]:w-full
-          "
+          onChange={e =>
+            changeSort(
+              e.target.value
+            )
+          }
         >
-          <option value="terlaris">Terlaris</option>
-          <option value="termurah">Harga Terendah</option>
-          <option value="termahal">Harga Tertinggi</option>
-          <option value="rating">Rating Tertinggi</option>
+          <option value="terlaris">
+            Terlaris
+          </option>
+
+          <option value="termurah">
+            Harga Terendah
+          </option>
+
+          <option value="termahal">
+            Harga Tertinggi
+          </option>
+
+          <option value="rating">
+            Rating Tertinggi
+          </option>
+
+          <option value="terbaru">
+            Terbaru
+          </option>
         </select>
       </div>
 
-      {/* =====================================================
-          CATALOG LAYOUT
-      ===================================================== */}
+      {/* Main layout */}
 
-      <div className="grid grid-cols-[240px_1fr] items-start gap-6 max-[900px]:grid-cols-1">
-        {/* ===================================================
-            MOBILE OVERLAY
-        =================================================== */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns:
+            '240px 1fr',
+          gap: 24,
+          alignItems: 'start',
+        }}
+      >
 
-        <div
-          onClick={() => setShowFilters(false)}
-          className={`
-            fixed
-            inset-0
-            z-[55]
-            bg-black/40
-            transition-opacity
-            duration-200
-            min-[901px]:hidden
-
-            ${
-              showFilters
-                ? "pointer-events-auto opacity-100"
-                : "pointer-events-none opacity-0"
-            }
-          `}
-        />
-
-        {/* ===================================================
-            SIDEBAR
-        =================================================== */}
+        {/* SIDEBAR */}
 
         <div
-          className={`
-            sticky
-            top-[88px]
-            max-[900px]:fixed
-            max-[900px]:left-0
-            max-[900px]:top-0
-            max-[900px]:z-[60]
-            max-[900px]:h-dvh
-            max-[900px]:w-[min(320px,85vw)]
-            max-[900px]:overflow-y-auto
-            max-[900px]:bg-gray-50
-            max-[900px]:p-5
-            max-[900px]:shadow-[0_0_30px_rgba(0,0,0,0.15)]
-            max-[900px]:transition-transform
-            max-[900px]:duration-300
-
-            ${
-              showFilters
-                ? "max-[900px]:translate-x-0"
-                : "max-[900px]:-translate-x-full"
-            }
-          `}
+          style={{
+            background: 'white',
+            borderRadius: 14,
+            padding: '24px',
+            boxShadow:
+              '0 2px 12px rgba(0,0,0,0.06)',
+            border:
+              '1px solid rgba(0,0,0,0.05)',
+            position: 'sticky',
+            top: 88,
+          }}
         >
-          {filterPanel}
-        </div>
 
-        {/* ===================================================
-            PRODUCTS
-        =================================================== */}
+          {/* Filter header */}
 
-        <div>
-          {/* Result Header */}
           <div
-            className="
-              mb-4
-              flex
-              flex-wrap
-              items-center
-              justify-between
-              gap-2
-            "
+            style={{
+              display: 'flex',
+              justifyContent:
+                'space-between',
+              alignItems: 'center',
+              marginBottom: 20,
+            }}
           >
-            <p className="m-0 text-sm text-gray-500">
-              Menampilkan{" "}
-              <strong className="text-gray-800">
-                {filtered.length}
-              </strong>{" "}
-              produk
-            </p>
+            <h3
+              style={{
+                margin: 0,
+                fontWeight: 700,
+                color: '#1F2937',
+              }}
+            >
+              Filter
+            </h3>
 
-            <div className="flex flex-wrap gap-1.5">
-              {selectedCategory !== "all" && (
-                <span
-                  className="
-                    rounded-full
-                    bg-[#DF3F1E]/10
-                    px-3
-                    py-1
-                    text-xs
-                    font-semibold
-                    text-[#DF3F1E]
-                  "
-                >
-                  {
-                    categories.find(
-                      (c) => c.id === selectedCategory
-                    )?.name
-                  }{" "}
-                  ✕
+            <button
+              onClick={resetFilters}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: '#F97316',
+                fontSize: '0.8rem',
+                fontFamily: 'Poppins',
+              }}
+            >
+              Reset
+            </button>
+          </div>
+
+          {/* CATEGORY */}
+
+          <div
+            style={{
+              marginBottom: 24,
+            }}
+          >
+            <h4
+              style={{
+                margin:
+                  '0 0 12px',
+                fontSize:
+                  '0.85rem',
+                fontWeight: 700,
+                color: '#374151',
+                textTransform:
+                  'uppercase',
+                letterSpacing: 1,
+              }}
+            >
+              Kategori
+            </h4>
+
+            <div
+              style={{
+                display: 'flex',
+                flexDirection:
+                  'column',
+                gap: 6,
+              }}
+            >
+
+              <button
+                onClick={() =>
+                  changeCategory(null)
+                }
+                style={{
+                  textAlign: 'left',
+                  padding:
+                    '8px 10px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background:
+                    selectedCategory === null
+                      ? 'rgba(249,115,22,0.1)'
+                      : 'transparent',
+                  color:
+                    selectedCategory === null
+                      ? '#F97316'
+                      : '#374151',
+                  fontFamily:
+                    'Poppins',
+                  fontWeight:
+                    selectedCategory === null
+                      ? 600
+                      : 400,
+                  fontSize:
+                    '0.875rem',
+                  cursor:
+                    'pointer',
+                  display: 'flex',
+                  justifyContent:
+                    'space-between',
+                }}
+              >
+                <span>
+                  Semua Kategori
                 </span>
+
+                <span
+                  style={{
+                    fontSize:
+                      '0.75rem',
+                    color:
+                      '#9CA3AF',
+                  }}
+                >
+                  {totalActiveProducts}
+                </span>
+              </button>
+
+              {visibleCategories.map(
+                category => (
+                  <button
+                    key={category.id}
+                    onClick={() =>
+                      changeCategory(
+                        category.id
+                      )
+                    }
+                    style={{
+                      textAlign:
+                        'left',
+                      padding:
+                        '8px 10px',
+                      borderRadius:
+                        8,
+                      border:
+                        'none',
+                      background:
+                        selectedCategory ===
+                        category.id
+                          ? 'rgba(249,115,22,0.1)'
+                          : 'transparent',
+                      color:
+                        selectedCategory ===
+                        category.id
+                          ? '#F97316'
+                          : '#374151',
+                      fontFamily:
+                        'Poppins',
+                      fontWeight:
+                        selectedCategory ===
+                        category.id
+                          ? 600
+                          : 400,
+                      fontSize:
+                        '0.875rem',
+                      cursor:
+                        'pointer',
+                      display:
+                        'flex',
+                      justifyContent:
+                        'space-between',
+                      alignItems:
+                        'center',
+                    }}
+                  >
+                    <span>
+                      {category.icon}{' '}
+                      {category.name}
+                    </span>
+
+                    <span
+                      style={{
+                        fontSize:
+                          '0.75rem',
+                        color:
+                          '#9CA3AF',
+                      }}
+                    >
+                      {
+                        categoryCounts[
+                          category.id
+                        ]
+                      ?? 0}
+                    </span>
+                  </button>
+                )
+              )}
+
+              {otherCategories.length >
+                0 && (
+                <select
+                  className="input-field"
+                  value={
+                    selectedCategory ??
+                    ''
+                  }
+                  onChange={e =>
+                    changeCategory(
+                      e.target.value
+                        ? Number(
+                            e.target
+                              .value
+                          )
+                        : null
+                    )
+                  }
+                  style={{
+                    width: '100%',
+                    cursor:
+                      'pointer',
+                    fontSize:
+                      '0.875rem',
+                  }}
+                >
+                  <option value="">
+                    Lainnya
+                  </option>
+
+                  {otherCategories.map(
+                    category => (
+                      <option
+                        key={
+                          category.id
+                        }
+                        value={
+                          category.id
+                        }
+                      >
+                        {category.name} (
+                        {categoryCounts[
+                          category.id
+                        ] ?? 0}
+                        )
+                      </option>
+                    )
+                  )}
+                </select>
               )}
             </div>
           </div>
 
-          {/* =================================================
-              PRODUCT GRID
-          ================================================= */}
+          {/* PRICE */}
 
-          {paginated.length > 0 ? (
-            <div
-              className="
-                grid
-                grid-cols-[repeat(auto-fill,minmax(160px,1fr))]
-                gap-[18px]
-              "
+          <div
+            style={{
+              marginBottom: 24,
+            }}
+          >
+            <h4
+              style={{
+                margin:
+                  '0 0 12px',
+                fontSize:
+                  '0.85rem',
+                fontWeight: 700,
+                color: '#374151',
+                textTransform:
+                  'uppercase',
+                letterSpacing: 1,
+              }}
             >
-              {paginated.map((p) => (
-                <ProductCard
-                  key={p.id}
-                  product={p}
-                  navigate={navigate}
-                  onAddToCart={onAddToCart}
-                />
-              ))}
+              Harga
+            </h4>
+
+            <div
+              style={{
+                display: 'flex',
+                gap: 8,
+                marginBottom: 12,
+              }}
+            >
+              {[
+                [0, 25000],
+                [25000, 50000],
+                [50000, 100000],
+                [100000, 200000],
+              ].map(
+                ([min, max]) => (
+                  <button
+                    key={`${min}-${max}`}
+                    onClick={() =>
+                      changePrice(
+                        min,
+                        max
+                      )
+                    }
+                    style={{
+                      flex: 1,
+                      padding:
+                        '6px 2px',
+                      borderRadius:
+                        6,
+                      border:
+                        '1px solid',
+                      borderColor:
+                        priceRange[0] ===
+                          min &&
+                        priceRange[1] ===
+                          max
+                          ? '#F97316'
+                          : '#E5E7EB',
+                      background:
+                        priceRange[0] ===
+                          min &&
+                        priceRange[1] ===
+                          max
+                          ? 'rgba(249,115,22,0.1)'
+                          : 'white',
+                      color:
+                        priceRange[0] ===
+                          min &&
+                        priceRange[1] ===
+                          max
+                          ? '#F97316'
+                          : '#6B7280',
+                      fontSize:
+                        '0.7rem',
+                      fontFamily:
+                        'Poppins',
+                      cursor:
+                        'pointer',
+                    }}
+                  >
+                    {formatPrice(
+                      max
+                    ).replace(
+                      'Rp ',
+                      ''
+                    )}
+                  </button>
+                )
+              )}
             </div>
-          ) : (
-            /* =================================================
-               EMPTY STATE
-            ================================================= */
+
+            <input
+              type="range"
+              min={0}
+              max={200000}
+              step={5000}
+              value={
+                priceRange[1]
+              }
+              onChange={e =>
+                changePrice(
+                  0,
+                  Number(
+                    e.target.value
+                  )
+                )
+              }
+              style={{
+                width: '100%',
+                accentColor:
+                  '#F97316',
+              }}
+            />
 
             <div
-              className="
-                rounded-[14px]
-                bg-white
-                px-5
-                py-20
-                text-center
-              "
+              style={{
+                display: 'flex',
+                justifyContent:
+                  'space-between',
+                fontSize:
+                  '0.75rem',
+                color:
+                  '#9CA3AF',
+                marginTop: 4,
+              }}
             >
-              <div className="mb-4 text-[64px]">
+              <span>
+                Rp 0
+              </span>
+
+              <span>
+                {formatPrice(
+                  priceRange[1]
+                )}
+              </span>
+            </div>
+          </div>
+
+          {/* RATING */}
+
+          <div>
+            <h4
+              style={{
+                margin:
+                  '0 0 12px',
+                fontSize:
+                  '0.85rem',
+                fontWeight: 700,
+                color: '#374151',
+                textTransform:
+                  'uppercase',
+                letterSpacing: 1,
+              }}
+            >
+              Rating
+            </h4>
+
+            <div
+              style={{
+                display: 'flex',
+                flexDirection:
+                  'column',
+                gap: 6,
+              }}
+            >
+              {[4.5, 4, 3.5, 0].map(
+                rating => (
+                  <button
+                    key={rating}
+                    onClick={() =>
+                      changeRating(
+                        rating
+                      )
+                    }
+                    style={{
+                      display:
+                        'flex',
+                      alignItems:
+                        'center',
+                      gap: 8,
+                      padding:
+                        '6px 10px',
+                      borderRadius:
+                        8,
+                      border:
+                        'none',
+                      background:
+                        minRating ===
+                        rating
+                          ? 'rgba(249,115,22,0.1)'
+                          : 'transparent',
+                      cursor:
+                        'pointer',
+                      fontFamily:
+                        'Poppins',
+                      fontSize:
+                        '0.85rem',
+                      color:
+                        '#374151',
+                    }}
+                  >
+                    <span
+                      style={{
+                        color:
+                          '#FACC15',
+                      }}
+                    >
+                      {'★'.repeat(
+                        rating >=
+                          1
+                          ? Math.floor(
+                              rating
+                            )
+                          : 5
+                      )}
+                    </span>
+
+                    <span
+                      style={{
+                        color:
+                          '#6B7280',
+                      }}
+                    >
+                      {rating === 0
+                        ? 'Semua'
+                        : `${rating}+`}
+                    </span>
+                  </button>
+                )
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* PRODUCT CONTENT */}
+
+        <div>
+
+          {/* Result info */}
+
+          <div
+            style={{
+              display: 'flex',
+              justifyContent:
+                'space-between',
+              alignItems:
+                'center',
+              marginBottom: 16,
+              flexWrap: 'wrap',
+              gap: 8,
+            }}
+          >
+            <p
+              style={{
+                margin: 0,
+                color: '#6B7280',
+                fontSize:
+                  '0.875rem',
+              }}
+            >
+              Menampilkan{' '}
+
+              <strong
+                style={{
+                  color:
+                    '#1F2937',
+                }}
+              >
+                {productTotal}
+              </strong>{' '}
+              produk
+            </p>
+
+            {selectedCategory !==
+              null && (
+              <button
+                onClick={() =>
+                  changeCategory(null)
+                }
+                title={
+                  'Hapus filter kategori'
+                }
+                style={{
+                  background:
+                    'rgba(249,115,22,0.1)',
+                  color:
+                    '#F97316',
+                  border: 'none',
+                  borderRadius:
+                    100,
+                  padding:
+                    '4px 12px',
+                  fontSize:
+                    '0.78rem',
+                  fontWeight: 600,
+                  fontFamily:
+                    'Poppins',
+                  cursor:
+                    'pointer',
+                }}
+              >
+                {
+                  catalogCategories.find(
+                    category =>
+                      category.id ===
+                      selectedCategory
+                  )?.name
+                }{' '}
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Loading */}
+
+          {loading ? (
+            <div
+              style={{
+                display:
+                  'grid',
+                gridTemplateColumns:
+                  'repeat(auto-fill, minmax(200px, 1fr))',
+                gap: 18,
+              }}
+            >
+              {Array.from({
+                length: perPage,
+              }).map(
+                (_, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      height: 310,
+                      background:
+                        'white',
+                      borderRadius:
+                        14,
+                      border:
+                        '1px solid #F3F4F6',
+                      animation:
+                        'pulse 1.5s infinite',
+                    }}
+                  />
+                )
+              )}
+            </div>
+          ) : productList.length >
+            0 ? (
+            <>
+              {/* PRODUCT GRID */}
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(auto-fill, minmax(200px, 1fr))',
+                  gap: 18,
+                }}
+              >
+                {productList.map(
+                  product => (
+                    <ProductCard
+                      key={
+                        product.id
+                      }
+                      product={
+                        product
+                      }
+                      navigate={
+                        navigate
+                      }
+                      onAddToCart={
+                        onAddToCart as (
+                          product: unknown
+                        ) => void
+                      }
+                    />
+                  )
+                )}
+              </div>
+
+              {/* PAGINATION */}
+
+              {lastPage > 1 && (
+                <div
+                  style={{
+                    display:
+                      'flex',
+                    justifyContent:
+                      'center',
+                    alignItems:
+                      'center',
+                    gap: 6,
+                    marginTop: 32,
+                  }}
+                >
+                  {/* PREVIOUS */}
+
+                  <button
+                    onClick={() =>
+                      goToPage(
+                        currentPage -
+                          1
+                      )
+                    }
+                    disabled={
+                      currentPage ===
+                      1
+                    }
+                    style={{
+                      padding:
+                        '8px 14px',
+                      borderRadius:
+                        8,
+                      border:
+                        '1px solid #E5E7EB',
+                      background:
+                        'white',
+                      cursor:
+                        currentPage ===
+                        1
+                          ? 'not-allowed'
+                          : 'pointer',
+                      color:
+                        currentPage ===
+                        1
+                          ? '#D1D5DB'
+                          : '#374151',
+                      fontFamily:
+                        'Poppins',
+                    }}
+                  >
+                    ←
+                  </button>
+
+                  {/* PAGE NUMBERS */}
+
+                  {getPaginationPages().map(
+                    (
+                      page,
+                      index
+                    ) =>
+                      page === -1 ? (
+                        <span
+                          key={`ellipsis-${index}`}
+                          style={{
+                            width: 36,
+                            textAlign:
+                              'center',
+                            color:
+                              '#9CA3AF',
+                          }}
+                        >
+                          ...
+                        </span>
+                      ) : (
+                        <button
+                          key={
+                            page
+                          }
+                          onClick={() =>
+                            goToPage(
+                              page
+                            )
+                          }
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius:
+                              8,
+                            border:
+                              '1px solid',
+                            borderColor:
+                              currentPage ===
+                              page
+                                ? '#F97316'
+                                : '#E5E7EB',
+                            background:
+                              currentPage ===
+                              page
+                                ? '#F97316'
+                                : 'white',
+                            color:
+                              currentPage ===
+                              page
+                                ? 'white'
+                                : '#374151',
+                            cursor:
+                              'pointer',
+                            fontFamily:
+                              'Poppins',
+                            fontWeight:
+                              currentPage ===
+                              page
+                                ? 700
+                                : 400,
+                          }}
+                        >
+                          {page}
+                        </button>
+                      )
+                  )}
+
+                  {/* NEXT */}
+
+                  <button
+                    onClick={() =>
+                      goToPage(
+                        currentPage +
+                          1
+                      )
+                    }
+                    disabled={
+                      currentPage ===
+                      lastPage
+                    }
+                    style={{
+                      padding:
+                        '8px 14px',
+                      borderRadius:
+                        8,
+                      border:
+                        '1px solid #E5E7EB',
+                      background:
+                        'white',
+                      cursor:
+                        currentPage ===
+                        lastPage
+                          ? 'not-allowed'
+                          : 'pointer',
+                      color:
+                        currentPage ===
+                        lastPage
+                          ? '#D1D5DB'
+                          : '#374151',
+                      fontFamily:
+                        'Poppins',
+                    }}
+                  >
+                    →
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            /* EMPTY */
+
+            <div
+              style={{
+                textAlign:
+                  'center',
+                padding:
+                  '80px 20px',
+                background:
+                  'white',
+                borderRadius:
+                  14,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 64,
+                  marginBottom: 16,
+                }}
+              >
                 🔍
               </div>
 
-              <h3 className="mb-2 text-lg font-semibold text-gray-800">
-                Produk tidak ditemukan
+              <h3
+                style={{
+                  color:
+                    '#1F2937',
+                  margin:
+                    '0 0 8px',
+                }}
+              >
+                Produk tidak
+                ditemukan
               </h3>
 
-              <p className="mb-5 text-sm text-gray-400">
-                Coba kata kunci lain atau ubah filter
+              <p
+                style={{
+                  color:
+                    '#9CA3AF',
+                  margin:
+                    '0 0 20px',
+                }}
+              >
+                Coba kata kunci
+                lain atau ubah
+                filter
               </p>
 
               <button
-                onClick={resetFilters}
-                className="
-                  rounded-lg
-                  bg-[#DF3F1E]
-                  px-6
-                  py-2.5
-                  font-[Poppins]
-                  text-sm
-                  font-semibold
-                  text-white
-                  transition-all
-                  duration-200
-                  hover:bg-[#C93618]
-                  active:scale-95
-                "
+                className="btn-primary"
+                onClick={
+                  resetFilters
+                }
+                style={{
+                  padding:
+                    '10px 24px',
+                }}
               >
                 Reset Filter
-              </button>
-            </div>
-          )}
-
-          {/* =================================================
-              PAGINATION
-          ================================================= */}
-
-          {totalPages > 1 && (
-            <div
-              className="
-                mt-8
-                flex
-                flex-wrap
-                justify-center
-                gap-1.5
-              "
-            >
-              {/* Previous */}
-              <button
-                onClick={() =>
-                  setCurrentPage((p) => Math.max(1, p - 1))
-                }
-                disabled={currentPage === 1}
-                className={`
-                  rounded-lg
-                  border
-                  border-gray-200
-                  bg-white
-                  px-3.5
-                  py-2
-                  font-[Poppins]
-                  transition-all
-
-                  ${
-                    currentPage === 1
-                      ? "cursor-not-allowed text-gray-300"
-                      : "text-gray-700 hover:border-[#DF3F1E] hover:text-[#DF3F1E]"
-                  }
-                `}
-              >
-                ←
-              </button>
-
-              {/* Page Numbers */}
-              {Array.from(
-                { length: totalPages },
-                (_, i) => i + 1
-              ).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setCurrentPage(p)}
-                  className={`
-                    h-9
-                    w-9
-                    rounded-lg
-                    border
-                    font-[Poppins]
-                    text-sm
-                    transition-all
-
-                    ${
-                      currentPage === p
-                        ? "border-[#DF3F1E] bg-[#DF3F1E] font-bold text-white"
-                        : "border-gray-200 bg-white text-gray-700 hover:border-[#DF3F1E] hover:text-[#DF3F1E]"
-                    }
-                  `}
-                >
-                  {p}
-                </button>
-              ))}
-
-              {/* Next */}
-              <button
-                onClick={() =>
-                  setCurrentPage((p) =>
-                    Math.min(totalPages, p + 1)
-                  )
-                }
-                disabled={currentPage === totalPages}
-                className={`
-                  rounded-lg
-                  border
-                  border-gray-200
-                  bg-white
-                  px-3.5
-                  py-2
-                  font-[Poppins]
-                  transition-all
-
-                  ${
-                    currentPage === totalPages
-                      ? "cursor-not-allowed text-gray-300"
-                      : "text-gray-700 hover:border-[#DF3F1E] hover:text-[#DF3F1E]"
-                  }
-                `}
-              >
-                →
               </button>
             </div>
           )}

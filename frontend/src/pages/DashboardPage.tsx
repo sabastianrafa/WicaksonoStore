@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { orders, formatPrice } from '../data';
+import { formatPrice } from '../data';
 import type { Page } from '../App';
 
 export default function DashboardPage({ navigate }: { navigate: (page: Page) => void }) {
