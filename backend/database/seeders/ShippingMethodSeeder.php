@@ -47,9 +47,9 @@ class ShippingMethodSeeder extends Seeder
                 'sort_order' => 4,
             ],
             [
-                'name' => 'Instant Delivery',
+                'name' => 'GoSend',
                 'code' => 'INSTANT',
-                'description' => 'Pengiriman instan untuk wilayah yang tersedia.',
+                'description' => 'Pengiriman GoSend untuk Kota Malang.',
                 'cost' => 25000,
                 'estimated_days' => 'Hari yang sama',
                 'is_active' => true,
@@ -64,10 +64,22 @@ class ShippingMethodSeeder extends Seeder
                 'is_active' => true,
                 'sort_order' => 6,
             ],
+            [
+                'name' => 'Lion Parcel',
+                'code' => 'LION_PARCEL',
+                'description' => 'Pengiriman ke luar Pulau Jawa.',
+                'cost' => 30000,
+                'estimated_days' => '3-5 hari',
+                'is_active' => true,
+                'sort_order' => 7,
+            ],
         ];
 
         foreach ($shippingMethods as $shippingMethod) {
-            ShippingMethod::create($shippingMethod);
+            ShippingMethod::firstOrCreate(
+                ['code' => $shippingMethod['code']],
+                $shippingMethod
+            );
         }
     }
 }

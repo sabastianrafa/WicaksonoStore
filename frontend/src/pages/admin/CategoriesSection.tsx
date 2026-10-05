@@ -40,23 +40,6 @@ export default function CategoriesSection({ categories, onEdit, onDelete }: Prop
                 opacity: category.is_active ? 1 : 0.6,
               }}
             >
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 10,
-                  background: `${category.color ?? '#F97316'}1A`,
-                  color: category.color ?? '#F97316',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 18,
-                  flexShrink: 0,
-                }}
-              >
-                {category.icon ?? '🏷️'}
-              </div>
-
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontWeight: 700, color: '#1F2937' }}>{category.name}</div>
                 <div style={{ color: '#9CA3AF', fontSize: '0.72rem' }}>

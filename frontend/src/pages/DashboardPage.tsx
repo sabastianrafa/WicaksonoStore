@@ -1,10 +1,119 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { formatPrice } from '../data';
 import type { Page } from '../App';
+import { apiFetch } from '../api/client';
+
+interface ProfileFields {
+  name: string;
+  email: string;
+  phone: string;
+}
+
+interface ProfileResponse {
+  success: boolean;
+  data: {
+    user: {
+      id: number;
+      name: string;
+      email: string;
+      phone?: string | null;
+      role: string;
+    };
+  };
+}
 
 export default function DashboardPage({ navigate }: { navigate: (page: Page) => void }) {
   const [activeMenu, setActiveMenu] = useState('profil');
   const [wishlist] = useState([1, 4, 6]);
+  const [profile, setProfile] = useState<ProfileFields>({
+    name: localStorage.getItem('userName') ?? '',
+    email: localStorage.getItem('userEmail') ?? '',
+    phone: localStorage.getItem('userPhone') ?? '',
+  });
+  const [profileForm, setProfileForm] = useState(profile);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    apiFetch<ProfileResponse>('/auth/me')
+      .then(({ data }) => {
+        if (cancelled) return;
+
+        const currentProfile = {
+          name: data.user.name ?? '',
+          email: data.user.email ?? '',
+          phone: data.user.phone ?? '',
+        };
+
+        setProfile(currentProfile);
+        setProfileForm(currentProfile);
+        localStorage.setItem('userName', currentProfile.name);
+        localStorage.setItem('userEmail', currentProfile.email);
+        localStorage.setItem('userPhone', currentProfile.phone);
+        localStorage.setItem('user', JSON.stringify(data.user));
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setProfileError(error instanceof Error ? error.message : 'Gagal memuat profil.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingProfile(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const beginProfileEdit = () => {
+    setProfileForm(profile);
+    setProfileError('');
+    setProfileSuccess('');
+    setEditingProfile(true);
+  };
+
+  const saveProfile = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSavingProfile(true);
+    setProfileError('');
+    setProfileSuccess('');
+
+    try {
+      const response = await apiFetch<ProfileResponse>('/auth/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: profileForm.name.trim(),
+          email: profileForm.email.trim(),
+          phone: profileForm.phone.trim() || null,
+        }),
+      });
+
+      const updatedProfile = {
+        name: response.data.user.name,
+        email: response.data.user.email,
+        phone: response.data.user.phone ?? '',
+      };
+
+      setProfile(updatedProfile);
+      setProfileForm(updatedProfile);
+      localStorage.setItem('userName', updatedProfile.name);
+      localStorage.setItem('userEmail', updatedProfile.email);
+      localStorage.setItem('userPhone', updatedProfile.phone);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+      setEditingProfile(false);
+      setProfileSuccess('Profil berhasil diperbarui.');
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : 'Gagal memperbarui profil.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const statusColor = (s: string) => ({
     selesai: { bg: '#DCFCE7', text: '#16A34A' },
@@ -27,10 +136,10 @@ export default function DashboardPage({ navigate }: { navigate: (page: Page) => 
         {/* Profile header */}
         <div style={{ background: 'linear-gradient(135deg, #F97316, #EA6C0A)', padding: '24px', textAlign: 'center' }}>
           <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', border: '3px solid white', margin: '0 auto 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>👤</div>
-          <div style={{ color: 'white', fontWeight: 700, fontSize: '1rem' }}>Siti Rahayu</div>
-          <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.8rem' }}>siti@email.com</div>
+          <div style={{ color: 'white', fontWeight: 700, fontSize: '1rem' }}>{profile.name || 'Customer'}</div>
+          <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.8rem' }}>{profile.email || ' '}</div>
           <div style={{ marginTop: 10, background: 'rgba(255,255,255,0.2)', borderRadius: 100, padding: '4px 12px', display: 'inline-block', fontSize: '0.75rem', color: 'white', fontWeight: 600 }}>
-            ⭐ Member Gold
+            Profil Customer
           </div>
         </div>
 
@@ -67,35 +176,96 @@ export default function DashboardPage({ navigate }: { navigate: (page: Page) => 
       <div>
         {activeMenu === 'profil' && (
           <div style={{ background: 'white', borderRadius: 14, padding: '28px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-            <h2 style={{ margin: '0 0 24px', fontWeight: 800, color: '#1F2937' }}>Profil Saya</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              {[
-                { label: 'Nama Lengkap', value: 'Siti Rahayu' },
-                { label: 'Email', value: 'siti@email.com' },
-                { label: 'Nomor HP', value: '0812-3456-7890' },
-                { label: 'Tanggal Lahir', value: '15 Maret 1992' },
-              ].map(({ label, value }) => (
-                <div key={label}>
-                  <label style={{ display: 'block', fontWeight: 600, fontSize: '0.82rem', color: '#6B7280', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</label>
-                  <input className="input-field" defaultValue={value} />
-                </div>
-              ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+              <h2 style={{ margin: 0, fontWeight: 800, color: '#1F2937' }}>Profil Saya</h2>
+              {!editingProfile && (
+                <button className="btn-outline" onClick={beginProfileEdit} style={{ padding: '9px 16px' }}>
+                  Edit Profil
+                </button>
+              )}
             </div>
-            <div style={{ marginTop: 16 }}>
-              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.82rem', color: '#6B7280', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Jenis Kelamin</label>
-              <div style={{ display: 'flex', gap: 10 }}>
-                {['Perempuan', 'Laki-laki'].map(g => (
-                  <label key={g} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '10px 16px', borderRadius: 8, border: `1.5px solid ${g === 'Perempuan' ? '#F97316' : '#E5E7EB'}`, background: g === 'Perempuan' ? 'rgba(249,115,22,0.05)' : 'white' }}>
-                    <input type="radio" name="gender" defaultChecked={g === 'Perempuan'} style={{ accentColor: '#F97316' }} />
-                    <span style={{ fontSize: '0.875rem', fontWeight: 500, color: '#374151' }}>{g}</span>
+
+            {profileError && (
+              <div style={{ marginBottom: 16, padding: '10px 12px', borderRadius: 8, background: '#FEF2F2', color: '#B91C1C', fontSize: '0.85rem' }}>
+                {profileError}
+              </div>
+            )}
+            {profileSuccess && (
+              <div style={{ marginBottom: 16, padding: '10px 12px', borderRadius: 8, background: '#F0FDF4', color: '#15803D', fontSize: '0.85rem' }}>
+                {profileSuccess}
+              </div>
+            )}
+
+            {loadingProfile ? (
+              <div style={{ padding: '32px 0', color: '#6B7280' }}>Memuat profil...</div>
+            ) : editingProfile ? (
+              <form onSubmit={saveProfile}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+                  <label style={{ display: 'block', fontWeight: 600, fontSize: '0.82rem', color: '#6B7280' }}>
+                    Nama Lengkap
+                    <input
+                      className="input-field"
+                      value={profileForm.name}
+                      onChange={(event) => setProfileForm((current) => ({ ...current, name: event.target.value }))}
+                      required
+                      style={{ display: 'block', marginTop: 6 }}
+                    />
                   </label>
+                  <label style={{ display: 'block', fontWeight: 600, fontSize: '0.82rem', color: '#6B7280' }}>
+                    Email
+                    <input
+                      className="input-field"
+                      type="email"
+                      value={profileForm.email}
+                      onChange={(event) => setProfileForm((current) => ({ ...current, email: event.target.value }))}
+                      required
+                      style={{ display: 'block', marginTop: 6 }}
+                    />
+                  </label>
+                  <label style={{ display: 'block', fontWeight: 600, fontSize: '0.82rem', color: '#6B7280' }}>
+                    Nomor HP
+                    <input
+                      className="input-field"
+                      type="tel"
+                      value={profileForm.phone}
+                      onChange={(event) => setProfileForm((current) => ({ ...current, phone: event.target.value }))}
+                      style={{ display: 'block', marginTop: 6 }}
+                    />
+                  </label>
+                </div>
+                <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={() => {
+                      setProfileForm(profile);
+                      setProfileError('');
+                      setEditingProfile(false);
+                    }}
+                    disabled={savingProfile}
+                    style={{ padding: '11px 20px' }}
+                  >
+                    Batal
+                  </button>
+                  <button type="submit" className="btn-primary" disabled={savingProfile} style={{ padding: '11px 24px' }}>
+                    {savingProfile ? 'Menyimpan...' : 'Simpan Perubahan'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+                {[
+                  { label: 'Nama Lengkap', value: profile.name },
+                  { label: 'Email', value: profile.email },
+                  { label: 'Nomor HP', value: profile.phone },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ padding: '14px 0', borderBottom: '1px solid #F3F4F6' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#6B7280', fontWeight: 600, marginBottom: 6 }}>{label}</div>
+                    <div style={{ color: '#1F2937', fontWeight: 600 }}>{value || '-'}</div>
+                  </div>
                 ))}
               </div>
-            </div>
-            <div style={{ marginTop: 24, display: 'flex', gap: 10 }}>
-              <button className="btn-primary" style={{ padding: '12px 28px' }}>Simpan Perubahan</button>
-              <button className="btn-outline" style={{ padding: '12px 20px' }}>Ganti Password</button>
-            </div>
+            )}
           </div>
         )}
 

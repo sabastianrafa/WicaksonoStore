@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -143,6 +144,37 @@ class AuthController extends Controller
             'message' => 'Data user berhasil diambil.',
             'data' => [
                 'user' => $this->userData($user),
+            ],
+        ]);
+    }
+
+    /**
+     * Memperbarui profil user yang sedang login.
+     *
+     * PATCH /api/auth/profile
+     */
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($user->id),
+            ],
+            'phone' => ['nullable', 'string', 'max:20'],
+        ]);
+
+        $user->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profil berhasil diperbarui.',
+            'data' => [
+                'user' => $this->userData($user->fresh()),
             ],
         ]);
     }

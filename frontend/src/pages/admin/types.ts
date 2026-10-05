@@ -11,8 +11,6 @@ export interface Category {
   id: number;
   name: string;
   slug?: string;
-  icon?: string | null;
-  color?: string | null;
   is_active: boolean;
   products_count: number;
 }
@@ -155,6 +153,8 @@ export interface DashboardProduct {
   price: number;
   stock: number;
   sold: number;
+  buyers_count: number;
+  purchase_percentage: number;
   rating: number;
   image: string;
 }
@@ -184,6 +184,9 @@ export interface ProductReport {
 
 export interface SalesChartItem {
   month: string;
+  monthNumber: number;
+  year: number;
+  label: string;
   revenue: number;
   orders: number;
 }

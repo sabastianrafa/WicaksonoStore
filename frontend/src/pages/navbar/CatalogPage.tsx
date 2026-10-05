@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { FaSearch, FaStar, FaChevronLeft, FaChevronRight, FaTimes } from 'react-icons/fa';
 import { formatPrice } from '../../data';
 import ProductCard from '../../components/ProductCard';
 import { apiFetch, storageUrl } from '../../api/client';
@@ -26,7 +27,6 @@ interface CatalogCategory {
   id: number;
   slug: string;
   name: string;
-  icon?: string;
   products_count?: number;
 }
 
@@ -587,26 +587,136 @@ export default function CatalogPage({
   */
 
   return (
-    <div
-      style={{
-        maxWidth: 1280,
-        margin: '0 auto',
-        padding: '32px 24px',
-      }}
-    >
+    <div className="catalog-page">
+      <style>{`
+        .catalog-page {
+          max-width: 1280px;
+          margin: 0 auto;
+          padding: 32px 24px;
+          box-sizing: border-box;
+          width: 100%;
+        }
+        .catalog-layout {
+          display: grid;
+          grid-template-columns: 240px minmax(0, 1fr);
+          gap: 24px;
+          align-items: start;
+        }
+        .catalog-sidebar {
+          min-width: 0;
+          position: sticky;
+          top: 88px;
+        }
+        .catalog-search-row {
+          display: flex;
+          gap: 12px;
+          margin-bottom: 24px;
+          flex-wrap: wrap;
+        }
+        .catalog-search-input {
+          padding-left: 40px !important;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .catalog-sort {
+          width: auto;
+          min-width: 160px;
+        }
+        .catalog-price-options {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+          margin-bottom: 12px;
+        }
+        .catalog-price-button {
+          min-width: 0;
+          width: 100%;
+          min-height: 38px;
+          padding: 8px 6px;
+          overflow-wrap: anywhere;
+          white-space: normal;
+          line-height: 1.25;
+          box-sizing: border-box;
+        }
+        .catalog-product-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 18px;
+        }
+        .catalog-breadcrumb {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          margin-bottom: 24px;
+          font-size: .8rem;
+          color: #9CA3AF;
+          flex-wrap: wrap;
+        }
+        .catalog-pagination {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 32px;
+        }
+        @media (max-width: 760px) {
+          .catalog-page {
+            padding: 20px 12px;
+          }
+          .catalog-layout {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 18px;
+          }
+          .catalog-sidebar {
+            position: static;
+            top: auto;
+            padding: 16px !important;
+          }
+          .catalog-search-row {
+            gap: 10px;
+            margin-bottom: 18px;
+          }
+          .catalog-search-input {
+            min-width: 0 !important;
+          }
+          .catalog-sort {
+            width: 100%;
+            min-width: 0;
+          }
+          .catalog-product-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+          }
+          .catalog-breadcrumb {
+            margin-bottom: 16px;
+          }
+          .catalog-title {
+            font-size: 1.45rem !important;
+            margin-bottom: 18px !important;
+          }
+          .catalog-pagination button {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+          }
+        }
+        @media (max-width: 360px) {
+          .catalog-page {
+            padding-left: 8px;
+            padding-right: 8px;
+          }
+          .catalog-product-grid {
+            gap: 8px;
+          }
+          .catalog-price-button {
+            font-size: .68rem !important;
+          }
+        }
+      `}</style>
 
       {/* Breadcrumb */}
 
-      <div
-        style={{
-          display: 'flex',
-          gap: 8,
-          alignItems: 'center',
-          marginBottom: 24,
-          fontSize: '0.8rem',
-          color: '#9CA3AF',
-        }}
-      >
+      <div className="catalog-breadcrumb">
         <button
           onClick={() =>
             navigate('home')
@@ -638,6 +748,7 @@ export default function CatalogPage({
       {/* Title */}
 
       <h1
+        className="catalog-title"
         style={{
           fontSize: '1.8rem',
           fontWeight: 800,
@@ -650,14 +761,7 @@ export default function CatalogPage({
 
       {/* Search + Sort */}
 
-      <div
-        style={{
-          display: 'flex',
-          gap: 12,
-          marginBottom: 24,
-          flexWrap: 'wrap',
-        }}
-      >
+      <div className="catalog-search-row">
         <div
           style={{
             position: 'relative',
@@ -675,14 +779,12 @@ export default function CatalogPage({
               fontSize: 16,
             }}
           >
-            🔍
+            <FaSearch aria-hidden="true" />
           </span>
 
           <input
-            className="input-field"
-            style={{
-              paddingLeft: 38,
-            }}
+            className="input-field catalog-search-input"
+            style={{}}
             placeholder="Cari produk oleh-oleh..."
             value={search}
             onChange={e => {
@@ -696,12 +798,8 @@ export default function CatalogPage({
         </div>
 
         <select
-          className="input-field"
-          style={{
-            width: 'auto',
-            minWidth: 160,
-            cursor: 'pointer',
-          }}
+          className="input-field catalog-sort"
+          style={{ cursor: 'pointer' }}
           value={sortBy}
           onChange={e =>
             changeSort(
@@ -733,29 +831,18 @@ export default function CatalogPage({
 
       {/* Main layout */}
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns:
-            '240px 1fr',
-          gap: 24,
-          alignItems: 'start',
-        }}
-      >
+      <div className="catalog-layout">
 
         {/* SIDEBAR */}
 
         <div
+          className="catalog-sidebar"
           style={{
             background: 'white',
             borderRadius: 14,
             padding: '24px',
-            boxShadow:
-              '0 2px 12px rgba(0,0,0,0.06)',
-            border:
-              '1px solid rgba(0,0,0,0.05)',
-            position: 'sticky',
-            top: 88,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+            border: '1px solid rgba(0,0,0,0.05)',
           }}
         >
 
@@ -923,10 +1010,7 @@ export default function CatalogPage({
                         'center',
                     }}
                   >
-                    <span>
-                      {category.icon}{' '}
-                      {category.name}
-                    </span>
+                      <span>{category.name}</span>
 
                     <span
                       style={{
@@ -1022,13 +1106,7 @@ export default function CatalogPage({
               Harga
             </h4>
 
-            <div
-              style={{
-                display: 'flex',
-                gap: 8,
-                marginBottom: 12,
-              }}
-            >
+            <div className="catalog-price-options">
               {[
                 [0, 25000],
                 [25000, 50000],
@@ -1044,12 +1122,9 @@ export default function CatalogPage({
                         max
                       )
                     }
+                    className="catalog-price-button"
                     style={{
-                      flex: 1,
-                      padding:
-                        '6px 2px',
-                      borderRadius:
-                        6,
+                      borderRadius: 6,
                       border:
                         '1px solid',
                       borderColor:
@@ -1081,12 +1156,9 @@ export default function CatalogPage({
                         'pointer',
                     }}
                   >
-                    {formatPrice(
-                      max
-                    ).replace(
-                      'Rp ',
-                      ''
-                    )}
+                    {min === 0
+                      ? `≤ ${formatPrice(max)}`
+                      : `${formatPrice(min)}–${formatPrice(max)}`}
                   </button>
                 )
               )}
@@ -1204,18 +1276,18 @@ export default function CatalogPage({
                   >
                     <span
                       style={{
-                        color:
-                          '#FACC15',
+                        color: '#FACC15',
+                        display: 'inline-flex',
+                        gap: 2,
                       }}
                     >
-                      {'★'.repeat(
-                        rating >=
-                          1
-                          ? Math.floor(
-                              rating
-                            )
-                          : 5
-                      )}
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <FaStar
+                          key={index}
+                          size={12}
+                          style={{ opacity: rating === 0 || index < Math.floor(rating) ? 1 : 0.25 }}
+                        />
+                      ))}
                     </span>
 
                     <span
@@ -1309,7 +1381,7 @@ export default function CatalogPage({
                       selectedCategory
                   )?.name
                 }{' '}
-                ✕
+                <FaTimes aria-hidden="true" />
               </button>
             )}
           </div>
@@ -1352,14 +1424,7 @@ export default function CatalogPage({
             <>
               {/* PRODUCT GRID */}
 
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns:
-                    'repeat(auto-fill, minmax(200px, 1fr))',
-                  gap: 18,
-                }}
-              >
+              <div className="catalog-product-grid">
                 {productList.map(
                   product => (
                     <ProductCard
@@ -1385,18 +1450,7 @@ export default function CatalogPage({
               {/* PAGINATION */}
 
               {lastPage > 1 && (
-                <div
-                  style={{
-                    display:
-                      'flex',
-                    justifyContent:
-                      'center',
-                    alignItems:
-                      'center',
-                    gap: 6,
-                    marginTop: 32,
-                  }}
-                >
+                <div className="catalog-pagination">
                   {/* PREVIOUS */}
 
                   <button
@@ -1433,7 +1487,7 @@ export default function CatalogPage({
                         'Poppins',
                     }}
                   >
-                    ←
+                    <FaChevronLeft aria-hidden="true" />
                   </button>
 
                   {/* PAGE NUMBERS */}
@@ -1540,7 +1594,7 @@ export default function CatalogPage({
                         'Poppins',
                     }}
                   >
-                    →
+                    <FaChevronRight aria-hidden="true" />
                   </button>
                 </div>
               )}

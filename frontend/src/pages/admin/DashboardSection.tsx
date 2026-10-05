@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   BarChart,
   Bar,
@@ -8,8 +9,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
   Cell,
 } from 'recharts';
 import { formatPrice } from '../../data';
@@ -19,13 +18,13 @@ import type {
   DashboardSummary,
   SalesChartItem,
 } from './types';
-import { COLORS } from './utils';
+import { buildYearlySalesForRange, COLORS } from './utils';
 import {
   axisTick,
   axisTickSmall,
   card,
   cardTitle,
-  formatJuta,
+  chipButton,
   tooltipStyle,
 } from './styles';
 import StatusBadge from './StatusBadge';
@@ -70,7 +69,28 @@ export default function DashboardSection({
   orders,
   loading,
 }: Props) {
+  const [revenuePeriod, setRevenuePeriod] = useState<'yearly' | 'all'>('yearly');
+  const [allRangeStart, setAllRangeStart] = useState(2026);
   const data = summary ?? EMPTY_SUMMARY;
+  const allStartYear = 2026;
+  const yearlyEndYear = allStartYear + 11;
+  const allEndYear = allRangeStart + 6;
+  const rangeStartCount = Math.floor((new Date().getFullYear() + 12 - allStartYear) / 6) + 1;
+  const allRangeStarts = Array.from(
+    { length: Math.max(1, rangeStartCount) },
+    (_, index) => allStartYear + index * 6
+  );
+  const revenueStartYear = revenuePeriod === 'yearly' ? allStartYear : allRangeStart;
+  const revenueEndYear = revenuePeriod === 'yearly' ? yearlyEndYear : allEndYear;
+  const revenueChartData = buildYearlySalesForRange(
+    salesData,
+    revenueStartYear,
+    revenueEndYear
+  );
+  const revenueChartTitle = {
+    yearly: `Pendapatan per Tahun (${allStartYear}–${yearlyEndYear})`,
+    all: `Semua Tahun (${allRangeStart}–${allEndYear})`,
+  }[revenuePeriod];
 
   const value = (raw: number) => (loading && !summary ? '...' : raw.toLocaleString('id-ID'));
 
@@ -175,34 +195,30 @@ export default function DashboardSection({
             key={item.key}
             style={{
               ...card,
-              padding: 14,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 10,
+              padding: 20,
             }}
           >
-            <span style={{ fontSize: '0.8rem', color: '#6B7280', fontWeight: 600 }}>
+            <p style={{ margin: '0 0 8px', fontSize: '0.78rem', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
               {item.label}
-            </span>
-            <StatusBadge status={item.key.replace('_orders', '')} />
+            </p>
+            <p style={{ margin: 0, fontSize: '1.6rem', fontWeight: 900, color: '#1F2937' }}>
+              {value(data[item.key])}
+            </p>
           </div>
         ))}
 
         <div
           style={{
             ...card,
-            padding: 14,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 10,
+            padding: 20,
           }}
         >
-          <span style={{ fontSize: '0.8rem', color: '#6B7280', fontWeight: 600 }}>
+          <p style={{ margin: '0 0 8px', fontSize: '0.78rem', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
             Pembayaran menunggu
-          </span>
-          <StatusBadge status="pending" kind="payment" />
+          </p>
+          <p style={{ margin: 0, fontSize: '1.6rem', fontWeight: 900, color: '#1F2937' }}>
+            {value(data.pending_payments)}
+          </p>
         </div>
       </div>
 
@@ -216,23 +232,61 @@ export default function DashboardSection({
         }}
       >
         <div style={card}>
-          <h3 style={cardTitle()}>Pendapatan Bulanan</h3>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 12,
+              flexWrap: 'wrap',
+              marginBottom: 20,
+            }}
+          >
+            <h3 style={cardTitle(0)}>{revenueChartTitle}</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {revenuePeriod === 'all' && (
+                <select
+                  className="input-field"
+                  aria-label="Pilih rentang tahun pendapatan"
+                  value={allRangeStart}
+                  onChange={(event) => setAllRangeStart(Number(event.target.value))}
+                  style={{ width: 'auto', padding: '6px 10px', fontSize: '0.8rem' }}
+                >
+                  {allRangeStarts.map((startYear) => (
+                    <option key={startYear} value={startYear}>
+                      {startYear}–{startYear + 6}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <div role="group" aria-label="Periode pendapatan" style={{ display: 'flex', gap: 6 }}>
+                {([
+                  ['yearly', 'Per Tahun'],
+                  ['all', 'Semua'],
+                ] as const).map(([period, label]) => (
+                  <button
+                    key={period}
+                    type="button"
+                    aria-pressed={revenuePeriod === period}
+                    onClick={() => setRevenuePeriod(period)}
+                    style={{ ...chipButton(revenuePeriod === period), borderRadius: 6 }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
 
-          {salesData.length === 0 ? (
+          {revenueChartData.length === 0 ? (
             <div style={{ padding: '60px 0', textAlign: 'center', color: '#9CA3AF' }}>
               Belum ada data penjualan.
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={salesData}>
+              <LineChart data={revenueChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
-                <XAxis dataKey="month" tick={axisTick} axisLine={false} tickLine={false} />
-                <YAxis
-                  tick={axisTickSmall}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={formatJuta}
-                />
+                <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} minTickGap={24} />
                 <Tooltip
                   contentStyle={tooltipStyle}
                   formatter={(v: unknown) => [formatPrice(Number(v)), 'Pendapatan']}
@@ -251,7 +305,7 @@ export default function DashboardSection({
         </div>
 
         <div style={card}>
-          <h3 style={cardTitle()}>Produk Terlaris</h3>
+          <h3 style={cardTitle()}>Produk dengan Persentase Pembeli Tertinggi</h3>
 
           {topProducts.length === 0 ? (
             <div style={{ padding: '60px 0', textAlign: 'center', color: '#9CA3AF' }}>
@@ -259,26 +313,46 @@ export default function DashboardSection({
             </div>
           ) : (
             <>
-              <ResponsiveContainer width="100%" height={150}>
-                <PieChart>
-                  <Pie
-                    data={topProducts}
-                    dataKey="sold"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={65}
-                    innerRadius={35}
-                  >
-                    {topProducts.map((_, index) => (
-                      <Cell key={index} fill={COLORS[index % COLORS.length]} />
+              <ResponsiveContainer width="100%" height={190}>
+                <BarChart
+                  data={topProducts}
+                  layout="vertical"
+                  margin={{ top: 0, right: 12, bottom: 0, left: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" horizontal={false} />
+                  <XAxis
+                    type="number"
+                    domain={[0, 100]}
+                    tick={axisTickSmall}
+                    tickFormatter={(percent) => `${percent}%`}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={100}
+                    tick={axisTickSmall}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={{ fontFamily: 'Poppins', fontSize: 12, borderRadius: 8 }}
+                    formatter={(percent: unknown) => [
+                      `${Number(percent).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%`,
+                      'Customer pembeli',
+                    ]}
+                  />
+                  <Bar dataKey="purchase_percentage" fill="#F97316" radius={[0, 4, 4, 0]}>
+                    {topProducts.map((product, index) => (
+                      <Cell key={product.id} fill={COLORS[index % COLORS.length]} />
                     ))}
-                  </Pie>
-                  <Tooltip contentStyle={{ fontFamily: 'Poppins', fontSize: 12, borderRadius: 8 }} />
-                </PieChart>
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-                {topProducts.slice(0, 3).map((product, index) => (
+                {topProducts.map((product, index) => (
                   <div key={product.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div
                       style={{
@@ -289,9 +363,11 @@ export default function DashboardSection({
                         flexShrink: 0,
                       }}
                     />
-                    <span style={{ fontSize: '0.78rem', color: '#6B7280', flex: 1 }}>{product.name}</span>
+                    <span style={{ fontSize: '0.78rem', color: '#6B7280', flex: 1 }}>
+                      {product.name} · {product.buyers_count.toLocaleString('id-ID')} customer
+                    </span>
                     <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#1F2937' }}>
-                      {product.sold.toLocaleString('id-ID')}
+                      {product.purchase_percentage.toLocaleString('id-ID', { maximumFractionDigits: 1 })}%
                     </span>
                   </div>
                 ))}
@@ -318,7 +394,7 @@ export default function DashboardSection({
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={salesData}>
+              <BarChart data={salesData.slice(-6)}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
                 <XAxis dataKey="month" tick={axisTick} axisLine={false} tickLine={false} />
                 <YAxis tick={axisTickSmall} axisLine={false} tickLine={false} allowDecimals={false} />

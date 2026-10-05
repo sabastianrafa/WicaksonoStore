@@ -65,9 +65,9 @@ export default function AboutPage({ navigate }: AboutPageProps) {
             {/* Dekorasi Background di belakang gambar */}
             <div style={{ 
               position: 'absolute', 
-              top: -16, 
-              left: -16, 
-              right: 16, 
+              top: -2, 
+              left: -2, 
+              right: 2, 
               bottom: 16, 
               background: 'var(--color-primary)', 
               borderRadius: 24, 
@@ -75,7 +75,7 @@ export default function AboutPage({ navigate }: AboutPageProps) {
               zIndex: 0 
             }} />
             <img 
-              src="/images/logo/wicaksono_logo_1.webp" 
+                  src="/images/gambar.jpg" 
               alt="Toko Pusat Wicaksono Oleh-Oleh" 
               style={{ 
                 width: '100%', 

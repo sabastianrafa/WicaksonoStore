@@ -46,6 +46,7 @@ Route::prefix('reviews')->group(function () {
 
 Route::prefix('shipping-methods')->group(function () {
     Route::get('/', [ShippingMethodController::class, 'index']);
+    Route::post('/quote', [ShippingMethodController::class, 'quote']);
     Route::get('/{shippingMethod}', [ShippingMethodController::class, 'show']);
 });
 
@@ -59,6 +60,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
+        Route::patch('/profile', [AuthController::class, 'updateProfile']);
     });
 
     Route::apiResource('addresses', AddressController::class);

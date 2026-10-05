@@ -8,8 +8,6 @@ interface Props {
   onSave: (payload: {
     id?: number;
     name: string;
-    icon: string | null;
-    color: string | null;
     is_active: boolean;
   }) => Promise<unknown>;
 }
@@ -18,8 +16,6 @@ export default function CategoryFormModal({ category, onClose, onSave }: Props) 
   const isEdit = category !== null;
 
   const [name, setName] = useState(category?.name ?? '');
-  const [icon, setIcon] = useState(category?.icon ?? '');
-  const [color, setColor] = useState(category?.color ?? '#F97316');
   const [isActive, setIsActive] = useState(category?.is_active ?? true);
   const [saving, setSaving] = useState(false);
 
@@ -35,8 +31,6 @@ export default function CategoryFormModal({ category, onClose, onSave }: Props) 
       await onSave({
         id: category?.id,
         name: name.trim(),
-        icon: icon.trim() || null,
-        color: color.trim() || null,
         is_active: isActive,
       });
 
@@ -58,37 +52,6 @@ export default function CategoryFormModal({ category, onClose, onSave }: Props) 
           onChange={(event) => setName(event.target.value)}
           placeholder="Contoh: Mie Instan"
         />
-      </div>
-
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: 16,
-          marginBottom: 16,
-        }}
-      >
-        <div>
-          <label style={labelStyle}>Icon (emoji)</label>
-          <input
-            className="input-field"
-            value={icon}
-            onChange={(event) => setIcon(event.target.value)}
-            placeholder="🍜"
-            maxLength={20}
-          />
-        </div>
-
-        <div>
-          <label style={labelStyle}>Warna</label>
-          <input
-            type="color"
-            className="input-field"
-            value={color || '#F97316'}
-            onChange={(event) => setColor(event.target.value)}
-            style={{ padding: 4, height: 42 }}
-          />
-        </div>
       </div>
 
       <div style={{ marginBottom: 20 }}>

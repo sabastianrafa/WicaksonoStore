@@ -243,39 +243,13 @@ export function LoginPage({
           flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
-          // Gambar /public/gambar.jpg tidak ada di folder public,
-          // jadi url() dihapus dan hanya gradient yang dipakai.
           background:
-            'linear-gradient(rgba(31, 41, 55, 0.48), rgba(234, 108, 10, 0.58))',
+            'linear-gradient(135deg, rgba(17, 24, 39, 0.72), rgba(17, 24, 39, 0.38)), url("/images/gambar.jpg") center / cover no-repeat',
           padding: 48,
           position: 'relative',
           overflow: 'hidden',
         }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            top: -80,
-            right: -80,
-            width: 280,
-            height: 280,
-            borderRadius: '50%',
-            background: 'rgba(255,255,255,0.08)',
-          }}
-        />
-
-        <div
-          style={{
-            position: 'absolute',
-            bottom: -60,
-            left: -60,
-            width: 200,
-            height: 200,
-            borderRadius: '50%',
-            background: 'rgba(255,255,255,0.08)',
-          }}
-        />
-
         <div
           style={{
             position: 'relative',
@@ -284,7 +258,7 @@ export function LoginPage({
             zIndex: 1,
           }}
         >
-          <img
+          {/* <img
             src="/images/logo/wicaksono_logo_1.webp"
             alt="Logo Wicaksono"
             style={{
@@ -293,7 +267,7 @@ export function LoginPage({
               objectFit: 'contain',
               marginBottom: 16,
             }}
-          />
+          /> */}
 
           <h2
             style={{

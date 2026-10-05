@@ -48,6 +48,55 @@ class ShippingMethodTest extends TestCase
             ]);
     }
 
+    public function test_public_shipping_quote_selects_courier_by_destination(): void
+    {
+        ShippingMethod::create([
+            'name' => 'Instant Delivery',
+            'code' => 'INSTANT',
+            'cost' => 25000,
+            'estimated_days' => 'Hari yang sama',
+            'is_active' => true,
+        ]);
+        ShippingMethod::create([
+            'name' => 'J&T Express',
+            'code' => 'JNT_REG',
+            'cost' => 14000,
+            'estimated_days' => '2-4 hari',
+            'is_active' => true,
+        ]);
+        ShippingMethod::create([
+            'name' => 'Lion Parcel',
+            'code' => 'LION_PARCEL',
+            'cost' => 30000,
+            'estimated_days' => '3-5 hari',
+            'is_active' => true,
+        ]);
+
+        $malangQuote = $this->postJson('/api/shipping-methods/quote', [
+            'city' => 'Kota Malang',
+            'province' => 'Jawa Timur',
+        ]);
+        $malangQuote->assertOk()
+            ->assertJsonPath('data.courier.code', 'GOSEND')
+            ->assertJsonPath('data.cost', 25000);
+
+        $javaQuote = $this->postJson('/api/shipping-methods/quote', [
+            'city' => 'Surabaya',
+            'province' => 'Jawa Timur',
+        ]);
+        $javaQuote->assertOk()
+            ->assertJsonPath('data.courier.code', 'JNT_REG')
+            ->assertJsonPath('data.cost', 14000);
+
+        $outsideJavaQuote = $this->postJson('/api/shipping-methods/quote', [
+            'city' => 'Denpasar',
+            'province' => 'Bali',
+        ]);
+        $outsideJavaQuote->assertOk()
+            ->assertJsonPath('data.courier.code', 'LION_PARCEL')
+            ->assertJsonPath('data.cost', 30000);
+    }
+
     public function test_admin_can_crud_shipping_methods(): void
     {
         $admin = User::factory()->create([

@@ -94,8 +94,6 @@ interface ProductResponse {
 interface ApiCategory {
   id: number;
   name: string;
-  icon?: string | null;
-  color?: string | null;
   products_count?: number;
 }
 
@@ -366,15 +364,17 @@ export default function HomePage({
         }
 
         .hero-section {
-          background:
+          background-image:
             linear-gradient(
               135deg,
-              var(--color-bg) 0%,
-              #FFF3E8 50%,
-              #FEFCE8 100%
-            );
-
-          padding: 30px 24px;
+              rgba(17, 24, 39, 0.72),
+              rgba(17, 24, 39, 0.38)
+            ),
+            url("/images/gambar.jpg");
+          background-position: center 55%;
+          background-size: cover;
+          min-height: 480px;
+          padding: 88px 24px;
           position: relative;
           overflow: hidden;
         }
@@ -388,94 +388,36 @@ export default function HomePage({
 
         .hero-grid {
           display: grid;
-          grid-template-columns: 1.1fr 0.9fr;
-          gap: 60px;
+          grid-template-columns: 1fr;
           align-items: center;
+          text-align: center;
         }
 
-        @keyframes float-slow {
-          0% {
-            transform: translateY(0px);
-          }
-
-          50% {
-            transform: translateY(-12px);
-          }
-
-          100% {
-            transform: translateY(0px);
-          }
-        }
-
-        @keyframes float-medium {
-          0% {
-            transform: translateY(0px);
-          }
-
-          50% {
-            transform: translateY(-8px);
-          }
-
-          100% {
-            transform: translateY(0px);
-          }
-        }
-
-        .anim-float-1 {
-          animation: float-slow 6s ease-in-out infinite;
-        }
-
-        .anim-float-2 {
-          animation: float-medium 5s ease-in-out infinite 1s;
-        }
-
-        .anim-float-3 {
-          animation: float-slow 7s ease-in-out infinite 2s;
-        }
-
-        .hero-collage {
-          position: relative;
-          width: 100%;
-          height: 480px;
-          max-width: 500px;
+        .hero-text-wrapper {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          max-width: 760px;
           margin: 0 auto;
+        }
+
+        .hero-actions {
+          justify-content: center;
         }
 
         @media (max-width: 992px) {
           .hero-grid {
             grid-template-columns: 1fr;
             text-align: center;
-            gap: 40px;
           }
 
           .hero-section {
-            padding: 60px 20px 40px;
-          }
-
-          .hero-text-wrapper {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-          }
-
-          .hero-actions {
-            justify-content: center;
-          }
-
-          .hero-collage {
-            transform: scale(0.9);
-            transform-origin: top center;
-            height: 420px;
+            min-height: 420px;
+            padding: 72px 20px 56px;
           }
         }
 
         @media (max-width: 576px) {
-          .hero-collage {
-            transform: scale(0.7);
-            height: 320px;
-            margin-bottom: -20px;
-          }
-
           .hero-actions {
             flex-direction: column;
             width: 100%;
@@ -492,46 +434,7 @@ export default function HomePage({
           HERO
       ====================================================== */}
 
-      <section className="hero-section batik-bg">
-        <div
-          style={{
-            position: "absolute",
-            top: -80,
-            right: -80,
-            width: 320,
-            height: 320,
-            borderRadius: "50%",
-            background: "rgba(223,64,31,0.08)",
-            zIndex: 0,
-          }}
-        />
-
-        <div
-          style={{
-            position: "absolute",
-            bottom: -60,
-            left: -60,
-            width: 240,
-            height: 240,
-            borderRadius: "50%",
-            background: "rgba(22,163,74,0.08)",
-            zIndex: 0,
-          }}
-        />
-
-        <div
-          style={{
-            position: "absolute",
-            top: "30%",
-            left: "40%",
-            width: 160,
-            height: 160,
-            borderRadius: "50%",
-            background: "rgba(250,204,21,0.1)",
-            zIndex: 0,
-          }}
-        />
-
+      <section className="hero-section">
         <div className="hero-container">
           <div className="hero-grid">
             {/* LEFT */}
@@ -541,12 +444,12 @@ export default function HomePage({
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 8,
-                  background: "rgba(223,64,31,0.1)",
+                  background: "rgba(255,255,255,0.14)",
                   borderRadius: 100,
                   padding: "8px 16px",
                   marginBottom: 24,
                   border:
-                    "1px solid rgba(223,64,31,0.2)",
+                    "1px solid rgba(255,255,255,0.3)",
                 }}
               >
                 <span
@@ -555,8 +458,7 @@ export default function HomePage({
                     width: 8,
                     height: 8,
                     borderRadius: "50%",
-                    background:
-                      "var(--color-primary)",
+                    background: "white",
                   }}
                 />
 
@@ -565,7 +467,7 @@ export default function HomePage({
                     fontSize: "0.85rem",
                     fontWeight: 700,
                     color:
-                      "var(--color-primary)",
+                      "white",
                     letterSpacing: "0.5px",
                   }}
                 >
@@ -578,7 +480,7 @@ export default function HomePage({
                   fontSize:
                     "clamp(2.4rem, 5vw, 4.2rem)",
                   fontWeight: 900,
-                  color: "var(--color-text)",
+                  color: "white",
                   lineHeight: 1.1,
                   margin: "0 0 24px",
                   letterSpacing: "-1.5px",
@@ -590,7 +492,7 @@ export default function HomePage({
                 <span
                   style={{
                     color:
-                      "var(--color-primary)",
+                      "#FFD166",
                     display: "inline-block",
                     padding: "0 4px",
                   }}
@@ -603,7 +505,7 @@ export default function HomePage({
                 style={{
                   fontSize:
                     "clamp(1rem, 1.5vw, 1.15rem)",
-                  color: "#4B5563",
+                  color: "rgba(255,255,255,0.9)",
                   lineHeight: 1.7,
                   margin: "0 0 36px",
                   maxWidth: 480,
@@ -646,6 +548,8 @@ export default function HomePage({
                   style={{
                     padding: "14px 28px",
                     fontSize: "1rem",
+                    color: "white",
+                    borderColor: "rgba(255,255,255,0.8)",
                   }}
                   onClick={() =>
                     document
@@ -662,92 +566,6 @@ export default function HomePage({
               </div>
             </div>
 
-            {/* RIGHT */}
-            <div className="hero-collage fade-in">
-              <div
-                className="anim-float-1"
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: "5%",
-                  width: "50%",
-                  height: "62%",
-                  borderRadius: 24,
-                  overflow: "hidden",
-                  boxShadow:
-                    "0 20px 40px rgba(223,64,31,0.25)",
-                }}
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1601050690597-df0568f70950?w=480&h=600&fit=crop&auto=format"
-                  alt="Keripik Malang"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                  }}
-                />
-
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    background:
-                      "linear-gradient(to top, rgba(223,64,31,0.3), transparent)",
-                  }}
-                />
-              </div>
-
-              <div
-                className="anim-float-2"
-                style={{
-                  position: "absolute",
-                  top: "10%",
-                  right: "0%",
-                  width: "42%",
-                  height: "50%",
-                  borderRadius: 24,
-                  overflow: "hidden",
-                  boxShadow:
-                    "0 20px 40px rgba(22,163,74,0.25)",
-                }}
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?w=400&h=480&fit=crop&auto=format"
-                  alt="Apel Malang"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                  }}
-                />
-              </div>
-
-              <div
-                className="anim-float-3"
-                style={{
-                  position: "absolute",
-                  bottom: "5%",
-                  right: "5%",
-                  width: "46%",
-                  height: "42%",
-                  borderRadius: 24,
-                  overflow: "hidden",
-                  boxShadow:
-                    "0 20px 40px rgba(250,204,21,0.3)",
-                }}
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1621236378699-8597faf6a176?w=440&h=400&fit=crop&auto=format"
-                  alt="Bakpia"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                  }}
-                />
-              </div>
-            </div>
           </div>
         </div>
       </section>
@@ -953,29 +771,10 @@ export default function HomePage({
               >
                 <div
                   style={{
-                    width: 68,
-                    height: 68,
-                    borderRadius: 20,
-                    marginBottom: 16,
-                    background: `${
-                      category.color ??
-                      "#DF401F"
-                    }15`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 32,
-                  }}
-                >
-                  {category.icon ?? "🛍️"}
-                </div>
-
-                <div
-                  style={{
                     fontWeight: 700,
                     fontSize: "1.05rem",
                     color: "var(--color-text)",
-                    marginBottom: 6,
+                    marginBottom: 14,
                   }}
                 >
                   {category.name}

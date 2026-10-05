@@ -119,9 +119,14 @@ export default function Navbar({ currentPage, navigate, cartCount }: NavbarProps
     return (
       <>
         {!isAdmin && (
-          <button onClick={handleLogout} className={`${btnSolid} ${grow}`}>
-            Logout
-          </button>
+          <>
+            <button onClick={() => handleNavigate("dashboard")} className={`${btnOutline} ${grow}`}>
+              Profil
+            </button>
+            <button onClick={handleLogout} className={`${btnSolid} ${grow}`}>
+              Logout
+            </button>
+          </>
         )}
         {isAdmin && (
           <button onClick={() => handleNavigate("admin")} className={`${btnOutline} ${grow}`}>

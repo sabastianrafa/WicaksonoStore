@@ -487,14 +487,10 @@ export function useAdminData() {
     async (payload: {
       id?: number;
       name: string;
-      icon?: string | null;
-      color?: string | null;
       is_active: boolean;
     }) => {
       const body = JSON.stringify({
         name: payload.name,
-        icon: payload.icon || null,
-        color: payload.color || null,
         is_active: payload.is_active,
       });
 

@@ -315,7 +315,10 @@ function AppContent() {
         />
       )}
 
-      <main key={location.pathname} className="fade-in">
+      <main
+        key={location.pathname}
+        className={currentPage === 'admin' ? undefined : 'fade-in'}
+      >
         <Routes>
           {/* ===== Publik ===== */}
           <Route

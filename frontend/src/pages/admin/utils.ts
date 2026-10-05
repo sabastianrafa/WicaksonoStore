@@ -96,8 +96,6 @@ export const normalizeCategory = (item: any): Category => ({
   id: Number(item.id),
   name: item.name ?? '',
   slug: item.slug,
-  icon: item.icon ?? null,
-  color: item.color ?? null,
   is_active: item.is_active === undefined ? true : Boolean(item.is_active),
   products_count: Number(item.products_count ?? 0),
 });
@@ -209,6 +207,8 @@ export const normalizeTopProduct = (item: any): DashboardProduct => ({
   price: Number(item.price ?? 0),
   stock: Number(item.stock ?? 0),
   sold: Number(item.sold ?? 0),
+  buyers_count: Number(item.buyers_count ?? 0),
+  purchase_percentage: Number(item.purchase_percentage ?? 0),
   rating: Number(item.rating ?? 0),
   image: storageUrl(item.image),
 });
@@ -346,6 +346,9 @@ export function buildMonthlySales(orders: SalesReportOrder[]): SalesChartItem[] 
     const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     const current = monthlyMap.get(monthKey) ?? {
       month: new Intl.DateTimeFormat('id-ID', { month: 'short' }).format(date),
+      monthNumber: date.getMonth() + 1,
+      year: date.getFullYear(),
+      label: new Intl.DateTimeFormat('id-ID', { month: 'short', year: 'numeric' }).format(date),
       revenue: 0,
       orders: 0,
     };
@@ -360,6 +363,60 @@ export function buildMonthlySales(orders: SalesReportOrder[]): SalesChartItem[] 
 
   return Array.from(monthlyMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .slice(-6)
     .map(([, value]) => value);
+}
+
+export function buildMonthlySalesForYear(
+  monthlySales: SalesChartItem[],
+  year: number
+): SalesChartItem[] {
+  const salesByMonth = new Map(
+    monthlySales
+      .filter((item) => item.year === year)
+      .map((item) => [item.monthNumber, item])
+  );
+  const formatMonth = new Intl.DateTimeFormat('id-ID', { month: 'long' });
+  const now = new Date();
+  const monthCount = year === now.getFullYear() ? now.getMonth() + 1 : 12;
+
+  return Array.from({ length: monthCount }, (_, index) => {
+    const monthNumber = index + 1;
+    const existing = salesByMonth.get(monthNumber);
+    const month = formatMonth.format(new Date(year, index, 1));
+
+    return {
+      month,
+      monthNumber,
+      year,
+      label: month,
+      revenue: existing?.revenue ?? 0,
+      orders: existing?.orders ?? 0,
+    };
+  });
+}
+
+export function buildYearlySalesForRange(
+  monthlySales: SalesChartItem[],
+  startYear: number,
+  endYear: number
+): SalesChartItem[] {
+  const yearlyRevenue = new Map<number, number>();
+  const yearlyOrders = new Map<number, number>();
+
+  monthlySales.forEach(({ year, revenue, orders }) => {
+    yearlyRevenue.set(year, (yearlyRevenue.get(year) ?? 0) + revenue);
+    yearlyOrders.set(year, (yearlyOrders.get(year) ?? 0) + orders);
+  });
+
+  return Array.from({ length: Math.max(0, endYear - startYear + 1) }, (_, index) => {
+    const year = startYear + index;
+    return {
+      month: String(year),
+      monthNumber: 0,
+      year,
+      label: String(year),
+      revenue: yearlyRevenue.get(year) ?? 0,
+      orders: yearlyOrders.get(year) ?? 0,
+    };
+  });
 }
