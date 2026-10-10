@@ -1,7 +1,4 @@
-import { useEffect, useState } from 'react';
-import type { LatLngTuple } from 'leaflet';
-import { CircleMarker, MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
+import { useEffect, useRef, useState } from 'react';
 import { formatPrice } from '../data';
 import { apiFetch, storageUrl } from '../api/client';
 import type { Page } from '../App';
@@ -46,51 +43,23 @@ const productImage = (item: CartItem): string => {
     ? url
     : storageUrl(url);
 }
-interface CheckoutPageProps { cart: CartItem[]; navigate: (page: Page) => void; }
+interface CheckoutPageProps {
+  cart: CartItem[];
+  navigate: (page: Page) => void;
+  onOrderPlaced: () => void;
+}
 
-const INDONESIAN_PROVINCES = [
-  'Aceh',
-  'Bali',
-  'Banten',
-  'Bengkulu',
-  'DI Yogyakarta',
-  'DKI Jakarta',
-  'Gorontalo',
-  'Jambi',
-  'Jawa Barat',
-  'Jawa Tengah',
-  'Jawa Timur',
-  'Kalimantan Barat',
-  'Kalimantan Selatan',
-  'Kalimantan Tengah',
-  'Kalimantan Timur',
-  'Kalimantan Utara',
-  'Kepulauan Bangka Belitung',
-  'Kepulauan Riau',
-  'Lampung',
-  'Maluku',
-  'Maluku Utara',
-  'Nusa Tenggara Barat',
-  'Nusa Tenggara Timur',
-  'Papua',
-  'Papua Barat',
-  'Papua Barat Daya',
-  'Papua Pegunungan',
-  'Papua Selatan',
-  'Papua Tengah',
-  'Riau',
-  'Sulawesi Barat',
-  'Sulawesi Selatan',
-  'Sulawesi Tengah',
-  'Sulawesi Tenggara',
-  'Sulawesi Utara',
-  'Sumatera Barat',
-  'Sumatera Selatan',
-  'Sumatera Utara',
-];
+interface LocationOption {
+  code: string;
+  name: string;
+}
 
 interface ShippingQuote {
   region: string;
+  location: {
+    province: string;
+    city: string;
+  };
   courier: {
     id: number;
     code: string;
@@ -105,130 +74,162 @@ interface ShippingQuoteResponse {
   data: ShippingQuote;
 }
 
-interface PhotonFeature {
-  geometry: { coordinates: [number, number] };
-  properties: {
-    osm_id?: number;
-    name?: string;
-    city?: string;
-    locality?: string;
-    county?: string;
-    district?: string;
-    state?: string;
-    country?: string;
-    countrycode?: string;
-  };
+interface PaymentMethod {
+  id: number;
+  name: string;
+  code: string;
+  description: string | null;
+  icon: string | null;
 }
 
-interface PhotonResponse {
-  features?: PhotonFeature[];
+interface AddressResponse {
+  success: boolean;
+  data: { id: number };
 }
 
-interface LocationSuggestion {
-  id: string;
-  label: string;
-  city: string;
-  province: string;
-  coordinates: LatLngTuple;
+interface OrderResponse {
+  success: boolean;
+  data: { order_number: string };
 }
 
-function MapClickHandler({ onPick }: { onPick: (coordinates: LatLngTuple) => void }) {
-  useMapEvents({
-    click: (event) => onPick([event.latlng.lat, event.latlng.lng]),
-  });
-
-  return null;
-}
-
-function MapRecenter({ position }: { position: LatLngTuple | null }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (position) map.flyTo(position, 13, { duration: 0.5 });
-  }, [map, position]);
-
-  return null;
-}
-
-export default function CheckoutPage({ cart, navigate }: CheckoutPageProps) {
+export default function CheckoutPage({ cart, navigate, onOrderPlaced }: CheckoutPageProps) {
   const [step, setStep] = useState(1);
-  const [payment, setPayment] = useState('transfer');
+  const [payment, setPayment] = useState('');
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
+  const [paymentMethodsError, setPaymentMethodsError] = useState('');
+  const [provinces, setProvinces] = useState<LocationOption[]>([]);
+  const [regencies, setRegencies] = useState<LocationOption[]>([]);
+  const [districts, setDistricts] = useState<LocationOption[]>([]);
+  const [villages, setVillages] = useState<LocationOption[]>([]);
+  const [locationError, setLocationError] = useState('');
   const [form, setForm] = useState(() => ({
     name: localStorage.getItem('userName') ?? '',
     phone: localStorage.getItem('userPhone') ?? '',
-    province: '',
-    city: '',
+    province_code: '',
+    regency_code: '',
+    district_code: '',
+    village_code: '',
     zip: '',
+    rt: '',
+    rw: '',
+    neighborhood: '',
+    landmark: '',
     address: '',
   }));
   const [shippingQuote, setShippingQuote] = useState<ShippingQuote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [shippingError, setShippingError] = useState('');
-  const [citySearch, setCitySearch] = useState('');
-  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
-  const [locationSearchLoading, setLocationSearchLoading] = useState(false);
-  const [locationError, setLocationError] = useState('');
-  const [mapPosition, setMapPosition] = useState<LatLngTuple | null>(null);
-  const [mapLookupLoading, setMapLookupLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [submittingOrder, setSubmittingOrder] = useState(false);
+  const [orderError, setOrderError] = useState('');
+  const [orderNumber, setOrderNumber] = useState('');
+  const shippingQuoteRequestId = useRef(0);
 
   useEffect(() => {
-    const query = citySearch.trim();
-    if (query.length < 3) {
-      setLocationSuggestions([]);
-      setLocationSearchLoading(false);
+    let active = true;
+
+    apiFetch<{ data: LocationOption[] }>('/locations/provinces')
+      .then((response) => {
+        if (active) setProvinces(response.data);
+      })
+      .catch((error) => {
+        if (active) {
+          setLocationError(error instanceof Error ? error.message : 'Gagal memuat daftar provinsi.');
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!form.province_code) {
+      setRegencies([]);
       return;
     }
 
-    const controller = new AbortController();
-    const timeout = window.setTimeout(async () => {
-      setLocationSearchLoading(true);
+    let active = true;
+    apiFetch<{ data: LocationOption[] }>(`/locations/provinces/${encodeURIComponent(form.province_code)}/regencies`)
+      .then((response) => {
+        if (active) setRegencies(response.data);
+      })
+      .catch((error) => {
+        if (active) setLocationError(error instanceof Error ? error.message : 'Gagal memuat daftar kabupaten/kota.');
+      });
+    return () => {
+      active = false;
+    };
+  }, [form.province_code]);
 
-      try {
-        const searchQuery = [query, form.province, 'Indonesia'].filter(Boolean).join(', ');
-        const params = new URLSearchParams({ q: searchQuery, limit: '6', lang: 'id' });
-        const response = await fetch(`https://photon.komoot.io/api/?${params}`, {
-          signal: controller.signal,
-        });
-        if (!response.ok) throw new Error('Pencarian lokasi gagal.');
+  useEffect(() => {
+    if (!form.regency_code) {
+      setDistricts([]);
+      return;
+    }
 
-        const result = await response.json() as PhotonResponse;
-        const suggestions = (result.features ?? [])
-          .filter(({ properties }) =>
-            !properties.countrycode || properties.countrycode.toLowerCase() === 'id'
-          )
-          .map(({ properties, geometry }) => {
-            const city = properties.city ?? properties.locality ?? properties.name ?? properties.county ?? '';
-            const province = properties.state ?? '';
-            const label = [...new Set([properties.name, city, province, 'Indonesia'].filter(Boolean))].join(', ');
-            const [longitude, latitude] = geometry.coordinates;
+    let active = true;
+    apiFetch<{ data: LocationOption[] }>(`/locations/regencies/${encodeURIComponent(form.regency_code)}/districts`)
+      .then((response) => {
+        if (active) setDistricts(response.data);
+      })
+      .catch((error) => {
+        if (active) setLocationError(error instanceof Error ? error.message : 'Gagal memuat daftar kecamatan.');
+      });
+    return () => {
+      active = false;
+    };
+  }, [form.regency_code]);
 
-            return {
-              id: `${properties.osm_id ?? label}-${latitude}-${longitude}`,
-              label,
-              city,
-              province,
-              coordinates: [latitude, longitude] as LatLngTuple,
-            };
-          })
-          .filter((suggestion) => suggestion.city && suggestion.province);
+  useEffect(() => {
+    if (!form.district_code) {
+      setVillages([]);
+      return;
+    }
 
-        if (!controller.signal.aborted) setLocationSuggestions(suggestions);
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          setLocationError(error instanceof Error ? error.message : 'Pencarian lokasi gagal.');
-          setLocationSuggestions([]);
-        }
-      } finally {
-        if (!controller.signal.aborted) setLocationSearchLoading(false);
-      }
-    }, 500);
+    let active = true;
+    apiFetch<{ data: LocationOption[] }>(`/locations/districts/${encodeURIComponent(form.district_code)}/villages`)
+      .then((response) => {
+        if (active) setVillages(response.data);
+      })
+      .catch((error) => {
+        if (active) setLocationError(error instanceof Error ? error.message : 'Gagal memuat daftar kelurahan/desa.');
+      });
+    return () => {
+      active = false;
+    };
+  }, [form.district_code]);
+
+  useEffect(() => {
+    let active = true;
+
+    apiFetch<{ data: PaymentMethod[] }>('/payment-methods')
+      .then((response) => {
+        if (!active) return;
+        setPaymentMethods(response.data);
+        setPayment((current) =>
+          response.data.some((method) => method.code === current)
+            ? current
+            : response.data[0]?.code ?? ''
+        );
+      })
+      .catch((error) => {
+        if (!active) return;
+        setPaymentMethodsError(
+          error instanceof Error
+            ? error.message
+            : 'Gagal memuat metode pembayaran.'
+        );
+      })
+      .finally(() => {
+        if (active) setPaymentMethodsLoading(false);
+      });
 
     return () => {
-      window.clearTimeout(timeout);
-      controller.abort();
+      active = false;
     };
-  }, [citySearch, form.province]);
+  }, []);
 
   const items = validItems(cart);
 
@@ -240,60 +241,53 @@ export default function CheckoutPage({ cart, navigate }: CheckoutPageProps) {
   const total = subtotal + shippingFee;
 
   const updateAddressField = (field: keyof typeof form, value: string) => {
-    setForm((current) => ({ ...current, [field]: value }));
-    if (field === 'city' || field === 'province') {
+    setForm((current) => {
+      if (field === 'province_code') {
+        return { ...current, province_code: value, regency_code: '', district_code: '', village_code: '' };
+      }
+      if (field === 'regency_code') {
+        return { ...current, regency_code: value, district_code: '', village_code: '' };
+      }
+      if (field === 'district_code') {
+        return { ...current, district_code: value, village_code: '' };
+      }
+      return { ...current, [field]: value };
+    });
+    if (field === 'province_code') {
+      setRegencies([]);
+      setDistricts([]);
+      setVillages([]);
+    } else if (field === 'regency_code') {
+      setDistricts([]);
+      setVillages([]);
+    } else if (field === 'district_code') {
+      setVillages([]);
+    }
+    if (['province_code', 'regency_code', 'district_code', 'village_code'].includes(field)) {
+      shippingQuoteRequestId.current += 1;
       setShippingQuote(null);
       setShippingError('');
+      setQuoteLoading(false);
+      setLocationError('');
     }
   };
 
-  const selectLocation = (location: LocationSuggestion) => {
-    updateAddressField('city', location.city);
-    updateAddressField('province', location.province);
-    setCitySearch('');
-    setLocationSuggestions([]);
-    setLocationError('');
-    setMapPosition(location.coordinates);
-  };
-
-  const reverseGeocodeMapPosition = async (coordinates: LatLngTuple) => {
-    setMapPosition(coordinates);
-    setMapLookupLoading(true);
-    setLocationError('');
-
-    try {
-      const [latitude, longitude] = coordinates;
-      const params = new URLSearchParams({ lat: String(latitude), lon: String(longitude), lang: 'id' });
-      const response = await fetch(`https://photon.komoot.io/reverse?${params}`);
-      if (!response.ok) throw new Error('Lokasi peta tidak dapat dibaca.');
-
-      const result = await response.json() as PhotonResponse;
-      const properties = result.features?.[0]?.properties;
-      if (!properties) throw new Error('Pilih titik di daratan Indonesia.');
-
-      const city = properties.city ?? properties.locality ?? properties.name ?? properties.county ?? '';
-      const province = properties.state ?? '';
-      if (!city || !province || (properties.countrycode && properties.countrycode.toLowerCase() !== 'id')) {
-        throw new Error('Pilih titik di wilayah Indonesia yang memiliki data kota dan provinsi.');
-      }
-
-      updateAddressField('city', city);
-      updateAddressField('province', province);
-      setCitySearch('');
-      setLocationSuggestions([]);
-    } catch (error) {
-      setLocationError(error instanceof Error ? error.message : 'Lokasi peta tidak dapat dibaca.');
-    } finally {
-      setMapLookupLoading(false);
-    }
-  };
-
-  const continueToShipping = async () => {
-    if (!form.city.trim() || !form.province.trim()) {
-      setShippingError('Isi kota dan provinsi untuk menghitung ongkos kirim.');
+  const continueToPayment = async () => {
+    if (
+      !form.name.trim() ||
+      !form.phone.trim() ||
+      !form.province_code ||
+      !form.regency_code ||
+      !form.district_code ||
+      !form.village_code ||
+      !/^\d{5}$/.test(form.zip.trim()) ||
+      !form.address.trim()
+    ) {
+      setShippingError('Lengkapi data penerima, seluruh pilihan wilayah, kode pos 5 digit, dan alamat jalan.');
       return;
     }
 
+    const requestId = ++shippingQuoteRequestId.current;
     setQuoteLoading(true);
     setShippingError('');
 
@@ -301,23 +295,91 @@ export default function CheckoutPage({ cart, navigate }: CheckoutPageProps) {
       const response = await apiFetch<ShippingQuoteResponse>('/shipping-methods/quote', {
         method: 'POST',
         body: JSON.stringify({
-          city: form.city.trim(),
-          province: form.province.trim(),
+          province_code: form.province_code,
+          regency_code: form.regency_code,
+          district_code: form.district_code,
+          village_code: form.village_code,
         }),
       });
 
-      setShippingQuote(response.data);
-      setStep(2);
+      if (requestId === shippingQuoteRequestId.current) {
+        setShippingQuote(response.data);
+        setOrderError('');
+        setStep(2);
+      }
     } catch (error) {
-      setShippingError(error instanceof Error ? error.message : 'Gagal menghitung ongkos kirim.');
+      if (requestId === shippingQuoteRequestId.current) {
+        setShippingError(error instanceof Error ? error.message : 'Gagal menghitung ongkos kirim.');
+      }
     } finally {
-      setQuoteLoading(false);
+      if (requestId === shippingQuoteRequestId.current) {
+        setQuoteLoading(false);
+      }
     }
   };
 
-  const handleOrder = () => {
-    setSuccess(true);
-    setTimeout(() => navigate('home'), 3000);
+  const handleOrder = async () => {
+    setOrderError('');
+
+    if (!shippingQuote) {
+      setOrderError('Ongkir belum dihitung. Kembali ke alamat untuk menghitung ongkir.');
+      setStep(1);
+      return;
+    }
+
+    if (!payment) {
+      setOrderError('Pilih metode pembayaran terlebih dahulu.');
+      return;
+    }
+
+    if (items.length === 0) {
+      setOrderError('Keranjang kosong. Tambahkan produk sebelum checkout.');
+      return;
+    }
+
+    setSubmittingOrder(true);
+
+    try {
+      const addressResponse = await apiFetch<AddressResponse>('/addresses', {
+        method: 'POST',
+        body: JSON.stringify({
+          label: 'Alamat Checkout',
+          name: form.name.trim(),
+          phone: form.phone.trim(),
+          province_code: form.province_code,
+          regency_code: form.regency_code,
+          district_code: form.district_code,
+          village_code: form.village_code,
+          postal_code: form.zip.trim(),
+          rt: form.rt.trim() || null,
+          rw: form.rw.trim() || null,
+          neighborhood: form.neighborhood.trim() || null,
+          landmark: form.landmark.trim() || null,
+          address: form.address.trim(),
+          is_default: false,
+        }),
+      });
+
+      const orderResponse = await apiFetch<OrderResponse>('/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          address_id: addressResponse.data.id,
+          shipping_method_id: shippingQuote.courier.id,
+          payment_method: payment,
+        }),
+      });
+
+      setOrderNumber(orderResponse.data.order_number);
+      onOrderPlaced();
+      setSuccess(true);
+      setTimeout(() => navigate('home'), 3000);
+    } catch (error) {
+      setOrderError(
+        error instanceof Error ? error.message : 'Gagal membuat pesanan.'
+      );
+    } finally {
+      setSubmittingOrder(false);
+    }
   };
 
   if (success) return (
@@ -326,7 +388,7 @@ export default function CheckoutPage({ cart, navigate }: CheckoutPageProps) {
         <div style={{ width: 100, height: 100, borderRadius: '50%', background: 'rgba(22,163,74,0.1)', margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48 }}>✅</div>
         <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#1F2937', margin: '0 0 12px' }}>Pesanan Berhasil!</h2>
         <p style={{ color: '#6B7280', margin: '0 0 8px' }}>Terima kasih telah berbelanja di Wicaksono.</p>
-        <p style={{ color: '#9CA3AF', fontSize: '0.85rem', margin: '0 0 24px' }}>No. Pesanan: <strong style={{ color: '#F97316' }}>#WKS-{Date.now().toString().slice(-6)}</strong></p>
+        <p style={{ color: '#9CA3AF', fontSize: '0.85rem', margin: '0 0 24px' }}>No. Pesanan: <strong style={{ color: '#F97316' }}>{orderNumber}</strong></p>
         <p style={{ color: '#9CA3AF', fontSize: '0.8rem' }}>Mengalihkan ke beranda...</p>
       </div>
     </div>
@@ -344,7 +406,7 @@ export default function CheckoutPage({ cart, navigate }: CheckoutPageProps) {
 
       {/* Steps */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 40, maxWidth: 500 }}>
-        {[{ n: 1, label: 'Alamat' }, { n: 2, label: 'Pengiriman' }, { n: 3, label: 'Pembayaran' }].map(({ n, label }, idx) => (
+        {[{ n: 1, label: 'Alamat' }, { n: 2, label: 'Pembayaran' }].map(({ n, label }, idx) => (
           <div key={n} style={{ display: 'flex', alignItems: 'center', flex: idx < 2 ? 1 : 'none' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
               <div style={{
@@ -356,7 +418,7 @@ export default function CheckoutPage({ cart, navigate }: CheckoutPageProps) {
               }}>{step > n ? '✓' : n}</div>
               <span style={{ fontSize: '0.72rem', fontWeight: 600, color: step >= n ? '#F97316' : '#9CA3AF' }}>{label}</span>
             </div>
-            {idx < 2 && <div style={{ flex: 1, height: 2, background: step > n ? '#F97316' : '#F3F4F6', margin: '0 4px', marginBottom: 20, transition: 'background 0.3s' }} />}
+            {idx < 1 && <div style={{ flex: 1, height: 2, background: step > n ? '#F97316' : '#F3F4F6', margin: '0 4px', marginBottom: 20, transition: 'background 0.3s' }} />}
           </div>
         ))}
       </div>
@@ -375,201 +437,137 @@ export default function CheckoutPage({ cart, navigate }: CheckoutPageProps) {
                     <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', color: '#374151', marginBottom: 6 }}>{label}</label>
                     <input
                       className="input-field"
-                      list={field === 'province' ? 'checkout-provinces' : undefined}
-                      placeholder={field === 'province' ? 'Cari provinsi...' : placeholder}
+                      placeholder={placeholder}
                       value={form[field as keyof typeof form]}
                       onChange={e => updateAddressField(field as keyof typeof form, e.target.value)}
                     />
-                    {field === 'province' && (
-                      <datalist id="checkout-provinces">
-                        {INDONESIAN_PROVINCES.map((province) => (
-                          <option key={province} value={province} />
-                        ))}
-                      </datalist>
-                    )}
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
+                {[
+                  { field: 'province_code', label: 'Provinsi', options: provinces, disabled: false, placeholder: 'Pilih provinsi' },
+                  { field: 'regency_code', label: 'Kota/Kabupaten', options: regencies, disabled: !form.province_code, placeholder: 'Pilih kota/kabupaten' },
+                ].map(({ field, label, options, disabled, placeholder }) => (
+                  <div key={field}>
+                    <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', color: '#374151', marginBottom: 6 }}>{label}</label>
+                    <select
+                      className="input-field"
+                      value={form[field as keyof typeof form]}
+                      disabled={disabled}
+                      onChange={(event) => updateAddressField(field as keyof typeof form, event.target.value)}
+                    >
+                      <option value="">{placeholder}</option>
+                      {options.map((option) => <option key={option.code} value={option.code}>{option.name}</option>)}
+                    </select>
                   </div>
                 ))}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginTop: 16 }}>
                 {[
-                  { field: 'province', label: 'Provinsi', placeholder: 'Pilih provinsi' },
-                  { field: 'city', label: 'Kota/Kabupaten', placeholder: 'Masukkan kota' },
-                  { field: 'zip', label: 'Kode Pos', placeholder: '00000' },
-                ].map(({ field, label, placeholder }) => (
-                  <div key={field} style={{ position: 'relative' }}>
+                  { field: 'district_code', label: 'Kecamatan', options: districts, disabled: !form.regency_code, placeholder: 'Pilih kecamatan' },
+                  { field: 'village_code', label: 'Kelurahan/Desa', options: villages, disabled: !form.district_code, placeholder: 'Pilih kelurahan/desa' },
+                ].map(({ field, label, options, disabled, placeholder }) => (
+                  <div key={field}>
                     <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', color: '#374151', marginBottom: 6 }}>{label}</label>
-                    <input
+                    <select
                       className="input-field"
-                      list={field === 'province' ? 'checkout-provinces' : undefined}
-                      placeholder={field === 'province' ? 'Cari provinsi...' : field === 'city' ? 'Ketik nama kota...' : placeholder}
-                      autoComplete="off"
                       value={form[field as keyof typeof form]}
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        updateAddressField(field as keyof typeof form, value);
-                        if (field === 'city') {
-                          setCitySearch(value);
-                          setLocationError('');
-                        }
-                      }}
-                    />
-                    {field === 'province' && (
-                      <datalist id="checkout-provinces">
-                        {INDONESIAN_PROVINCES.map((province) => (
-                          <option key={province} value={province} />
-                        ))}
-                      </datalist>
-                    )}
-                    {field === 'city' && locationSuggestions.length > 0 && (
-                      <div
-                        role="listbox"
-                        aria-label="Hasil pencarian kota"
-                        style={{
-                          position: 'absolute',
-                          top: '100%',
-                          left: 0,
-                          right: 0,
-                          zIndex: 20,
-                          maxHeight: 220,
-                          overflowY: 'auto',
-                          background: 'white',
-                          border: '1px solid #E5E7EB',
-                          borderRadius: 8,
-                          boxShadow: '0 8px 20px rgba(0,0,0,0.12)',
-                        }}
-                      >
-                        {locationSuggestions.map((suggestion) => (
-                          <button
-                            key={suggestion.id}
-                            type="button"
-                            role="option"
-                            aria-selected={false}
-                            onClick={() => selectLocation(suggestion)}
-                            style={{
-                              display: 'block',
-                              width: '100%',
-                              padding: '10px 12px',
-                              border: 0,
-                              borderBottom: '1px solid #F3F4F6',
-                              background: 'white',
-                              color: '#374151',
-                              textAlign: 'left',
-                              fontFamily: 'Poppins',
-                              fontSize: '0.8rem',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            {suggestion.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                      disabled={disabled}
+                      onChange={(event) => updateAddressField(field as keyof typeof form, event.target.value)}
+                    >
+                      <option value="">{placeholder}</option>
+                      {options.map((option) => <option key={option.code} value={option.code}>{option.name}</option>)}
+                    </select>
+                  </div>
+                ))}
+                <div>
+                  <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', color: '#374151', marginBottom: 6 }}>Kode Pos</label>
+                  <input className="input-field" inputMode="numeric" maxLength={5} placeholder="00000" value={form.zip} onChange={event => updateAddressField('zip', event.target.value.replace(/\D/g, '').slice(0, 5))} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
+                {[
+                  { field: 'rt', label: 'RT', placeholder: 'Contoh: 001' },
+                  { field: 'rw', label: 'RW', placeholder: 'Contoh: 002' },
+                  { field: 'neighborhood', label: 'Perumahan / Lingkungan (opsional)', placeholder: 'Nama perumahan atau lingkungan' },
+                  { field: 'landmark', label: 'Patokan (opsional)', placeholder: 'Patokan lokasi terdekat' },
+                ].map(({ field, label, placeholder }) => (
+                  <div key={field}>
+                    <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', color: '#374151', marginBottom: 6 }}>{label}</label>
+                    <input className="input-field" maxLength={field === 'rt' || field === 'rw' ? 3 : undefined} placeholder={placeholder} value={form[field as keyof typeof form]} onChange={event => updateAddressField(field as keyof typeof form, event.target.value)} />
                   </div>
                 ))}
               </div>
-              <div style={{ marginTop: 20 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 8 }}>
-                  <label style={{ fontWeight: 600, fontSize: '0.85rem', color: '#374151' }}>Cari kota atau pilih titik di peta</label>
-                  {(locationSearchLoading || mapLookupLoading) && (
-                    <span style={{ fontSize: '0.75rem', color: '#9CA3AF' }}>
-                      {mapLookupLoading ? 'Membaca lokasi...' : 'Mencari lokasi...'}
-                    </span>
-                  )}
-                </div>
-                {locationError && (
-                  <p style={{ margin: '0 0 8px', fontSize: '0.78rem', color: '#DC2626' }}>{locationError}</p>
-                )}
-                <div style={{ height: 300, overflow: 'hidden', border: '1px solid #E5E7EB', borderRadius: 10, zIndex: 0 }}>
-                  <MapContainer
-                    center={[-2.5, 118]}
-                    zoom={4}
-                    scrollWheelZoom
-                    style={{ height: '100%', width: '100%' }}
-                  >
-                    <TileLayer
-                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    />
-                    <MapClickHandler onPick={reverseGeocodeMapPosition} />
-                    <MapRecenter position={mapPosition} />
-                    {mapPosition && (
-                      <CircleMarker
-                        center={mapPosition}
-                        radius={9}
-                        pathOptions={{ color: '#C2410C', fillColor: '#F97316', fillOpacity: 0.9 }}
-                      />
-                    )}
-                  </MapContainer>
-                </div>
-                <p style={{ margin: '6px 0 0', color: '#9CA3AF', fontSize: '0.72rem' }}>
-                  Peta © OpenStreetMap · Pencarian lokasi oleh Photon
-                </p>
-              </div>
               <div style={{ marginTop: 16 }}>
-                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', color: '#374151', marginBottom: 6 }}>Alamat Lengkap</label>
-                <textarea className="input-field" placeholder="Nama jalan, no. rumah, RT/RW, kelurahan, kecamatan..." rows={3} value={form.address} onChange={e => updateAddressField('address', e.target.value)} style={{ resize: 'vertical' }} />
+                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', color: '#374151', marginBottom: 6 }}>Nama Jalan, Nomor Rumah, dan Detail Alamat</label>
+                <textarea className="input-field" placeholder="Contoh: Jl. Mawar No. 10, Gang 2, rumah pagar hijau" rows={3} value={form.address} onChange={e => updateAddressField('address', e.target.value)} style={{ resize: 'vertical' }} />
               </div>
+              {locationError && <p role="alert" style={{ color: '#DC2626', fontSize: '0.85rem', margin: '16px 0 0' }}>{locationError}</p>}
               {shippingError && (
                 <p style={{ color: '#DC2626', fontSize: '0.85rem', margin: '16px 0 0' }}>{shippingError}</p>
               )}
-              <button className="btn-primary" onClick={continueToShipping} disabled={quoteLoading} style={{ marginTop: 24, padding: '12px 28px', opacity: quoteLoading ? 0.65 : 1 }}>
-                {quoteLoading ? 'Menghitung ongkir...' : 'Lanjut ke Pengiriman →'}
+              <button className="btn-primary" onClick={continueToPayment} disabled={quoteLoading} style={{ marginTop: 24, padding: '12px 28px', opacity: quoteLoading ? 0.65 : 1 }}>
+                {quoteLoading ? 'Menghitung ongkir...' : 'Lanjut ke Pembayaran →'}
               </button>
             </div>
           )}
 
           {step === 2 && (
             <div style={{ background: 'white', borderRadius: 14, padding: '28px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-              <h3 style={{ margin: '0 0 24px', fontWeight: 700, color: '#1F2937' }}>Kurir untuk Tujuan Anda</h3>
+              <h3 style={{ margin: '0 0 24px', fontWeight: 700, color: '#1F2937' }}>Metode Pembayaran</h3>
               {shippingQuote && (
                 <div style={{ padding: '16px 18px', borderRadius: 10, border: '1px solid #FED7AA', background: '#FFF7ED', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
                   <div>
                     <div style={{ fontWeight: 700, color: '#1F2937' }}>{shippingQuote.courier.name}</div>
                     <div style={{ marginTop: 4, fontSize: '0.8rem', color: '#6B7280' }}>
-                      {shippingQuote.region === 'malang' ? 'Kota Malang' : shippingQuote.region === 'jawa' ? 'Pulau Jawa' : 'Luar Pulau Jawa'}
+                      Ongkir ke {shippingQuote.location.city}, {shippingQuote.location.province}
                       {shippingQuote.courier.estimated_days ? ` · Estimasi ${shippingQuote.courier.estimated_days}` : ''}
                     </div>
                   </div>
                   <span style={{ fontWeight: 800, color: '#F97316', whiteSpace: 'nowrap' }}>{formatPrice(shippingQuote.cost)}</span>
                 </div>
               )}
-              <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
-                <button className="btn-outline" onClick={() => setStep(1)} style={{ padding: '12px 24px' }}>← Kembali</button>
-                <button className="btn-primary" onClick={() => setStep(3)} disabled={!shippingQuote} style={{ padding: '12px 28px' }}>Lanjut ke Pembayaran →</button>
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div style={{ background: 'white', borderRadius: 14, padding: '28px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-              <h3 style={{ margin: '0 0 24px', fontWeight: 700, color: '#1F2937' }}>Metode Pembayaran</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {[
-                  { id: 'transfer', name: 'Transfer Bank', sub: 'BCA, Mandiri, BNI, BRI', icon: '🏦' },
-                  { id: 'gopay', name: 'GoPay', sub: 'Bayar via aplikasi Gojek', icon: '💚' },
-                  { id: 'ovo', name: 'OVO', sub: 'Bayar via OVO', icon: '💜' },
-                  { id: 'dana', name: 'DANA', sub: 'Bayar via DANA', icon: '💙' },
-                  { id: 'cod', name: 'Bayar di Tempat (COD)', sub: 'Tersedia di area tertentu', icon: '💵' },
-                ].map(m => (
-                  <label key={m.id} style={{
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 20 }}>
+                {paymentMethodsLoading && (
+                  <p style={{ color: '#6B7280', fontSize: '0.85rem' }}>Memuat metode pembayaran...</p>
+                )}
+                {paymentMethodsError && (
+                  <p role="alert" style={{ color: '#DC2626', fontSize: '0.85rem' }}>{paymentMethodsError}</p>
+                )}
+                {!paymentMethodsLoading && !paymentMethodsError && paymentMethods.length === 0 && (
+                  <p style={{ color: '#DC2626', fontSize: '0.85rem' }}>Belum ada metode pembayaran yang tersedia.</p>
+                )}
+                {paymentMethods.map((method) => (
+                  <label key={method.id} style={{
                     display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '14px 16px', borderRadius: 10, border: `2px solid ${payment === m.id ? '#F97316' : '#E5E7EB'}`,
-                    background: payment === m.id ? 'rgba(249,115,22,0.04)' : 'white',
+                    padding: '14px 16px', borderRadius: 10, border: `2px solid ${payment === method.code ? '#F97316' : '#E5E7EB'}`,
+                    background: payment === method.code ? 'rgba(249,115,22,0.04)' : 'white',
                     cursor: 'pointer', transition: 'all 0.2s',
                   }}>
-                    <input type="radio" checked={payment === m.id} onChange={() => setPayment(m.id)} style={{ accentColor: '#F97316', width: 16, height: 16 }} />
-                    <span style={{ fontSize: 20 }}>{m.icon}</span>
+                    <input type="radio" checked={payment === method.code} onChange={() => setPayment(method.code)} style={{ accentColor: '#F97316', width: 16, height: 16 }} />
+                    <span style={{ fontSize: 20 }}>{method.icon ?? '💳'}</span>
                     <div>
-                      <div style={{ fontWeight: 600, color: '#1F2937', fontSize: '0.9rem' }}>{m.name}</div>
-                      <div style={{ fontSize: '0.78rem', color: '#9CA3AF' }}>{m.sub}</div>
+                      <div style={{ fontWeight: 600, color: '#1F2937', fontSize: '0.9rem' }}>{method.name}</div>
+                      {method.description && (
+                        <div style={{ fontSize: '0.78rem', color: '#9CA3AF' }}>{method.description}</div>
+                      )}
                     </div>
                   </label>
                 ))}
               </div>
+              {orderError && (
+                <p role="alert" style={{ color: '#DC2626', fontSize: '0.85rem', margin: '16px 0 0' }}>{orderError}</p>
+              )}
               <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
-                <button className="btn-outline" onClick={() => setStep(2)} style={{ padding: '12px 24px' }}>← Kembali</button>
-                <button className="btn-primary" onClick={handleOrder} style={{ padding: '12px 28px', flex: 1 }}>
-                  ✅ Konfirmasi Pesanan
+                <button className="btn-outline" onClick={() => setStep(1)} style={{ padding: '12px 24px' }}>← Kembali</button>
+                <button
+                  className="btn-primary"
+                  onClick={handleOrder}
+                  disabled={submittingOrder || paymentMethodsLoading || paymentMethods.length === 0}
+                  style={{ padding: '12px 28px', flex: 1, opacity: submittingOrder || paymentMethodsLoading || paymentMethods.length === 0 ? 0.65 : 1 }}
+                >
+                  {submittingOrder ? 'Menyimpan Pesanan...' : '✅ Konfirmasi Pesanan'}
                 </button>
               </div>
             </div>
