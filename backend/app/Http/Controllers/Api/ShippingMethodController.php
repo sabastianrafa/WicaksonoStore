@@ -42,9 +42,16 @@ class ShippingMethodController extends Controller
         ]);
 
         $city = strtolower(trim($validated['city']));
-        $province = strtolower(str_replace('.', '', trim($validated['province'])));
+        $province = strtolower(preg_replace(
+            '/\s+/',
+            ' ',
+            str_replace('.', '', trim($validated['province']))
+        ));
 
-        if (in_array($city, ['malang', 'kota malang'], true)) {
+        if (
+            in_array($city, ['malang', 'kota malang'], true)
+            && $province === 'jawa timur'
+        ) {
             $region = 'malang';
             $courierCode = 'GOSEND';
             $method = ShippingMethod::query()
@@ -57,9 +64,11 @@ class ShippingMethodController extends Controller
             'banten',
             'dki jakarta',
             'jakarta',
+            'daerah khusus ibukota jakarta',
             'jawa barat',
             'jawa tengah',
             'di yogyakarta',
+            'daerah istimewa yogyakarta',
             'yogyakarta',
             'jawa timur',
         ], true)) {

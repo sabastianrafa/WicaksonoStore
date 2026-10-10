@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { LatLngTuple } from 'leaflet';
+import type { Map as MapTilerMap, Marker as MapTilerMarker } from '@maptiler/sdk';
 import { CircleMarker, MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { formatPrice } from '../data';
@@ -132,12 +133,100 @@ interface LocationSuggestion {
   coordinates: LatLngTuple;
 }
 
+const mapTilerApiKey = import.meta.env.VITE_MAPTILER_API_KEY?.trim();
+
 function MapClickHandler({ onPick }: { onPick: (coordinates: LatLngTuple) => void }) {
   useMapEvents({
     click: (event) => onPick([event.latlng.lat, event.latlng.lng]),
   });
 
   return null;
+}
+
+function IndonesianAddressMap({
+  apiKey,
+  position,
+  onPick,
+}: {
+  apiKey: string;
+  position: LatLngTuple | null;
+  onPick: (coordinates: LatLngTuple) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<MapTilerMap | null>(null);
+  const markerRef = useRef<MapTilerMarker | null>(null);
+  const onPickRef = useRef(onPick);
+  const [mapReady, setMapReady] = useState(false);
+  const [mapError, setMapError] = useState('');
+  onPickRef.current = onPick;
+
+  useEffect(() => {
+    let disposed = false;
+    let map: MapTilerMap | null = null;
+
+    Promise.all([
+      import('@maptiler/sdk'),
+      import('@maptiler/sdk/dist/maptiler-sdk.css'),
+    ]).then(([sdk]) => {
+      if (disposed || !containerRef.current) return;
+
+      sdk.config.apiKey = apiKey;
+      sdk.config.primaryLanguage = 'id';
+
+      map = new sdk.Map({
+        container: containerRef.current,
+        style: sdk.MapStyle.STREETS,
+        center: [118, -2.5],
+        zoom: 4,
+      });
+      mapRef.current = map;
+      map.on('click', (event) => {
+        onPickRef.current([event.lngLat.lat, event.lngLat.lng]);
+      });
+      map.on('error', () => {
+        setMapError('Peta tidak dapat dimuat. Periksa API key MapTiler dan koneksi internet.');
+      });
+      setMapReady(true);
+    }).catch((error: unknown) => {
+      console.error('Gagal memuat peta MapTiler:', error);
+      setMapError('Peta tidak dapat dimuat. Periksa koneksi internet dan konfigurasi MapTiler.');
+    });
+
+    return () => {
+      disposed = true;
+      markerRef.current?.remove();
+      markerRef.current = null;
+      map?.remove();
+      mapRef.current = null;
+      setMapReady(false);
+    };
+  }, [apiKey]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map || !position) return;
+
+    const coordinates: [number, number] = [position[1], position[0]];
+    map.flyTo({ center: coordinates, zoom: 13 });
+    if (markerRef.current) {
+      markerRef.current.setLngLat(coordinates);
+    } else {
+      markerRef.current = new maptilersdk.Marker({ color: '#F97316' })
+        .setLngLat(coordinates)
+        .addTo(map);
+    }
+  }, [mapReady, position]);
+
+  return (
+    <div style={{ height: '100%', width: '100%', position: 'relative' }}>
+      <div ref={containerRef} style={{ height: '100%', width: '100%' }} />
+      {mapError && (
+        <div role="alert" style={{ position: 'absolute', inset: 'auto 8px 8px', padding: 8, background: 'white', color: '#DC2626', fontSize: '0.75rem' }}>
+          {mapError}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function MapRecenter({ position }: { position: LatLngTuple | null }) {
@@ -186,7 +275,7 @@ export default function CheckoutPage({ cart, navigate }: CheckoutPageProps) {
 
       try {
         const searchQuery = [query, form.province, 'Indonesia'].filter(Boolean).join(', ');
-        const params = new URLSearchParams({ q: searchQuery, limit: '6', lang: 'id' });
+        const params = new URLSearchParams({ q: searchQuery, limit: '6' });
         const response = await fetch(`https://photon.komoot.io/api/?${params}`, {
           signal: controller.signal,
         });
@@ -480,30 +569,45 @@ export default function CheckoutPage({ cart, navigate }: CheckoutPageProps) {
                   <p style={{ margin: '0 0 8px', fontSize: '0.78rem', color: '#DC2626' }}>{locationError}</p>
                 )}
                 <div style={{ height: 300, overflow: 'hidden', border: '1px solid #E5E7EB', borderRadius: 10, zIndex: 0 }}>
-                  <MapContainer
-                    center={[-2.5, 118]}
-                    zoom={4}
-                    scrollWheelZoom
-                    style={{ height: '100%', width: '100%' }}
-                  >
-                    <TileLayer
-                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  {mapTilerApiKey ? (
+                    <IndonesianAddressMap
+                      apiKey={mapTilerApiKey}
+                      position={mapPosition}
+                      onPick={reverseGeocodeMapPosition}
                     />
-                    <MapClickHandler onPick={reverseGeocodeMapPosition} />
-                    <MapRecenter position={mapPosition} />
-                    {mapPosition && (
-                      <CircleMarker
-                        center={mapPosition}
-                        radius={9}
-                        pathOptions={{ color: '#C2410C', fillColor: '#F97316', fillOpacity: 0.9 }}
+                  ) : (
+                    <MapContainer
+                      center={[-2.5, 118]}
+                      zoom={4}
+                      scrollWheelZoom
+                      style={{ height: '100%', width: '100%' }}
+                    >
+                      <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                       />
-                    )}
-                  </MapContainer>
+                      <MapClickHandler onPick={reverseGeocodeMapPosition} />
+                      <MapRecenter position={mapPosition} />
+                      {mapPosition && (
+                        <CircleMarker
+                          center={mapPosition}
+                          radius={9}
+                          pathOptions={{ color: '#C2410C', fillColor: '#F97316', fillOpacity: 0.9 }}
+                        />
+                      )}
+                    </MapContainer>
+                  )}
                 </div>
                 <p style={{ margin: '6px 0 0', color: '#9CA3AF', fontSize: '0.72rem' }}>
-                  Peta © OpenStreetMap · Pencarian lokasi oleh Photon
+                  {mapTilerApiKey
+                    ? 'Peta © MapTiler dan OpenStreetMap · Pencarian lokasi oleh Photon'
+                    : 'Peta © OpenStreetMap · Pencarian lokasi oleh Photon'}
                 </p>
+                {!mapTilerApiKey && (
+                  <p style={{ margin: '4px 0 0', color: '#9CA3AF', fontSize: '0.72rem' }}>
+                    Bahasa label peta belum dikonfigurasi; atur VITE_MAPTILER_API_KEY untuk mengaktifkan Bahasa Indonesia.
+                  </p>
+                )}
               </div>
               <div style={{ marginTop: 16 }}>
                 <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', color: '#374151', marginBottom: 6 }}>Alamat Lengkap</label>

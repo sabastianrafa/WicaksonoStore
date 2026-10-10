@@ -88,6 +88,22 @@ class ShippingMethodTest extends TestCase
             ->assertJsonPath('data.courier.code', 'JNT_REG')
             ->assertJsonPath('data.cost', 14000);
 
+        $malangOutsideEastJavaQuote = $this->postJson('/api/shipping-methods/quote', [
+            'city' => 'Malang',
+            'province' => 'Jawa Barat',
+        ]);
+        $malangOutsideEastJavaQuote->assertOk()
+            ->assertJsonPath('data.region', 'jawa')
+            ->assertJsonPath('data.courier.code', 'JNT_REG');
+
+        $jakartaQuote = $this->postJson('/api/shipping-methods/quote', [
+            'city' => 'Jakarta Selatan',
+            'province' => 'Daerah Khusus Ibukota Jakarta',
+        ]);
+        $jakartaQuote->assertOk()
+            ->assertJsonPath('data.region', 'jawa')
+            ->assertJsonPath('data.courier.code', 'JNT_REG');
+
         $outsideJavaQuote = $this->postJson('/api/shipping-methods/quote', [
             'city' => 'Denpasar',
             'province' => 'Bali',
