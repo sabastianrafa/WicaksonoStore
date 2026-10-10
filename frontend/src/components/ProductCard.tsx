@@ -47,7 +47,6 @@ function Stars({ rating }: { rating: number }) {
 export default function ProductCard({
   product,
   navigate,
-  onAddToCart,
 }: ProductCardProps) {
   const [imageError, setImageError] = useState(false);
 
@@ -316,37 +315,6 @@ export default function ProductCard({
         </p>
       </div>
 
-      {/* =========================
-          ADD TO CART
-      ========================== */}
-      <div
-        style={{
-          padding: '0 16px 16px',
-        }}
-      >
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={isOutOfStock}
-          onClick={(event) => {
-            event.stopPropagation();
-
-            if (isOutOfStock) {
-              return;
-            }
-
-            onAddToCart(product);
-          }}
-          style={{
-            width: '100%',
-            padding: '10px',
-            cursor: isOutOfStock ? 'not-allowed' : 'pointer',
-            opacity: isOutOfStock ? 0.6 : 1,
-          }}
-        >
-          {isOutOfStock ? 'Stok Habis' : '+ Keranjang'}
-        </button>
-      </div>
     </div>
   );
 }

@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { formatPrice } from '../data';
+import { useEffect, useState, type FormEvent } from 'react';
 import type { Page } from '../App';
 import { apiFetch } from '../api/client';
 
@@ -9,33 +8,54 @@ interface ProfileFields {
   phone: string;
 }
 
-interface ProfileResponse {
-  success: boolean;
-  data: {
-    user: {
-      id: number;
-      name: string;
-      email: string;
-      phone?: string | null;
-      role: string;
-    };
-  };
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string | null;
+  role: string;
 }
 
-export default function DashboardPage({ navigate }: { navigate: (page: Page) => void }) {
-  const [activeMenu, setActiveMenu] = useState('profil');
-  const [wishlist] = useState([1, 4, 6]);
-  const [profile, setProfile] = useState<ProfileFields>({
+interface ProfileResponse {
+  success: boolean;
+  data: { user: User };
+}
+
+interface DashboardPageProps {
+  navigate: (page: Page) => void;
+}
+
+const MENU_ITEMS = [
+  { id: 'profil', label: 'Profil Saya', icon: '👤' },
+  { id: 'pesanan', label: 'Riwayat Pesanan', icon: '📦' },
+  { id: 'wishlist', label: 'Wishlist', icon: '❤️' },
+  { id: 'alamat', label: 'Alamat', icon: '📍' },
+] as const;
+
+type MenuId = (typeof MENU_ITEMS)[number]['id'];
+
+const EMPTY_PROFILE: ProfileFields = { name: '', email: '', phone: '' };
+const inputClass =
+  'mt-1.5 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-[#DF3E1D] focus:ring-2 focus:ring-[#DF3E1D]/15';
+const cardClass = 'rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-7';
+const primaryButton =
+  'inline-flex items-center justify-center rounded-lg bg-[#DF3E1D] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#c93418] disabled:cursor-not-allowed disabled:opacity-60';
+const outlineButton =
+  'inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-[#DF3E1D] hover:text-[#DF3E1D] disabled:cursor-not-allowed disabled:opacity-60';
+
+export default function DashboardPage({ navigate }: DashboardPageProps) {
+  const [activeMenu, setActiveMenu] = useState<MenuId>('profil');
+  const [profile, setProfile] = useState<ProfileFields>(() => ({
     name: localStorage.getItem('userName') ?? '',
     email: localStorage.getItem('userEmail') ?? '',
     phone: localStorage.getItem('userPhone') ?? '',
-  });
-  const [profileForm, setProfileForm] = useState(profile);
-  const [loadingProfile, setLoadingProfile] = useState(true);
-  const [editingProfile, setEditingProfile] = useState(false);
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [profileError, setProfileError] = useState('');
-  const [profileSuccess, setProfileSuccess] = useState('');
+  }));
+  const [profileForm, setProfileForm] = useState<ProfileFields>(profile);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -44,26 +64,27 @@ export default function DashboardPage({ navigate }: { navigate: (page: Page) => 
       .then(({ data }) => {
         if (cancelled) return;
 
-        const currentProfile = {
-          name: data.user.name ?? '',
-          email: data.user.email ?? '',
-          phone: data.user.phone ?? '',
+        const user = data.user;
+        const nextProfile = {
+          name: user.name ?? '',
+          email: user.email ?? '',
+          phone: user.phone ?? '',
         };
 
-        setProfile(currentProfile);
-        setProfileForm(currentProfile);
-        localStorage.setItem('userName', currentProfile.name);
-        localStorage.setItem('userEmail', currentProfile.email);
-        localStorage.setItem('userPhone', currentProfile.phone);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        setProfile(nextProfile);
+        setProfileForm(nextProfile);
+        localStorage.setItem('userName', nextProfile.name);
+        localStorage.setItem('userEmail', nextProfile.email);
+        localStorage.setItem('userPhone', nextProfile.phone);
+        localStorage.setItem('user', JSON.stringify(user));
       })
-      .catch((error) => {
+      .catch((err: unknown) => {
         if (!cancelled) {
-          setProfileError(error instanceof Error ? error.message : 'Gagal memuat profil.');
+          setError(err instanceof Error ? err.message : 'Gagal memuat profil.');
         }
       })
       .finally(() => {
-        if (!cancelled) setLoadingProfile(false);
+        if (!cancelled) setLoading(false);
       });
 
     return () => {
@@ -71,18 +92,28 @@ export default function DashboardPage({ navigate }: { navigate: (page: Page) => 
     };
   }, []);
 
-  const beginProfileEdit = () => {
-    setProfileForm(profile);
-    setProfileError('');
-    setProfileSuccess('');
-    setEditingProfile(true);
+  const updateField = (field: keyof ProfileFields, value: string) => {
+    setProfileForm((current) => ({ ...current, [field]: value }));
   };
 
-  const saveProfile = async (event: React.FormEvent<HTMLFormElement>) => {
+  const startEditing = () => {
+    setProfileForm(profile);
+    setError('');
+    setSuccess('');
+    setEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setProfileForm(profile);
+    setError('');
+    setEditing(false);
+  };
+
+  const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setSavingProfile(true);
-    setProfileError('');
-    setProfileSuccess('');
+    setSaving(true);
+    setError('');
+    setSuccess('');
 
     try {
       const response = await apiFetch<ProfileResponse>('/auth/profile', {
@@ -94,10 +125,11 @@ export default function DashboardPage({ navigate }: { navigate: (page: Page) => 
         }),
       });
 
+      const user = response.data.user;
       const updatedProfile = {
-        name: response.data.user.name,
-        email: response.data.user.email,
-        phone: response.data.user.phone ?? '',
+        name: user.name ?? '',
+        email: user.email ?? '',
+        phone: user.phone ?? '',
       };
 
       setProfile(updatedProfile);
@@ -105,249 +137,196 @@ export default function DashboardPage({ navigate }: { navigate: (page: Page) => 
       localStorage.setItem('userName', updatedProfile.name);
       localStorage.setItem('userEmail', updatedProfile.email);
       localStorage.setItem('userPhone', updatedProfile.phone);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-      setEditingProfile(false);
-      setProfileSuccess('Profil berhasil diperbarui.');
-    } catch (error) {
-      setProfileError(error instanceof Error ? error.message : 'Gagal memperbarui profil.');
+      localStorage.setItem('user', JSON.stringify(user));
+      setEditing(false);
+      setSuccess('Profil berhasil diperbarui.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Gagal memperbarui profil.');
     } finally {
-      setSavingProfile(false);
+      setSaving(false);
     }
   };
 
-  const statusColor = (s: string) => ({
-    selesai: { bg: '#DCFCE7', text: '#16A34A' },
-    dikirim: { bg: '#DBEAFE', text: '#1D4ED8' },
-    diproses: { bg: '#FEF3C7', text: '#D97706' },
-    batal: { bg: '#FEE2E2', text: '#DC2626' },
-  }[s] ?? { bg: '#F3F4F6', text: '#6B7280' });
-
-  const menus = [
-    { id: 'profil', label: 'Profil Saya', icon: '👤' },
-    { id: 'pesanan', label: 'Riwayat Pesanan', icon: '📦' },
-    { id: 'wishlist', label: 'Wishlist', icon: '❤️' },
-    { id: 'alamat', label: 'Alamat', icon: '📍' },
-  ];
+  const activeLabel = MENU_ITEMS.find((item) => item.id === activeMenu)?.label ?? 'Dashboard';
 
   return (
-    <div style={{ maxWidth: 1280, margin: '0 auto', padding: '32px 24px', display: 'grid', gridTemplateColumns: '260px 1fr', gap: 24, alignItems: 'start' }}>
-      {/* Sidebar */}
-      <div style={{ background: 'white', borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', position: 'sticky', top: 88 }}>
-        {/* Profile header */}
-        <div style={{ background: 'linear-gradient(135deg, #F97316, #EA6C0A)', padding: '24px', textAlign: 'center' }}>
-          <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', border: '3px solid white', margin: '0 auto 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>👤</div>
-          <div style={{ color: 'white', fontWeight: 700, fontSize: '1rem' }}>{profile.name || 'Customer'}</div>
-          <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.8rem' }}>{profile.email || ' '}</div>
-          <div style={{ marginTop: 10, background: 'rgba(255,255,255,0.2)', borderRadius: 100, padding: '4px 12px', display: 'inline-block', fontSize: '0.75rem', color: 'white', fontWeight: 600 }}>
-            Profil Customer
-          </div>
-        </div>
-
-        {/* Menu */}
-        <div style={{ padding: '12px 0' }}>
-          {menus.map(m => (
-            <button key={m.id} onClick={() => setActiveMenu(m.id)} style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              width: '100%', padding: '12px 20px', border: 'none',
-              background: activeMenu === m.id ? 'rgba(249,115,22,0.08)' : 'transparent',
-              borderLeft: `3px solid ${activeMenu === m.id ? '#F97316' : 'transparent'}`,
-              color: activeMenu === m.id ? '#F97316' : '#374151',
-              fontFamily: 'Poppins', fontWeight: activeMenu === m.id ? 700 : 500,
-              fontSize: '0.875rem', cursor: 'pointer', transition: 'all 0.2s',
-              textAlign: 'left',
-            }}>
-              <span style={{ fontSize: 16 }}>{m.icon}</span>
-              {m.label}
-            </button>
-          ))}
-          <div style={{ borderTop: '1px solid #F3F4F6', margin: '8px 0' }} />
-          <button onClick={() => navigate('home')} style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            width: '100%', padding: '12px 20px', border: 'none',
-            background: 'transparent', color: '#DC2626',
-            fontFamily: 'Poppins', fontWeight: 500, fontSize: '0.875rem', cursor: 'pointer',
-          }}>
-            <span>🚪</span> Keluar
-          </button>
-        </div>
+    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <div className="mb-6">
+        <p className="text-sm text-gray-500">Akun Saya</p>
+        <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-gray-900 sm:text-3xl">
+          Dashboard Pelanggan
+        </h1>
       </div>
 
-      {/* Content */}
-      <div>
-        {activeMenu === 'profil' && (
-          <div style={{ background: 'white', borderRadius: 14, padding: '28px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-              <h2 style={{ margin: 0, fontWeight: 800, color: '#1F2937' }}>Profil Saya</h2>
-              {!editingProfile && (
-                <button className="btn-outline" onClick={beginProfileEdit} style={{ padding: '9px 16px' }}>
-                  Edit Profil
+      <div className="grid items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <aside className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm lg:sticky lg:top-24">
+          <div className="bg-gradient-to-br from-[#DF3E1D] to-[#b92c13] px-5 py-7 text-center">
+            <div className="mx-auto mb-3 flex h-[68px] w-[68px] items-center justify-center rounded-full border-[3px] border-white/90 bg-white/20 text-3xl">
+              👤
+            </div>
+            <p className="truncate font-bold text-white">{profile.name || 'Pelanggan'}</p>
+            <p className="mt-1 truncate text-xs text-white/80">{profile.email || ' '}</p>
+            <span className="mt-3 inline-flex rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
+              Profil Customer
+            </span>
+          </div>
+
+          <nav className="p-2" aria-label="Menu akun">
+            {MENU_ITEMS.map((item) => {
+              const selected = activeMenu === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveMenu(item.id)}
+                  aria-current={selected ? 'page' : undefined}
+                  className={`flex w-full items-center gap-3 rounded-lg border-l-[3px] px-4 py-3 text-left text-sm transition ${
+                    selected
+                      ? 'border-[#DF3E1D] bg-[#DF3E1D]/[0.07] font-bold text-[#DF3E1D]'
+                      : 'border-transparent font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  <span aria-hidden="true" className="text-base">{item.icon}</span>
+                  {item.label}
                 </button>
+              );
+            })}
+            <div className="my-2 border-t border-gray-100" />
+            <button
+              type="button"
+              onClick={() => navigate('home')}
+              className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
+            >
+              <span aria-hidden="true">🚪</span> Kembali ke Beranda
+            </button>
+          </nav>
+        </aside>
+
+        <section className="min-w-0" aria-label={activeLabel}>
+          {activeMenu === 'profil' && (
+            <div className={cardClass}>
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-extrabold text-gray-900">Profil Saya</h2>
+                  <p className="mt-1 text-sm text-gray-500">Kelola informasi akun kamu.</p>
+                </div>
+                {!editing && (
+                  <button type="button" className={outlineButton} onClick={startEditing}>
+                    Edit Profil
+                  </button>
+                )}
+              </div>
+
+              {error && (
+                <div role="alert" className="mb-4 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+              {success && (
+                <div role="status" className="mb-4 rounded-lg border border-green-100 bg-green-50 px-4 py-3 text-sm text-green-700">
+                  {success}
+                </div>
+              )}
+
+              {loading ? (
+                <div className="flex items-center gap-3 py-10 text-sm text-gray-500">
+                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-[#DF3E1D]" />
+                  Memuat profil...
+                </div>
+              ) : editing ? (
+                <form onSubmit={saveProfile}>
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <label className="text-sm font-semibold text-gray-600">
+                      Nama Lengkap
+                      <input
+                        className={inputClass}
+                        value={profileForm.name}
+                        onChange={(event) => updateField('name', event.target.value)}
+                        autoComplete="name"
+                        required
+                      />
+                    </label>
+                    <label className="text-sm font-semibold text-gray-600">
+                      Email
+                      <input
+                        className={inputClass}
+                        type="email"
+                        value={profileForm.email}
+                        onChange={(event) => updateField('email', event.target.value)}
+                        autoComplete="email"
+                        required
+                      />
+                    </label>
+                    <label className="text-sm font-semibold text-gray-600 sm:col-span-2">
+                      Nomor HP
+                      <input
+                        className={inputClass}
+                        type="tel"
+                        value={profileForm.phone}
+                        onChange={(event) => updateField('phone', event.target.value)}
+                        autoComplete="tel"
+                        placeholder="Masukkan nomor HP"
+                      />
+                    </label>
+                  </div>
+                  <div className="mt-7 flex flex-wrap justify-end gap-3">
+                    <button type="button" className={outlineButton} onClick={cancelEditing} disabled={saving}>
+                      Batal
+                    </button>
+                    <button type="submit" className={primaryButton} disabled={saving}>
+                      {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <dl className="grid gap-x-8 sm:grid-cols-2">
+                  {([
+                    ['Nama Lengkap', profile.name],
+                    ['Email', profile.email],
+                    ['Nomor HP', profile.phone],
+                  ] as const).map(([label, value]) => (
+                    <div key={label} className="border-b border-gray-100 py-4 first:pt-1">
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</dt>
+                      <dd className="mt-2 break-words font-semibold text-gray-800">{value || '-'}</dd>
+                    </div>
+                  ))}
+                </dl>
               )}
             </div>
+          )}
 
-            {profileError && (
-              <div style={{ marginBottom: 16, padding: '10px 12px', borderRadius: 8, background: '#FEF2F2', color: '#B91C1C', fontSize: '0.85rem' }}>
-                {profileError}
-              </div>
-            )}
-            {profileSuccess && (
-              <div style={{ marginBottom: 16, padding: '10px 12px', borderRadius: 8, background: '#F0FDF4', color: '#15803D', fontSize: '0.85rem' }}>
-                {profileSuccess}
-              </div>
-            )}
-
-            {loadingProfile ? (
-              <div style={{ padding: '32px 0', color: '#6B7280' }}>Memuat profil...</div>
-            ) : editingProfile ? (
-              <form onSubmit={saveProfile}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-                  <label style={{ display: 'block', fontWeight: 600, fontSize: '0.82rem', color: '#6B7280' }}>
-                    Nama Lengkap
-                    <input
-                      className="input-field"
-                      value={profileForm.name}
-                      onChange={(event) => setProfileForm((current) => ({ ...current, name: event.target.value }))}
-                      required
-                      style={{ display: 'block', marginTop: 6 }}
-                    />
-                  </label>
-                  <label style={{ display: 'block', fontWeight: 600, fontSize: '0.82rem', color: '#6B7280' }}>
-                    Email
-                    <input
-                      className="input-field"
-                      type="email"
-                      value={profileForm.email}
-                      onChange={(event) => setProfileForm((current) => ({ ...current, email: event.target.value }))}
-                      required
-                      style={{ display: 'block', marginTop: 6 }}
-                    />
-                  </label>
-                  <label style={{ display: 'block', fontWeight: 600, fontSize: '0.82rem', color: '#6B7280' }}>
-                    Nomor HP
-                    <input
-                      className="input-field"
-                      type="tel"
-                      value={profileForm.phone}
-                      onChange={(event) => setProfileForm((current) => ({ ...current, phone: event.target.value }))}
-                      style={{ display: 'block', marginTop: 6 }}
-                    />
-                  </label>
-                </div>
-                <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                  <button
-                    type="button"
-                    className="btn-outline"
-                    onClick={() => {
-                      setProfileForm(profile);
-                      setProfileError('');
-                      setEditingProfile(false);
-                    }}
-                    disabled={savingProfile}
-                    style={{ padding: '11px 20px' }}
-                  >
-                    Batal
-                  </button>
-                  <button type="submit" className="btn-primary" disabled={savingProfile} style={{ padding: '11px 24px' }}>
-                    {savingProfile ? 'Menyimpan...' : 'Simpan Perubahan'}
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-                {[
-                  { label: 'Nama Lengkap', value: profile.name },
-                  { label: 'Email', value: profile.email },
-                  { label: 'Nomor HP', value: profile.phone },
-                ].map(({ label, value }) => (
-                  <div key={label} style={{ padding: '14px 0', borderBottom: '1px solid #F3F4F6' }}>
-                    <div style={{ fontSize: '0.75rem', color: '#6B7280', fontWeight: 600, marginBottom: 6 }}>{label}</div>
-                    <div style={{ color: '#1F2937', fontWeight: 600 }}>{value || '-'}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeMenu === 'pesanan' && (
-          <div style={{ background: 'white', borderRadius: 14, padding: '28px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-            <h2 style={{ margin: '0 0 24px', fontWeight: 800, color: '#1F2937' }}>Riwayat Pesanan</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {orders.slice(0, 3).map(order => {
-                const sc = statusColor(order.status);
-                return (
-                  <div key={order.id} style={{ border: '1px solid #F3F4F6', borderRadius: 12, padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-                    <div>
-                      <div style={{ fontWeight: 700, color: '#1F2937', fontSize: '0.9rem' }}>{order.id}</div>
-                      <div style={{ fontSize: '0.8rem', color: '#9CA3AF', marginTop: 2 }}>{order.date} · {order.items} produk</div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <span style={{ fontWeight: 700, color: '#1F2937' }}>{formatPrice(order.total)}</span>
-                      <span style={{ background: sc.bg, color: sc.text, borderRadius: 100, padding: '4px 12px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'capitalize' }}>{order.status}</span>
-                      <button className="btn-outline" style={{ padding: '6px 14px', fontSize: '0.78rem' }}>Detail</button>
-                    </div>
-                  </div>
-                );
-              })}
+          {activeMenu === 'pesanan' && (
+            <div className={cardClass}>
+              <h2 className="text-xl font-extrabold text-gray-900">Riwayat Pesanan</h2>
+              <EmptyState icon="📦" title="Riwayat pesanan belum tersedia" description="Data pesanan perlu dihubungkan ke endpoint pesanan pada backend." />
             </div>
-          </div>
-        )}
+          )}
 
-        {activeMenu === 'wishlist' && (
-          <div style={{ background: 'white', borderRadius: 14, padding: '28px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-            <h2 style={{ margin: '0 0 24px', fontWeight: 800, color: '#1F2937' }}>Wishlist</h2>
-            <p style={{ color: '#6B7280', fontSize: '0.9rem' }}>{wishlist.length} produk tersimpan</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }}>
-              {wishlist.map(id => (
-                <div key={id} style={{ border: '1px solid #F3F4F6', borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
-                  <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}>
-                    <button style={{ background: 'white', border: 'none', cursor: 'pointer', borderRadius: '50%', width: 28, height: 28, fontSize: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>❤️</button>
-                  </div>
-                  <div style={{ height: 120, background: '#FFF8F0' }}>
-                    <img src={`https://images.unsplash.com/photo-1601050690597-df0568f70950?w=200&h=200&fit=crop&auto=format`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                  <div style={{ padding: '10px 12px' }}>
-                    <div style={{ fontWeight: 600, fontSize: '0.8rem', color: '#1F2937', marginBottom: 4 }}>Produk #{id}</div>
-                    <div style={{ fontWeight: 700, color: '#F97316', fontSize: '0.9rem' }}>Rp 25.000</div>
-                    <button className="btn-primary" style={{ width: '100%', padding: '8px', fontSize: '0.75rem', marginTop: 8 }}>Tambah ke Keranjang</button>
-                  </div>
-                </div>
-              ))}
+          {activeMenu === 'wishlist' && (
+            <div className={cardClass}>
+              <h2 className="text-xl font-extrabold text-gray-900">Wishlist</h2>
+              <EmptyState icon="❤️" title="Wishlist belum tersedia" description="Hubungkan bagian ini ke API wishlist agar produk tersimpan berasal dari akun pelanggan." />
             </div>
-          </div>
-        )}
+          )}
 
-        {activeMenu === 'alamat' && (
-          <div style={{ background: 'white', borderRadius: 14, padding: '28px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-              <h2 style={{ margin: 0, fontWeight: 800, color: '#1F2937' }}>Alamat Saya</h2>
-              <button className="btn-primary" style={{ padding: '10px 18px', fontSize: '0.85rem' }}>+ Tambah Alamat</button>
+          {activeMenu === 'alamat' && (
+            <div className={cardClass}>
+              <h2 className="text-xl font-extrabold text-gray-900">Alamat Saya</h2>
+              <EmptyState icon="📍" title="Data alamat belum tersedia" description="Hubungkan bagian ini ke API alamat pelanggan untuk menampilkan dan mengelola alamat pengiriman." />
             </div>
-            {[
-              { label: 'Rumah', name: 'Siti Rahayu', address: 'Jl. Merdeka No. 45, Cilandak, Jakarta Selatan 12430', phone: '0812-3456-7890', main: true },
-              { label: 'Kantor', name: 'Siti Rahayu', address: 'Jl. Sudirman Kav. 52-53, Jakarta Pusat 10220', phone: '0812-3456-7890', main: false },
-            ].map(addr => (
-              <div key={addr.label} style={{ border: `1.5px solid ${addr.main ? '#F97316' : '#E5E7EB'}`, borderRadius: 12, padding: '16px 20px', marginBottom: 12, position: 'relative' }}>
-                {addr.main && <div style={{ position: 'absolute', top: -1, left: 16, background: '#F97316', color: 'white', fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: '0 0 6px 6px' }}>Utama</div>}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: addr.main ? 8 : 0 }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                      <span style={{ fontWeight: 700, color: '#1F2937' }}>{addr.label}</span>
-                    </div>
-                    <p style={{ margin: '0 0 4px', fontSize: '0.875rem', color: '#374151' }}>{addr.name}</p>
-                    <p style={{ margin: '0 0 4px', fontSize: '0.85rem', color: '#6B7280' }}>{addr.address}</p>
-                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#6B7280' }}>{addr.phone}</p>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                    <button className="btn-outline" style={{ padding: '6px 12px', fontSize: '0.78rem' }}>Ubah</button>
-                    {!addr.main && <button style={{ padding: '6px 12px', fontSize: '0.78rem', background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, cursor: 'pointer', color: '#DC2626', fontFamily: 'Poppins' }}>Hapus</button>}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+          )}
+        </section>
       </div>
+    </main>
+  );
+}
+
+function EmptyState({ icon, title, description }: { icon: string; title: string; description: string }) {
+  return (
+    <div className="mt-6 rounded-xl border border-dashed border-gray-200 bg-gray-50/70 px-5 py-12 text-center">
+      <div className="text-3xl" aria-hidden="true">{icon}</div>
+      <h3 className="mt-3 font-bold text-gray-800">{title}</h3>
+      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-500">{description}</p>
     </div>
   );
 }

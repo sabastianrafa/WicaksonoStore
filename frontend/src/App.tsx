@@ -63,6 +63,12 @@ interface CartItem {
   product: CartProduct;
 }
 
+interface CartAddProduct {
+  id: number;
+  name: string;
+  quantity?: number;
+}
+
 interface MeResponse {
   data: { user: { role: string } };
 }
@@ -246,14 +252,30 @@ function AppContent() {
 
   /* ---------- Keranjang ---------- */
 
-  const addToCart = (product: unknown) => {
+  const addToCart = async (product: unknown): Promise<boolean> => {
     if (!hasToken()) {
       navigate("login");
-      return;
+      return false;
     }
 
-    // ProductCard mengirim produk, bukan item keranjang.
-    const p = product as { id: number; name: string };
+    if (
+      typeof product !== "object" ||
+      product === null ||
+      !("id" in product) ||
+      typeof product.id !== "number" ||
+      !("name" in product) ||
+      typeof product.name !== "string" ||
+      ("quantity" in product &&
+        (typeof product.quantity !== "number" ||
+          !Number.isInteger(product.quantity) ||
+          product.quantity < 1))
+    ) {
+      console.error("Gagal menambahkan ke keranjang: data produk tidak valid.");
+      showToast("Data produk tidak valid.");
+      return false;
+    }
+
+    const p: CartAddProduct = product;
 
     /*
     | Keranjang disimpan di server (POST /api/cart/items). Sebelumnya
@@ -262,40 +284,29 @@ function AppContent() {
     | - state lokal berisi bentuk data berbeda dari CartPage,
     |   sehingga /keranjang bisa render putih.
     */
-    void apiFetch<{ success: boolean; message: string }>(
-      "/cart/items",
-      {
+    try {
+      await apiFetch<{ success: boolean; message: string }>("/cart/items", {
         method: "POST",
         body: JSON.stringify({
           product_id: p.id,
-          quantity: 1,
+          quantity: p.quantity ?? 1,
         }),
-      }
-    )
-      .then(() => {
-        // Ambil ulang keranjang dari server supaya isi state sama
-        // persis dengan bentuk yang dipakai CartPage.
-        return apiFetch<{
-          data?: { items?: unknown[] };
-        }>("/cart");
-      })
-      .then((response) => {
-        setCart((response.data?.items ?? []) as CartItem[]);
-        showToast(
-          `${p.name.slice(0, 28)}... ditambahkan ke keranjang`
-        );
-      })
-      .catch((error) => {
-        console.error(
-          "Gagal menambahkan ke keranjang:",
-          error
-        );
-        showToast(
-          error instanceof Error
-            ? error.message
-            : "Gagal menambahkan ke keranjang."
-        );
       });
+
+      // Ambil ulang keranjang dari server agar state mengikuti bentuk API.
+      const response = await apiFetch<{ data?: { items?: CartItem[] } }>("/cart");
+      setCart(response.data?.items ?? []);
+      showToast(`${p.name.slice(0, 28)}... ditambahkan ke keranjang`);
+      return true;
+    } catch (error) {
+      console.error("Gagal menambahkan ke keranjang:", error);
+      showToast(
+        error instanceof Error
+          ? error.message
+          : "Gagal menambahkan ke keranjang."
+      );
+      return false;
+    }
   };
 
   /* ---------- Render ---------- */
