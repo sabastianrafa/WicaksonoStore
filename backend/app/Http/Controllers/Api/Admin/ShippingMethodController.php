@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\ShippingMethod;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class ShippingMethodController extends Controller
 {
@@ -17,7 +16,8 @@ class ShippingMethodController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = ShippingMethod::query();
+        $query = ShippingMethod::query()
+            ->whereIn('code', ShippingMethod::SUPPORTED_CODES);
 
         /*
         |--------------------------------------------------------------------------
@@ -129,87 +129,6 @@ class ShippingMethodController extends Controller
     }
 
     /**
-     * Menambahkan metode pengiriman.
-     *
-     * POST /api/admin/shipping-methods
-     */
-    public function store(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-            ],
-
-            'code' => [
-                'required',
-                'string',
-                'max:255',
-                'unique:shipping_methods,code',
-            ],
-
-            'description' => [
-                'nullable',
-                'string',
-            ],
-
-            'cost' => [
-                'required',
-                'numeric',
-                'min:0',
-            ],
-
-            'estimated_days' => [
-                'nullable',
-                'string',
-                'max:255',
-            ],
-
-            'is_active' => [
-                'sometimes',
-                'boolean',
-            ],
-
-            'sort_order' => [
-                'sometimes',
-                'integer',
-                'min:0',
-            ],
-        ]);
-
-        $shippingMethod = ShippingMethod::create([
-            'name' =>
-                $validated['name'],
-
-            'code' =>
-                $validated['code'],
-
-            'description' =>
-                $validated['description'] ?? null,
-
-            'cost' =>
-                $validated['cost'],
-
-            'estimated_days' =>
-                $validated['estimated_days'] ?? null,
-
-            'is_active' =>
-                $validated['is_active'] ?? true,
-
-            'sort_order' =>
-                $validated['sort_order'] ?? 0,
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' =>
-                'Metode pengiriman berhasil ditambahkan.',
-            'data' => $shippingMethod,
-        ], 201);
-    }
-
-    /**
      * Menampilkan detail metode pengiriman.
      *
      * GET /api/admin/shipping-methods/{shippingMethod}
@@ -217,6 +136,12 @@ class ShippingMethodController extends Controller
     public function show(
         ShippingMethod $shippingMethod
     ): JsonResponse {
+        abort_unless(
+            in_array($shippingMethod->code, ShippingMethod::SUPPORTED_CODES, true),
+            404,
+            'Kurir tidak ditemukan.'
+        );
+
         return response()->json([
             'success' => true,
             'message' =>
@@ -234,30 +159,15 @@ class ShippingMethodController extends Controller
         Request $request,
         ShippingMethod $shippingMethod
     ): JsonResponse {
+        abort_unless(
+            in_array($shippingMethod->code, ShippingMethod::SUPPORTED_CODES, true),
+            404,
+            'Kurir tidak ditemukan.'
+        );
+
         $validated = $request->validate([
-            'name' => [
-                'sometimes',
-                'string',
-                'max:255',
-            ],
-
-            'code' => [
-                'sometimes',
-                'string',
-                'max:255',
-                Rule::unique(
-                    'shipping_methods',
-                    'code'
-                )->ignore($shippingMethod->id),
-            ],
-
-            'description' => [
-                'nullable',
-                'string',
-            ],
-
             'cost' => [
-                'sometimes',
+                'required',
                 'numeric',
                 'min:0',
             ],
@@ -268,16 +178,6 @@ class ShippingMethodController extends Controller
                 'max:255',
             ],
 
-            'is_active' => [
-                'sometimes',
-                'boolean',
-            ],
-
-            'sort_order' => [
-                'sometimes',
-                'integer',
-                'min:0',
-            ],
         ]);
 
         $shippingMethod->update($validated);
@@ -290,20 +190,4 @@ class ShippingMethodController extends Controller
         ]);
     }
 
-    /**
-     * Menghapus metode pengiriman.
-     *
-     * DELETE /api/admin/shipping-methods/{shippingMethod}
-     */
-    public function destroy(
-        ShippingMethod $shippingMethod
-    ): JsonResponse {
-        $shippingMethod->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' =>
-                'Metode pengiriman berhasil dihapus.',
-        ]);
-    }
 }

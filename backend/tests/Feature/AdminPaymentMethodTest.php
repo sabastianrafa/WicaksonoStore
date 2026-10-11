@@ -83,6 +83,7 @@ class AdminPaymentMethodTest extends TestCase
             'code' => 'mandiri',
             'type' => 'bank',
             'account_number' => '999',
+            'account_name' => 'PT Mandiri',
             'is_active' => true,
             'qris_image' => UploadedFile::fake()->image('qr.png'),
         ], ['Accept' => 'application/json']);
@@ -109,6 +110,7 @@ class AdminPaymentMethodTest extends TestCase
                 'name' => 'QRIS',
                 'type' => 'bank',
                 'account_number' => '555',
+                'account_name' => 'Wicaksono Store',
             ])
             ->assertStatus(200)
             ->assertJson([
@@ -129,6 +131,7 @@ class AdminPaymentMethodTest extends TestCase
             'code' => 'ovo',
             'type' => 'bank',
             'account_number' => '111',
+            'account_name' => 'Wicaksono Store',
             'is_active' => true,
         ]);
 
@@ -153,6 +156,8 @@ class AdminPaymentMethodTest extends TestCase
             'name' => 'Transfer Bank',
             'code' => 'transfer_bank',
             'type' => 'bank',
+            'account_number' => '123456',
+            'account_name' => 'Pemilik Rekening',
             'is_active' => true,
         ]);
 
@@ -177,6 +182,8 @@ class AdminPaymentMethodTest extends TestCase
             'name' => 'COD',
             'code' => 'cod',
             'type' => 'bank',
+            'account_number' => '1234567890',
+            'account_name' => 'Wicaksono Store',
             'is_active' => true,
         ]);
 
@@ -213,6 +220,13 @@ class AdminPaymentMethodTest extends TestCase
             ->assertStatus(422);
 
         $this->assertDatabaseHas('payment_methods', ['id' => $method->id]);
+
+        $this->actingAs($this->admin)
+            ->putJson("/api/admin/payment-methods/{$method->id}", [
+                'code' => 'cod-baru',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('code');
     }
 
     public function test_can_delete_unused_payment_method(): void
@@ -237,6 +251,8 @@ class AdminPaymentMethodTest extends TestCase
             'name' => 'Aktif',
             'code' => 'aktif',
             'type' => 'bank',
+            'account_number' => '123456',
+            'account_name' => 'Pemilik Rekening',
             'is_active' => true,
         ]);
 
@@ -244,6 +260,8 @@ class AdminPaymentMethodTest extends TestCase
             'name' => 'Nonaktif',
             'code' => 'nonaktif',
             'type' => 'bank',
+            'account_number' => '123456',
+            'account_name' => 'Pemilik Rekening',
             'is_active' => false,
         ]);
 
@@ -274,7 +292,7 @@ class AdminPaymentMethodTest extends TestCase
         ])->assertStatus(403);
     }
 
-    public function test_bank_method_requires_account_number(): void
+    public function test_active_bank_method_requires_account_details(): void
     {
         $this->actingAs($this->admin)->postJson('/api/admin/payment-methods', [
             'name' => 'Tanpa Rek',
@@ -299,6 +317,7 @@ class AdminPaymentMethodTest extends TestCase
             'code' => 'ovo',
             'type' => 'bank',
             'account_number' => '111',
+            'account_name' => 'Wicaksono Store',
             'is_active' => true,
         ]);
 

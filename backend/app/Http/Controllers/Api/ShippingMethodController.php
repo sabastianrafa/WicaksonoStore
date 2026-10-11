@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ShippingMethod;
+use App\Services\LocationCatalogUnavailable;
+use App\Services\ShippingQuoteService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class ShippingMethodController extends Controller
 {
@@ -17,6 +20,7 @@ class ShippingMethodController extends Controller
     public function index(Request $request): JsonResponse
     {
         $shippingMethods = ShippingMethod::query()
+            ->whereIn('code', ShippingMethod::SUPPORTED_CODES)
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->orderBy('name')
@@ -34,71 +38,62 @@ class ShippingMethodController extends Controller
      *
      * POST /api/shipping-methods/quote
      */
-    public function quote(Request $request): JsonResponse
+    public function quote(Request $request, ShippingQuoteService $quotes): JsonResponse
     {
         $validated = $request->validate([
-            'city' => ['required', 'string', 'max:100'],
-            'province' => ['required', 'string', 'max:100'],
+            'province_code' => ['required', 'string', 'max:20'],
+            'regency_code' => ['required', 'string', 'max:20'],
+            'district_code' => ['required', 'string', 'max:20'],
+            'village_code' => ['required', 'string', 'max:20'],
         ]);
 
-        $city = strtolower(trim($validated['city']));
-        $province = strtolower(str_replace('.', '', trim($validated['province'])));
+        try {
+            $quote = $quotes->quote(
+                $validated['province_code'],
+                $validated['regency_code'],
+                $validated['district_code'],
+                $validated['village_code']
+            );
+        } catch (LocationCatalogUnavailable $exception) {
+            Log::error('Tidak dapat memvalidasi wilayah tujuan untuk ongkir.', [
+                'exception' => $exception,
+            ]);
 
-        if (in_array($city, ['malang', 'kota malang'], true)) {
-            $region = 'malang';
-            $courierCode = 'GOSEND';
-            $method = ShippingMethod::query()
-                ->where('is_active', true)
-                ->whereIn('code', ['GOSEND', 'INSTANT'])
-                ->orderByRaw("CASE WHEN code = 'GOSEND' THEN 0 ELSE 1 END")
-                ->first();
-            $courierName = 'GoSend';
-        } elseif (in_array($province, [
-            'banten',
-            'dki jakarta',
-            'jakarta',
-            'jawa barat',
-            'jawa tengah',
-            'di yogyakarta',
-            'yogyakarta',
-            'jawa timur',
-        ], true)) {
-            $region = 'jawa';
-            $courierCode = 'JNT_REG';
-            $method = ShippingMethod::query()
-                ->where('code', $courierCode)
-                ->where('is_active', true)
-                ->first();
-            $courierName = 'J&T Express';
-        } else {
-            $region = 'luar_jawa';
-            $courierCode = 'LION_PARCEL';
-            $method = ShippingMethod::query()
-                ->where('code', $courierCode)
-                ->where('is_active', true)
-                ->first();
-            $courierName = 'Lion Parcel';
-        }
-
-        if (!$method) {
             return response()->json([
                 'success' => false,
-                'message' => "Tarif {$courierName} belum tersedia. Silakan hubungi admin.",
+                'message' => $exception->getMessage(),
+            ], 503);
+        }
+
+        if (! $quote) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tarif kurir untuk wilayah ini belum tersedia. Silakan hubungi admin.',
             ], 422);
         }
+
+        $subtotal = (float) ($request->user()->cart?->items()
+            ->with('product')
+            ->get()
+            ->sum(fn ($item) => (float) ($item->product?->price ?? 0) * $item->quantity) ?? 0);
+        $pricing = $quotes->pricing($quote, $subtotal);
 
         return response()->json([
             'success' => true,
             'message' => 'Ongkos kirim berhasil dihitung.',
             'data' => [
-                'region' => $region,
+                'region' => $quote['region'],
                 'courier' => [
-                    'id' => $method->id,
-                    'code' => $courierCode,
-                    'name' => $courierName,
-                    'estimated_days' => $method->estimated_days,
+                    'id' => $quote['method']->id,
+                    'code' => $quote['courier_code'],
+                    'name' => $quote['courier_name'],
+                    'estimated_days' => $quote['method']->estimated_days,
                 ],
-                'cost' => (float) $method->cost,
+                'cost' => $pricing['cost'],
+                'original_cost' => $pricing['original_cost'],
+                'shipping_discount' => $pricing['discount'],
+                'promotion_applied' => $pricing['promotion_applied'],
+                'location' => $quote['location'],
             ],
         ]);
     }
@@ -111,7 +106,10 @@ class ShippingMethodController extends Controller
     public function show(
         ShippingMethod $shippingMethod
     ): JsonResponse {
-        if (!$shippingMethod->is_active) {
+        if (
+            ! $shippingMethod->is_active
+            || ! in_array($shippingMethod->code, ShippingMethod::SUPPORTED_CODES, true)
+        ) {
             return response()->json([
                 'success' => false,
                 'message' => 'Metode pengiriman tidak ditemukan.',

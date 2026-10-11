@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\WishlistController;
+use App\Http\Controllers\Api\LocationController;
 
 use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\ProductController as AdminProductController;
@@ -23,6 +24,7 @@ use App\Http\Controllers\Api\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Api\Admin\ProductImageController;
+use App\Http\Controllers\Api\Admin\ShippingPromotionController;
 
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
@@ -46,8 +48,14 @@ Route::prefix('reviews')->group(function () {
 
 Route::prefix('shipping-methods')->group(function () {
     Route::get('/', [ShippingMethodController::class, 'index']);
-    Route::post('/quote', [ShippingMethodController::class, 'quote']);
     Route::get('/{shippingMethod}', [ShippingMethodController::class, 'show']);
+});
+
+Route::prefix('locations')->group(function () {
+    Route::get('/provinces', [LocationController::class, 'provinces']);
+    Route::get('/provinces/{province}/regencies', [LocationController::class, 'regencies']);
+    Route::get('/regencies/{regency}/districts', [LocationController::class, 'districts']);
+    Route::get('/districts/{district}/villages', [LocationController::class, 'villages']);
 });
 
 Route::prefix('payment-methods')->group(function () {
@@ -72,6 +80,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/items/{item}', [CartController::class, 'removeItem']);
         Route::delete('/', [CartController::class, 'clear']);
     });
+
+    Route::post('/shipping-methods/quote', [ShippingMethodController::class, 'quote']);
 
     Route::prefix('wishlist')->group(function () {
         Route::get('/', [WishlistController::class, 'index']);
@@ -107,7 +117,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::apiResource('categories', AdminCategoryController::class);
 
-        Route::apiResource('shipping-methods', AdminShippingMethodController::class);
+        Route::get('/shipping-methods', [AdminShippingMethodController::class, 'index']);
+        Route::get('/shipping-methods/{shippingMethod}', [AdminShippingMethodController::class, 'show']);
+        Route::put('/shipping-methods/{shippingMethod}', [AdminShippingMethodController::class, 'update']);
+        Route::patch('/shipping-methods/{shippingMethod}', [AdminShippingMethodController::class, 'update']);
+        Route::get('/shipping-promotion', [ShippingPromotionController::class, 'show']);
+        Route::put('/shipping-promotion', [ShippingPromotionController::class, 'update']);
 
         Route::apiResource('payment-methods', AdminPaymentMethodController::class);
 

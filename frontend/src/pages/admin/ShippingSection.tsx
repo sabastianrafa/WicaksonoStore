@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { apiFetch } from '../../api/client';
 import { formatPrice } from '../../data';
-import type { ShippingMethod } from './types';
+import type { ShippingMethod, ShippingPromotion } from './types';
 import {
   Modal,
   card,
-  dangerButton,
   emptyCell,
   ghostButton,
   labelStyle,
@@ -14,74 +14,137 @@ import {
 interface Props {
   methods: ShippingMethod[];
   loading: boolean;
+  promotion: ShippingPromotion | null;
+  promotionLoading: boolean;
+  promotionError: string;
+  onSavePromotion: (payload: {
+    is_active: boolean;
+    minimum_purchase: number;
+    area_codes: string[];
+  }) => Promise<unknown>;
   onSave: (payload: {
-    id?: number;
-    name: string;
-    code: string;
-    description: string | null;
+    id: number;
     cost: number;
     estimated_days: string | null;
-    is_active: boolean;
-    sort_order: number;
   }) => Promise<unknown>;
-  onDelete: (method: ShippingMethod) => void;
 }
 
 interface FormState {
-  id?: number;
-  name: string;
-  code: string;
-  description: string;
+  id: number;
   cost: string;
   estimatedDays: string;
-  isActive: boolean;
-  sortOrder: string;
-  /** Kode hanya di-auto-generate selama belum diubah manual. */
-  codeTouched?: boolean;
 }
-
-const EMPTY_FORM: FormState = {
-  name: '',
-  code: '',
-  description: '',
-  cost: '',
-  estimatedDays: '',
-  isActive: true,
-  sortOrder: '0',
-  codeTouched: false,
-};
 
 const toForm = (method: ShippingMethod): FormState => ({
   id: method.id,
-  name: method.name,
-  code: method.code,
-  description: method.description ?? '',
   cost: String(method.cost),
   estimatedDays: method.estimated_days ?? '',
-  isActive: method.is_active,
-  sortOrder: String(method.sort_order),
-  codeTouched: true,
 });
 
-/** Slug sederhana untuk kode: "JNE REG" -> "JNE_REG" */
-const slugifyCode = (value: string) =>
-  value
-    .toUpperCase()
-    .trim()
-    .replace(/[^A-Z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
+const SHIPPING_REGIONS: Record<string, string> = {
+  GOSEND: 'Malang Raya',
+  JNT_REG: 'Pulau Jawa di luar Malang Raya',
+  LION_PARCEL: 'Luar Pulau Jawa',
+};
 
-export default function ShippingSection({ methods, loading, onSave, onDelete }: Props) {
+interface LocationOption {
+  code: string;
+  name: string;
+}
+
+export default function ShippingSection({
+  methods,
+  loading,
+  onSave,
+  promotion,
+  promotionLoading,
+  promotionError,
+  onSavePromotion,
+}: Props) {
   const [form, setForm] = useState<FormState | null>(null);
   const [saving, setSaving] = useState(false);
+  const [promoEnabled, setPromoEnabled] = useState(false);
+  const [minimumPurchase, setMinimumPurchase] = useState('');
+  const [areaCodes, setAreaCodes] = useState<string[]>([]);
+  const [areaNames, setAreaNames] = useState<Record<string, string>>({});
+  const [provinces, setProvinces] = useState<LocationOption[]>([]);
+  const [regencies, setRegencies] = useState<LocationOption[]>([]);
+  const [provinceCode, setProvinceCode] = useState('');
+  const [regencyCode, setRegencyCode] = useState('');
+  const [areaLevel, setAreaLevel] = useState<'province' | 'regency'>('province');
+  const [promotionSaving, setPromotionSaving] = useState(false);
+  const [locationError, setLocationError] = useState('');
+
+  useEffect(() => {
+    apiFetch<{ data: LocationOption[] }>('/locations/provinces')
+      .then((response) => setProvinces(response.data))
+      .catch((error) => setLocationError(error instanceof Error ? error.message : 'Gagal memuat wilayah.'));
+  }, []);
+
+  useEffect(() => {
+    if (!promotion) return;
+    setPromoEnabled(promotion.is_active);
+    setMinimumPurchase(String(promotion.minimum_purchase));
+    setAreaCodes(promotion.area_codes);
+    setAreaNames(Object.fromEntries(promotion.areas.map((area) => [area.code, area.name])));
+  }, [promotion]);
+
+  useEffect(() => {
+    if (!provinceCode) {
+      setRegencies([]);
+      setRegencyCode('');
+      return;
+    }
+    let active = true;
+    apiFetch<{ data: LocationOption[] }>(`/locations/provinces/${encodeURIComponent(provinceCode)}/regencies`)
+      .then((response) => {
+        if (active) setRegencies(response.data);
+      })
+      .catch((error) => {
+        if (active) setLocationError(error instanceof Error ? error.message : 'Gagal memuat kota/kabupaten.');
+      });
+    return () => {
+      active = false;
+    };
+  }, [provinceCode]);
+
+  const addPromotionArea = () => {
+    const option = areaLevel === 'province'
+      ? provinces.find((province) => province.code === provinceCode)
+      : regencies.find((regency) => regency.code === regencyCode);
+    if (!option) return;
+    setAreaCodes((current) => current.includes(option.code) ? current : [...current, option.code]);
+    setAreaNames((current) => ({ ...current, [option.code]: option.name }));
+  };
+
+  const savePromotion = async () => {
+    const threshold = Number(minimumPurchase);
+    if (!Number.isFinite(threshold) || threshold < 0) {
+      window.alert('Minimum belanja harus bernilai 0 atau lebih.');
+      return;
+    }
+    if (promoEnabled && areaCodes.length === 0) {
+      window.alert('Pilih minimal satu wilayah tujuan untuk mengaktifkan promo.');
+      return;
+    }
+
+    setPromotionSaving(true);
+    try {
+      await onSavePromotion({
+        is_active: promoEnabled,
+        minimum_purchase: threshold,
+        area_codes: areaCodes,
+      });
+      window.alert('Pengaturan promo ongkir berhasil disimpan.');
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Gagal menyimpan promo ongkir.');
+    } finally {
+      setPromotionSaving(false);
+    }
+  };
 
   const submit = async () => {
     if (!form) return;
-
-    if (!form.name.trim() || !form.code.trim()) {
-      window.alert('Nama dan kode metode pengiriman wajib diisi.');
-      return;
-    }
 
     const cost = Number(form.cost);
 
@@ -95,13 +158,8 @@ export default function ShippingSection({ methods, loading, onSave, onDelete }: 
     try {
       await onSave({
         id: form.id,
-        name: form.name.trim(),
-        code: form.code.trim().toUpperCase(),
-        description: form.description.trim() || null,
         cost,
         estimated_days: form.estimatedDays.trim() || null,
-        is_active: form.isActive,
-        sort_order: Number(form.sortOrder) || 0,
       });
 
       setForm(null);
@@ -130,23 +188,17 @@ export default function ShippingSection({ methods, loading, onSave, onDelete }: 
           <div>
             <h2 style={{ margin: 0, fontWeight: 800, color: '#1F2937' }}>Metode Pengiriman</h2>
             <p style={{ margin: '4px 0 0', color: '#9CA3AF', fontSize: '0.85rem' }}>
-              {methods.length} metode terdaftar
+              Hanya GoSend, J&amp;T, dan Lion Parcel. Tarif mengikuti wilayah tujuan.
             </p>
           </div>
-
-          <button
-            style={primaryButton}
-            onClick={() => setForm({ ...EMPTY_FORM })}
-            disabled={form !== null}
-          >
-            + Tambah Metode
-          </button>
         </div>
 
         {loading ? (
           <div style={emptyCell}>Memuat metode pengiriman...</div>
-        ) : methods.length === 0 ? (
-          <div style={emptyCell}>Belum ada metode pengiriman.</div>
+        ) : methods.length !== 3 ? (
+          <div style={emptyCell}>
+            Konfigurasi kurir belum lengkap. Jalankan migrasi database terbaru untuk menyiapkan GoSend, J&amp;T, dan Lion Parcel.
+          </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {methods.map((method) => (
@@ -187,7 +239,7 @@ export default function ShippingSection({ methods, loading, onSave, onDelete }: 
                     </span>
                   </div>
                   <div style={{ color: '#9CA3AF', fontSize: '0.75rem' }}>
-                    {method.description || 'Tanpa deskripsi'}
+                    Tujuan: {SHIPPING_REGIONS[method.code]}
                     {method.estimated_days ? ` · ${method.estimated_days}` : ''}
                   </div>
                 </div>
@@ -196,17 +248,12 @@ export default function ShippingSection({ methods, loading, onSave, onDelete }: 
                   <div style={{ fontWeight: 800, color: '#1F2937', fontSize: '0.9rem' }}>
                     {formatPrice(method.cost)}
                   </div>
-                  <div style={{ color: method.is_active ? '#16A34A' : '#9CA3AF', fontSize: '0.72rem' }}>
-                    {method.is_active ? 'Aktif' : 'Nonaktif'}
-                  </div>
+                  <div style={{ color: '#16A34A', fontSize: '0.72rem' }}>Aktif</div>
                 </div>
 
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                   <button style={ghostButton} onClick={() => setForm(toForm(method))}>
-                    Edit
-                  </button>
-                  <button style={dangerButton} onClick={() => onDelete(method)}>
-                    Hapus
+                    Atur Tarif
                   </button>
                 </div>
               </div>
@@ -215,125 +262,114 @@ export default function ShippingSection({ methods, loading, onSave, onDelete }: 
         )}
       </div>
 
+      <div style={{ ...card, marginTop: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div>
+            <h2 style={{ margin: 0, fontWeight: 800, color: '#1F2937' }}>Promo Gratis Ongkir</h2>
+            <p style={{ margin: '4px 0 0', color: '#9CA3AF', fontSize: '0.85rem' }}>
+              Gratis ongkir otomatis diberikan jika subtotal memenuhi minimum dan alamat termasuk wilayah terpilih.
+            </p>
+          </div>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 600, color: '#374151' }}>
+            <input type="checkbox" checked={promoEnabled} onChange={(event) => setPromoEnabled(event.target.checked)} />
+            Promo aktif
+          </label>
+        </div>
+
+        {promotionLoading ? (
+          <div style={{ ...emptyCell, padding: 24 }}>Memuat pengaturan promo...</div>
+        ) : promotionError ? (
+          <p role="alert" style={{ color: '#DC2626', fontSize: '0.85rem' }}>{promotionError}. Muat ulang halaman admin untuk mencoba lagi.</p>
+        ) : (
+          <>
+            <div style={{ marginTop: 18, maxWidth: 360 }}>
+              <label style={labelStyle}>Minimum subtotal produk (Rp)</label>
+              <input
+                className="input-field"
+                type="number"
+                min="0"
+                step="1000"
+                value={minimumPurchase}
+                onChange={(event) => setMinimumPurchase(event.target.value)}
+                placeholder="Contoh: 300000"
+              />
+            </div>
+
+            <div style={{ marginTop: 18 }}>
+              <label style={labelStyle}>Wilayah yang mendapat gratis ongkir</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10, marginTop: 8 }}>
+                <select className="input-field" value={provinceCode} onChange={(event) => setProvinceCode(event.target.value)}>
+                  <option value="">Pilih provinsi</option>
+                  {provinces.map((province) => <option key={province.code} value={province.code}>{province.name}</option>)}
+                </select>
+                <select className="input-field" value={areaLevel} onChange={(event) => setAreaLevel(event.target.value as 'province' | 'regency')}>
+                  <option value="province">Seluruh provinsi</option>
+                  <option value="regency">Kota/kabupaten tertentu</option>
+                </select>
+                {areaLevel === 'regency' && (
+                  <select className="input-field" value={regencyCode} disabled={!provinceCode} onChange={(event) => setRegencyCode(event.target.value)}>
+                    <option value="">Pilih kota/kabupaten</option>
+                    {regencies.map((regency) => <option key={regency.code} value={regency.code}>{regency.name}</option>)}
+                  </select>
+                )}
+                <button style={ghostButton} onClick={addPromotionArea} disabled={!provinceCode || (areaLevel === 'regency' && !regencyCode)}>
+                  + Tambahkan wilayah
+                </button>
+              </div>
+              {locationError && <p role="alert" style={{ color: '#DC2626', fontSize: '0.8rem' }}>{locationError}</p>}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                {areaCodes.length === 0 && <span style={{ color: '#9CA3AF', fontSize: '0.82rem' }}>Belum ada wilayah dipilih.</span>}
+                {areaCodes.map((code) => (
+                  <span key={code} style={{ display: 'inline-flex', gap: 8, alignItems: 'center', padding: '6px 10px', borderRadius: 20, background: '#FFF7ED', color: '#9A3412', fontSize: '0.8rem' }}>
+                    {areaNames[code] ?? code}
+                    <button aria-label={`Hapus ${areaNames[code] ?? code}`} onClick={() => setAreaCodes((current) => current.filter((area) => area !== code))} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#9A3412', fontWeight: 700 }}>×</button>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <button style={{ ...primaryButton, marginTop: 20 }} onClick={savePromotion} disabled={promotionSaving || promotionLoading}>
+              {promotionSaving ? 'Menyimpan...' : 'Simpan Promo Ongkir'}
+            </button>
+          </>
+        )}
+      </div>
+
       {form && (
         <Modal
-          title={form.id ? 'Edit Metode Pengiriman' : 'Tambah Metode Pengiriman'}
+          title="Atur Tarif Pengiriman"
           onClose={() => setForm(null)}
           maxWidth={560}
         >
           <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Nama</label>
-            <input
-              className="input-field"
-              value={form.name}
-              onChange={(event) => {
-                const name = event.target.value;
-                setForm((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        name,
-                        // Kode mengikuti nama hanya saat menambah baru
-                        // dan selama user belum mengedit kode sendiri.
-                        code: prev.id || prev.codeTouched ? prev.code : slugifyCode(name),
-                      }
-                    : prev
-                );
-              }}
-              placeholder="Contoh: JNE Reguler"
-            />
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: 16,
-              marginBottom: 16,
-            }}
-          >
-            <div>
-              <label style={labelStyle}>Kode</label>
-              <input
-                className="input-field"
-                value={form.code}
-                onChange={(event) =>
-                  setForm({
-                    ...form,
-                    code: slugifyCode(event.target.value),
-                    codeTouched: true,
-                  })
-                }
-                placeholder="JNE_REG"
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Biaya (Rp)</label>
-              <input
-                className="input-field"
-                value={form.cost}
-                onChange={(event) =>
-                  setForm({ ...form, cost: event.target.value.replace(/[^0-9]/g, '') })
-                }
-                placeholder="15000"
-              />
+            <label style={labelStyle}>Kurir dan wilayah</label>
+            <div style={{ color: '#374151', fontWeight: 700 }}>
+              {methods.find((method) => method.id === form.id)?.name} ·{' '}
+              {SHIPPING_REGIONS[methods.find((method) => method.id === form.id)?.code ?? '']}
             </div>
           </div>
 
           <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Deskripsi</label>
+            <label style={labelStyle}>Tarif (Rp)</label>
             <input
               className="input-field"
-              value={form.description}
-              onChange={(event) => setForm({ ...form, description: event.target.value })}
-              placeholder="Pengiriman 2-3 hari kerja"
+              type="number"
+              min="0"
+              step="1000"
+              value={form.cost}
+              onChange={(event) => setForm({ ...form, cost: event.target.value })}
+              placeholder="15000"
             />
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: 16,
-              marginBottom: 16,
-            }}
-          >
-            <div>
-              <label style={labelStyle}>Estimasi Pengiriman</label>
-              <input
-                className="input-field"
-                value={form.estimatedDays}
-                onChange={(event) => setForm({ ...form, estimatedDays: event.target.value })}
-                placeholder="2-3 hari"
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Urutan</label>
-              <input
-                className="input-field"
-                value={form.sortOrder}
-                onChange={(event) =>
-                  setForm({
-                    ...form,
-                    sortOrder: event.target.value.replace(/[^0-9]/g, ''),
-                  })
-                }
-              />
-            </div>
-          </div>
-
           <div style={{ marginBottom: 20 }}>
-            <label style={labelStyle}>Status</label>
-            <select
+            <label style={labelStyle}>Estimasi Pengiriman</label>
+            <input
               className="input-field"
-              value={form.isActive ? '1' : '0'}
-              onChange={(event) => setForm({ ...form, isActive: event.target.value === '1' })}
-            >
-              <option value="1">Aktif</option>
-              <option value="0">Nonaktif</option>
-            </select>
+              value={form.estimatedDays}
+              onChange={(event) => setForm({ ...form, estimatedDays: event.target.value })}
+              placeholder="2-3 hari"
+            />
           </div>
 
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

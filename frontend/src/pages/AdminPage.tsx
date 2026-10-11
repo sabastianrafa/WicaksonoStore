@@ -193,7 +193,10 @@ export default function AdminPage({ navigate }: { navigate: (page: Page) => void
             methods={data.shippingMethods}
             loading={data.loadingShipping}
             onSave={data.saveShippingMethod}
-            onDelete={data.deleteShippingMethod}
+            promotion={data.shippingPromotion}
+            promotionLoading={data.loadingShippingPromotion}
+            promotionError={data.shippingPromotionError}
+            onSavePromotion={data.saveShippingPromotion}
           />
         )}
 

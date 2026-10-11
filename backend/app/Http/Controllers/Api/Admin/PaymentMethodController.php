@@ -117,6 +117,10 @@ class PaymentMethodController extends Controller
             $this->storeQrisImage($request, $paymentMethod);
         }
 
+        if ($paymentMethod->is_active && ! $paymentMethod->isConfigured()) {
+            $paymentMethod->update(['is_active' => false]);
+        }
+
         $paymentMethod->loadCount('payments');
 
         return response()->json([
@@ -154,6 +158,14 @@ class PaymentMethodController extends Controller
     ): JsonResponse {
         $validated = $this->validatePayload($request, $paymentMethod);
 
+        if (isset($validated['code'])
+            && strtolower($validated['code']) !== $paymentMethod->code
+            && $paymentMethod->payments()->exists()) {
+            throw ValidationException::withMessages([
+                'code' => 'Kode metode tidak dapat diubah karena sudah digunakan oleh transaksi.',
+            ]);
+        }
+
         /*
         | Tipe bisa berubah. Kalau record pindah dari QRIS ke bank (atau
         | sebaliknya), data milik tipe lama harus dibersihkan supaya tidak
@@ -161,10 +173,25 @@ class PaymentMethodController extends Controller
         */
         $newType = $validated['type'] ?? $paymentMethod->type;
         $typeChanged = $newType !== $paymentMethod->type;
+        $willBeActive = $validated['is_active'] ?? $paymentMethod->is_active;
+        $hasPaymentDetails = $newType === PaymentMethod::TYPE_BANK
+            ? filled($validated['account_number'] ?? ($typeChanged ? null : $paymentMethod->account_number))
+                && filled($validated['account_name'] ?? ($typeChanged ? null : $paymentMethod->account_name))
+            : ($request->hasFile('qris_image') || ($newType === $paymentMethod->type && filled($paymentMethod->qris_image)));
 
-        if ($typeChanged && $paymentMethod->type === PaymentMethod::TYPE_QRIS) {
-            $paymentMethod->deleteQrisImage();
+        if ($willBeActive && ! $hasPaymentDetails) {
+            throw ValidationException::withMessages([
+                $newType === PaymentMethod::TYPE_BANK ? 'account_number' : 'qris_image' =>
+                    $newType === PaymentMethod::TYPE_BANK
+                        ? 'Lengkapi nomor rekening sebelum mengaktifkan metode.'
+                        : 'Unggah gambar QRIS sebelum mengaktifkan metode.',
+            ]);
         }
+
+        $previousQrisImage = $paymentMethod->qris_image;
+        $nextQrisImage = $newType === PaymentMethod::TYPE_QRIS && ! $typeChanged
+            ? $previousQrisImage
+            : null;
 
         $paymentMethod->update([
             'name' => $validated['name'] ?? $paymentMethod->name,
@@ -172,6 +199,7 @@ class PaymentMethodController extends Controller
                 ? strtolower($validated['code'])
                 : $paymentMethod->code,
             'type' => $newType,
+            'qris_image' => $nextQrisImage,
             'account_number' => $newType === PaymentMethod::TYPE_BANK
                 ? ($validated['account_number'] ?? ($typeChanged ? null : $paymentMethod->account_number))
                 : null,
@@ -191,6 +219,15 @@ class PaymentMethodController extends Controller
 
         if ($newType === PaymentMethod::TYPE_QRIS && $request->hasFile('qris_image')) {
             $this->storeQrisImage($request, $paymentMethod);
+        }
+
+        $currentQrisImage = $paymentMethod->fresh()->qris_image;
+        $imageIsUsedByPayment = $previousQrisImage
+            && $paymentMethod->payments()
+                ->where('payment_qris_image', $previousQrisImage)
+                ->exists();
+        if ($previousQrisImage && $previousQrisImage !== $currentQrisImage && ! $imageIsUsedByPayment) {
+            Storage::disk('public')->delete($previousQrisImage);
         }
 
         $paymentMethod->loadCount('payments');
@@ -301,18 +338,22 @@ class PaymentMethodController extends Controller
         | Aturan per tipe ditegakkan di backend juga supaya API tidak bisa
         | menyimpan metode Bank tanpa rekening atau QRIS tanpa gambar.
         */
-        if ($type === PaymentMethod::TYPE_BANK) {
+        $willBeActive = $validated['is_active'] ?? ($paymentMethod?->is_active ?? true);
+
+        if ($type === PaymentMethod::TYPE_BANK && $willBeActive) {
             $accountNumber = $validated['account_number']
                 ?? ($isUpdate ? $paymentMethod->account_number : null);
+            $accountName = $validated['account_name']
+                ?? ($isUpdate ? $paymentMethod->account_name : null);
 
-            if (!$accountNumber) {
+            if (!$accountNumber || !$accountName) {
                 throw ValidationException::withMessages([
-                    'account_number' => 'No Rek wajib diisi untuk metode Bank.',
+                    'account_number' => 'Nomor rekening dan nama pemilik wajib diisi untuk metode Bank.',
                 ]);
             }
         }
 
-        if ($type === PaymentMethod::TYPE_QRIS) {
+        if ($type === PaymentMethod::TYPE_QRIS && $willBeActive) {
             $hasImage = $request->hasFile('qris_image')
                 || ($isUpdate && $paymentMethod->qris_image);
 
@@ -337,15 +378,24 @@ class PaymentMethodController extends Controller
             return;
         }
 
-        if ($paymentMethod->qris_image) {
-            Storage::disk('public')->delete($paymentMethod->qris_image);
-        }
-
         $path = $request->file('qris_image')->store(
             'payment-methods',
             'public'
         );
 
+        if (! $path) {
+            throw new \RuntimeException('Gambar QRIS gagal disimpan.');
+        }
+
+        $previousImage = $paymentMethod->qris_image;
         $paymentMethod->update(['qris_image' => $path]);
+
+        $imageIsUsedByPayment = $previousImage
+            && $paymentMethod->payments()
+                ->where('payment_qris_image', $previousImage)
+                ->exists();
+        if ($previousImage && $previousImage !== $path && ! $imageIsUsedByPayment) {
+            Storage::disk('public')->delete($previousImage);
+        }
     }
 }

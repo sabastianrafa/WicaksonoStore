@@ -4,9 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Address;
+use App\Services\LocationCatalog;
+use App\Services\LocationCatalogUnavailable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class AddressController extends Controller
 {
@@ -35,22 +39,41 @@ class AddressController extends Controller
      *
      * POST /api/addresses
      */
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, LocationCatalog $locations): JsonResponse
     {
         $validated = $request->validate([
             'label' => ['required', 'string', 'max:255'],
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:20'],
-            'province' => ['required', 'string', 'max:255'],
-            'city' => ['required', 'string', 'max:255'],
-            'postal_code' => ['required', 'string', 'max:10'],
-            'address' => ['required', 'string'],
+            'province_code' => ['required', 'string', 'max:20'],
+            'regency_code' => ['required', 'string', 'max:20'],
+            'district_code' => ['required', 'string', 'max:20'],
+            'village_code' => ['required', 'string', 'max:20'],
+            'postal_code' => ['required', 'regex:/^\d{5}$/'],
+            'rt' => ['nullable', 'string', 'max:3'],
+            'rw' => ['nullable', 'string', 'max:3'],
+            'neighborhood' => ['nullable', 'string', 'max:255'],
+            'landmark' => ['nullable', 'string', 'max:255'],
+            'address' => ['required', 'string', 'min:5', 'max:2000'],
+            'province' => ['prohibited'],
+            'city' => ['prohibited'],
             'is_default' => ['sometimes', 'boolean'],
         ]);
 
+        try {
+            $location = $locations->resolve(
+                $validated['province_code'],
+                $validated['regency_code'],
+                $validated['district_code'],
+                $validated['village_code']
+            );
+        } catch (LocationCatalogUnavailable $exception) {
+            return $this->locationServiceUnavailable($exception);
+        }
+
         $user = $request->user();
 
-        $address = DB::transaction(function () use ($user, $validated, $request) {
+        $address = DB::transaction(function () use ($user, $validated, $request, $location) {
             $hasExistingAddresses = $user->addresses()->exists();
             $isDefault = $request->boolean('is_default');
 
@@ -65,9 +88,19 @@ class AddressController extends Controller
                 'label' => $validated['label'],
                 'name' => $validated['name'],
                 'phone' => $validated['phone'],
-                'province' => $validated['province'],
-                'city' => $validated['city'],
+                'province' => $location['province'],
+                'province_code' => $location['province_code'],
+                'city' => $location['city'],
+                'regency_code' => $location['regency_code'],
+                'district' => $location['district'],
+                'district_code' => $location['district_code'],
+                'village' => $location['village'],
+                'village_code' => $location['village_code'],
                 'postal_code' => $validated['postal_code'],
+                'rt' => $validated['rt'] ?? null,
+                'rw' => $validated['rw'] ?? null,
+                'neighborhood' => $validated['neighborhood'] ?? null,
+                'landmark' => $validated['landmark'] ?? null,
                 'address' => $validated['address'],
                 'is_default' => $isDefault,
             ]);
@@ -106,7 +139,7 @@ class AddressController extends Controller
      *
      * PUT/PATCH /api/addresses/{address}
      */
-    public function update(Request $request, Address $address): JsonResponse
+    public function update(Request $request, Address $address, LocationCatalog $locations): JsonResponse
     {
         if ($address->user_id !== $request->user()->id) {
             return response()->json([
@@ -119,12 +152,53 @@ class AddressController extends Controller
             'label' => ['sometimes', 'string', 'max:255'],
             'name' => ['sometimes', 'string', 'max:255'],
             'phone' => ['sometimes', 'string', 'max:20'],
-            'province' => ['sometimes', 'string', 'max:255'],
-            'city' => ['sometimes', 'string', 'max:255'],
-            'postal_code' => ['sometimes', 'string', 'max:10'],
-            'address' => ['sometimes', 'string'],
+            'province_code' => ['sometimes', 'required', 'string', 'max:20'],
+            'regency_code' => ['sometimes', 'required', 'string', 'max:20'],
+            'district_code' => ['sometimes', 'required', 'string', 'max:20'],
+            'village_code' => ['sometimes', 'required', 'string', 'max:20'],
+            'postal_code' => ['sometimes', 'regex:/^\d{5}$/'],
+            'rt' => ['sometimes', 'nullable', 'string', 'max:3'],
+            'rw' => ['sometimes', 'nullable', 'string', 'max:3'],
+            'neighborhood' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'landmark' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'address' => ['sometimes', 'string', 'min:5', 'max:2000'],
+            'province' => ['prohibited'],
+            'city' => ['prohibited'],
             'is_default' => ['sometimes', 'boolean'],
         ]);
+
+        $locationFields = ['province_code', 'regency_code', 'district_code', 'village_code'];
+        if (collect($locationFields)->contains(fn (string $field) => array_key_exists($field, $validated))) {
+            $codes = [
+                $validated['province_code'] ?? $address->province_code,
+                $validated['regency_code'] ?? $address->regency_code,
+                $validated['district_code'] ?? $address->district_code,
+                $validated['village_code'] ?? $address->village_code,
+            ];
+
+            if (in_array(null, $codes, true)) {
+                throw ValidationException::withMessages([
+                    'province_code' => 'Pilih provinsi, kabupaten/kota, kecamatan, dan kelurahan/desa.',
+                ]);
+            }
+
+            try {
+                $location = $locations->resolve(...$codes);
+            } catch (LocationCatalogUnavailable $exception) {
+                return $this->locationServiceUnavailable($exception);
+            }
+
+            $validated = array_merge($validated, [
+                'province_code' => $location['province_code'],
+                'province' => $location['province'],
+                'regency_code' => $location['regency_code'],
+                'city' => $location['city'],
+                'district_code' => $location['district_code'],
+                'district' => $location['district'],
+                'village_code' => $location['village_code'],
+                'village' => $location['village'],
+            ]);
+        }
 
         $user = $request->user();
 
@@ -175,5 +249,17 @@ class AddressController extends Controller
             'success' => true,
             'message' => 'Alamat berhasil dihapus.',
         ]);
+    }
+
+    private function locationServiceUnavailable(LocationCatalogUnavailable $exception): JsonResponse
+    {
+        Log::error('Gagal memvalidasi alamat terhadap referensi wilayah Indonesia.', [
+            'exception' => $exception,
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => $exception->getMessage(),
+        ], 503);
     }
 }

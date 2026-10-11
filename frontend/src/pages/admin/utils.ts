@@ -166,7 +166,11 @@ export const normalizePayment = (item: any): AdminPayment => ({
   method: enumValue(item.method, '-'),
   amount: Number(item.amount ?? 0),
   status: enumValue(item.status, 'pending'),
-  proof_url: item.proof_url ? storageUrl(item.proof_url) : null,
+  proof_url: item.proof
+    ? storageUrl(item.proof)
+    : item.proof_url
+      ? storageUrl(item.proof_url)
+      : null,
   notes: item.notes ?? null,
   verifier: item.verifier?.name ?? null,
   verified_at: item.verified_at ?? null,
@@ -184,21 +188,31 @@ export const normalizeShippingMethod = (item: any): ShippingMethod => ({
   sort_order: Number(item.sort_order ?? 0),
 });
 
-export const normalizePaymentMethod = (item: any): PaymentMethod => ({
-  id: Number(item.id),
-  name: item.name ?? '',
-  code: item.code ?? '',
-  type: item.type === 'qris' ? 'qris' : 'bank',
-  account_number: item.account_number ?? null,
-  account_name: item.account_name ?? null,
-  qris_image: storageUrl(item.qris_image_url ?? null),
-  description: item.description ?? null,
-  icon: item.icon ?? null,
-  requires_proof: item.requires_proof === undefined ? true : Boolean(item.requires_proof),
-  is_active: item.is_active === undefined ? true : Boolean(item.is_active),
-  sort_order: Number(item.sort_order ?? 0),
-  payments_count: Number(item.payments_count ?? 0),
-});
+export const normalizePaymentMethod = (item: any): PaymentMethod => {
+  const qrisPath = item.qris_image
+    ?? item.qris_image_url?.replace(/^\/storage\//, '')
+    ?? null;
+
+  return {
+    id: Number(item.id),
+    name: item.name ?? '',
+    code: item.code ?? '',
+    type: item.type === 'qris' ? 'qris' : 'bank',
+    account_number: item.account_number ?? null,
+    account_name: item.account_name ?? null,
+    qris_image: storageUrl(qrisPath),
+    qris_image_url: item.qris_image_url ?? (qrisPath ? storageUrl(qrisPath) : null),
+    description: item.description ?? null,
+    icon: item.icon ?? null,
+    requires_proof: item.requires_proof === undefined ? true : Boolean(item.requires_proof),
+    is_active: item.is_active === undefined ? true : Boolean(item.is_active),
+    is_ready: item.is_ready === undefined
+      ? (item.type === 'qris' ? Boolean(qrisPath) : Boolean(item.account_number && item.account_name))
+      : Boolean(item.is_ready),
+    sort_order: Number(item.sort_order ?? 0),
+    payments_count: Number(item.payments_count ?? 0),
+  };
+};
 
 export const normalizeTopProduct = (item: any): DashboardProduct => ({
   id: Number(item.id),

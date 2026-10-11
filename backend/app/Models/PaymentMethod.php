@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
@@ -37,6 +38,7 @@ class PaymentMethod extends Model
 
     protected $appends = [
         'qris_image_url',
+        'is_ready',
     ];
 
     public function payments(): HasMany
@@ -47,6 +49,35 @@ class PaymentMethod extends Model
     public function isQris(): bool
     {
         return $this->type === self::TYPE_QRIS;
+    }
+
+    public function isConfigured(): bool
+    {
+        return $this->isQris()
+            ? filled($this->qris_image)
+            : filled($this->account_number) && filled($this->account_name);
+    }
+
+    public function getIsReadyAttribute(): bool
+    {
+        return $this->isConfigured();
+    }
+
+    public function scopeConfigured(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query) {
+            $query->where(function (Builder $query) {
+                $query->where('type', self::TYPE_BANK)
+                    ->whereNotNull('account_number')
+                    ->where('account_number', '<>', '')
+                    ->whereNotNull('account_name')
+                    ->where('account_name', '<>', '');
+            })->orWhere(function (Builder $query) {
+                $query->where('type', self::TYPE_QRIS)
+                    ->whereNotNull('qris_image')
+                    ->where('qris_image', '<>', '');
+            });
+        });
     }
 
     public function getQrisImageUrlAttribute(): ?string

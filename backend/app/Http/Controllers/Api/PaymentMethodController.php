@@ -18,6 +18,7 @@ class PaymentMethodController extends Controller
     {
         $paymentMethods = PaymentMethod::query()
             ->where('is_active', true)
+            ->configured()
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();

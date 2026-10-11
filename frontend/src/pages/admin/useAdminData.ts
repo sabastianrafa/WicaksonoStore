@@ -19,6 +19,7 @@ import type {
   SalesChartItem,
   SalesReport,
   ShippingMethod,
+  ShippingPromotion,
   UserFilters,
 } from './types';
 import {
@@ -130,6 +131,9 @@ export function useAdminData() {
 
   const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([]);
   const [loadingShipping, setLoadingShipping] = useState(true);
+  const [shippingPromotion, setShippingPromotion] = useState<ShippingPromotion | null>(null);
+  const [loadingShippingPromotion, setLoadingShippingPromotion] = useState(true);
+  const [shippingPromotionError, setShippingPromotionError] = useState('');
 
   /* ---------- Metode pembayaran ---------- */
 
@@ -340,6 +344,22 @@ export function useAdminData() {
     }
   }, []);
 
+  const loadShippingPromotion = useCallback(async () => {
+    setLoadingShippingPromotion(true);
+
+    try {
+      const response = await apiFetch<{ data: ShippingPromotion }>('/admin/shipping-promotion');
+      setShippingPromotion(response.data);
+      setShippingPromotionError('');
+    } catch (error) {
+      console.error('Gagal memuat promo ongkir:', error);
+      setShippingPromotion(null);
+      setShippingPromotionError(errorMessage(error, 'Gagal memuat pengaturan promo ongkir.'));
+    } finally {
+      setLoadingShippingPromotion(false);
+    }
+  }, []);
+
   const loadPaymentMethods = useCallback(async () => {
     setLoadingPaymentMethods(true);
 
@@ -378,6 +398,10 @@ export function useAdminData() {
   useEffect(() => {
     loadShippingMethods();
   }, [loadShippingMethods]);
+
+  useEffect(() => {
+    loadShippingPromotion();
+  }, [loadShippingPromotion]);
 
   useEffect(() => {
     loadPaymentMethods();
@@ -449,6 +473,7 @@ export function useAdminData() {
         const updated = normalizePayment(res?.data ?? {});
 
         setPayments((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+        await loadPayments();
         loadDashboard();
         loadOrders();
 
@@ -458,7 +483,7 @@ export function useAdminData() {
         throw error;
       }
     },
-    [loadDashboard, loadOrders]
+    [loadDashboard, loadOrders, loadPayments]
   );
 
   const rejectPayment = useCallback(
@@ -472,6 +497,7 @@ export function useAdminData() {
         const updated = normalizePayment(res?.data ?? {});
 
         setPayments((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+        await loadPayments();
         loadDashboard();
 
         return updated;
@@ -480,7 +506,7 @@ export function useAdminData() {
         throw error;
       }
     },
-    [loadDashboard]
+    [loadDashboard, loadPayments]
   );
 
   const saveCategory = useCallback(
@@ -578,32 +604,17 @@ export function useAdminData() {
 
   const saveShippingMethod = useCallback(
     async (payload: {
-      id?: number;
-      name: string;
-      code: string;
-      description?: string | null;
+      id: number;
       cost: number;
       estimated_days?: string | null;
-      is_active: boolean;
-      sort_order: number;
     }) => {
-      const res = await apiFetch<any>(
-        payload.id
-          ? `/admin/shipping-methods/${payload.id}`
-          : '/admin/shipping-methods',
-        {
-          method: payload.id ? 'PUT' : 'POST',
-          body: JSON.stringify({
-            name: payload.name,
-            code: payload.code,
-            description: payload.description || null,
-            cost: payload.cost,
-            estimated_days: payload.estimated_days || null,
-            is_active: payload.is_active,
-            sort_order: payload.sort_order,
-          }),
-        }
-      );
+      const res = await apiFetch<any>(`/admin/shipping-methods/${payload.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          cost: payload.cost,
+          estimated_days: payload.estimated_days || null,
+        }),
+      });
 
       await loadShippingMethods();
 
@@ -612,20 +623,21 @@ export function useAdminData() {
     [loadShippingMethods]
   );
 
-  const deleteShippingMethod = useCallback(
-    async (method: ShippingMethod) => {
-      if (!window.confirm(`Hapus metode pengiriman "${method.name}"?`)) return false;
-
-      try {
-        await apiFetch(`/admin/shipping-methods/${method.id}`, { method: 'DELETE' });
-        await loadShippingMethods();
-        return true;
-      } catch (error) {
-        window.alert(errorMessage(error, 'Gagal menghapus metode pengiriman.'));
-        return false;
-      }
+  const saveShippingPromotion = useCallback(
+    async (payload: {
+      is_active: boolean;
+      minimum_purchase: number;
+      area_codes: string[];
+    }) => {
+      const response = await apiFetch<{ data: ShippingPromotion }>('/admin/shipping-promotion', {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+      setShippingPromotion(response.data);
+      setShippingPromotionError('');
+      return response.data;
     },
-    [loadShippingMethods]
+    []
   );
 
   const savePaymentMethod = useCallback(
@@ -761,6 +773,9 @@ export function useAdminData() {
     loadingUsers,
     shippingMethods,
     loadingShipping,
+    shippingPromotion,
+    loadingShippingPromotion,
+    shippingPromotionError,
     paymentMethods,
     loadingPaymentMethods,
     /* aksi */
@@ -774,7 +789,7 @@ export function useAdminData() {
     updateUserRole,
     deleteUser,
     saveShippingMethod,
-    deleteShippingMethod,
+    saveShippingPromotion,
     savePaymentMethod,
     deletePaymentMethod,
     setProductFilter,

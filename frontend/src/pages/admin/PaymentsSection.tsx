@@ -59,6 +59,10 @@ export default function PaymentsSection({
   }, [filters.search]);
 
   const handleVerify = async (payment: AdminPayment) => {
+    if (!window.confirm(`Verifikasi pembayaran ${payment.order_number} sebesar ${formatPrice(payment.amount)}? Pastikan dana sudah diterima.`)) {
+      return;
+    }
+
     setBusyId(payment.id);
 
     try {
@@ -75,6 +79,10 @@ export default function PaymentsSection({
     const reason = window.prompt('Alasan penolakan pembayaran:');
 
     if (reason === null) return;
+    if (reason.trim().length < 3) {
+      window.alert('Alasan penolakan minimal 3 karakter.');
+      return;
+    }
 
     setBusyId(payment.id);
 
@@ -214,7 +222,7 @@ export default function PaymentsSection({
                         Lihat
                       </a>
                     ) : (
-                      <span style={metaText}>-</span>
+                      <span style={{ ...metaText, whiteSpace: 'nowrap' }}>Belum ada bukti</span>
                     )}
                   </td>
 
@@ -228,7 +236,7 @@ export default function PaymentsSection({
                   </td>
 
                   <td style={{ padding: '14px 16px' }}>
-                    {payment.status === 'pending' ? (
+                    {payment.status === 'pending' && payment.proof_url ? (
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button
                           disabled={busyId === payment.id}
@@ -261,6 +269,8 @@ export default function PaymentsSection({
                           Tolak
                         </button>
                       </div>
+                    ) : payment.status === 'pending' ? (
+                      <span style={{ ...metaText, fontSize: '0.7rem' }}>Menunggu bukti dari pelanggan</span>
                     ) : payment.notes ? (
                       <span style={{ ...metaText, fontSize: '0.7rem' }}>{payment.notes}</span>
                     ) : (

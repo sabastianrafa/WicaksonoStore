@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\ShippingMethod;
+use App\Models\ShippingPromotion;
 
 class ShippingQuoteService
 {
@@ -58,8 +59,7 @@ class ShippingQuoteService
         if ($isMalangRaya) {
             $method = ShippingMethod::query()
                 ->where('is_active', true)
-                ->whereIn('code', ['GOSEND', 'INSTANT'])
-                ->orderByRaw("CASE WHEN code = 'GOSEND' THEN 0 ELSE 1 END")
+                ->where('code', 'GOSEND')
                 ->first();
 
             return $method ? [
@@ -83,5 +83,37 @@ class ShippingQuoteService
             'courier_code' => $isJava ? 'JNT_REG' : 'LION_PARCEL',
             'courier_name' => $isJava ? 'J&T Express' : 'Lion Parcel',
         ] : null;
+    }
+
+    /**
+     * @param array{method: ShippingMethod, location: array{province_code: string, regency_code: string}} $quote
+     * @return array{cost: float, discount: float, original_cost: float, promotion_applied: bool}
+     */
+    public function pricing(array $quote, float $subtotal): array
+    {
+        $originalCost = (float) $quote['method']->cost;
+        $promotion = ShippingPromotion::query()->find(1);
+        $matchesArea = $promotion && in_array(
+            $quote['location']['province_code'],
+            $promotion->area_codes ?? [],
+            true
+        );
+        $matchesArea = $matchesArea || (
+            $promotion && in_array(
+                $quote['location']['regency_code'],
+                $promotion->area_codes ?? [],
+                true
+            )
+        );
+        $applies = $promotion?->is_active
+            && $subtotal >= (float) $promotion->minimum_purchase
+            && $matchesArea;
+
+        return [
+            'original_cost' => $originalCost,
+            'discount' => $applies ? $originalCost : 0.0,
+            'cost' => $applies ? 0.0 : $originalCost,
+            'promotion_applied' => (bool) $applies,
+        ];
     }
 }

@@ -9,6 +9,8 @@ class ShippingMethod extends Model
 {
     use HasFactory;
 
+    public const SUPPORTED_CODES = ['GOSEND', 'JNT_REG', 'LION_PARCEL'];
+
     protected $fillable = [
         'name',
         'code',

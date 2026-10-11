@@ -45,8 +45,8 @@ const productImage = (item: CartItem): string => {
 }
 interface CheckoutPageProps {
   cart: CartItem[];
-  navigate: (page: Page) => void;
-  onOrderPlaced: () => void;
+  navigate: (page: Page, data?: unknown) => void;
+  onOrderPlaced?: () => void;
 }
 
 interface LocationOption {
@@ -67,6 +67,9 @@ interface ShippingQuote {
     estimated_days: string | null;
   };
   cost: number;
+  original_cost: number;
+  shipping_discount: number;
+  promotion_applied: boolean;
 }
 
 interface ShippingQuoteResponse {
@@ -78,18 +81,46 @@ interface PaymentMethod {
   id: number;
   name: string;
   code: string;
+  type: 'bank' | 'qris';
   description: string | null;
   icon: string | null;
 }
 
+interface SavedAddress {
+  id: number;
+  label: string;
+  name: string;
+  phone: string;
+  province: string;
+  province_code: string | null;
+  city: string;
+  regency_code: string | null;
+  district: string | null;
+  district_code: string | null;
+  village: string | null;
+  village_code: string | null;
+  postal_code: string;
+  rt: string | null;
+  rw: string | null;
+  neighborhood: string | null;
+  landmark: string | null;
+  address: string;
+  is_default: boolean;
+}
+
+interface AddressesResponse {
+  success: boolean;
+  data: SavedAddress[];
+}
+
 interface AddressResponse {
   success: boolean;
-  data: { id: number };
+  data: SavedAddress;
 }
 
 interface OrderResponse {
   success: boolean;
-  data: { order_number: string };
+  data: { id: number; order_number: string };
 }
 
 export default function CheckoutPage({ cart, navigate, onOrderPlaced }: CheckoutPageProps) {
@@ -103,7 +134,14 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
   const [districts, setDistricts] = useState<LocationOption[]>([]);
   const [villages, setVillages] = useState<LocationOption[]>([]);
   const [locationError, setLocationError] = useState('');
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [addressesLoading, setAddressesLoading] = useState(true);
+  const [addressesError, setAddressesError] = useState('');
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
+  const [addingAddress, setAddingAddress] = useState(false);
+  const [makeDefaultAddress, setMakeDefaultAddress] = useState(false);
   const [form, setForm] = useState(() => ({
+    label: 'Rumah',
     name: localStorage.getItem('userName') ?? '',
     phone: localStorage.getItem('userPhone') ?? '',
     province_code: '',
@@ -120,11 +158,43 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
   const [shippingQuote, setShippingQuote] = useState<ShippingQuote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [shippingError, setShippingError] = useState('');
-  const [success, setSuccess] = useState(false);
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [orderError, setOrderError] = useState('');
-  const [orderNumber, setOrderNumber] = useState('');
   const shippingQuoteRequestId = useRef(0);
+
+  useEffect(() => {
+    let active = true;
+
+    apiFetch<AddressesResponse>('/addresses')
+      .then((response) => {
+        if (!active) return;
+        const addresses = response.data;
+        setSavedAddresses(addresses);
+        const usableAddresses = addresses.filter((address) =>
+          address.province_code && address.regency_code && address.district_code && address.village_code
+        );
+        const defaultAddress = usableAddresses.find((address) => address.is_default);
+        if (defaultAddress) {
+          setSelectedAddressId(defaultAddress.id);
+        } else if (usableAddresses[0]) {
+          setSelectedAddressId(usableAddresses[0].id);
+        } else {
+          setAddingAddress(true);
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setAddressesError(error instanceof Error ? error.message : 'Gagal memuat alamat tersimpan.');
+        }
+      })
+      .finally(() => {
+        if (active) setAddressesLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -239,6 +309,12 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
   );
   const shippingFee = shippingQuote?.cost ?? 0;
   const total = subtotal + shippingFee;
+  const usableAddresses = savedAddresses.filter((address) =>
+    address.province_code && address.regency_code && address.district_code && address.village_code
+  );
+  const incompleteAddresses = savedAddresses.filter((address) =>
+    !address.province_code || !address.regency_code || !address.district_code || !address.village_code
+  );
 
   const updateAddressField = (field: keyof typeof form, value: string) => {
     setForm((current) => {
@@ -272,8 +348,50 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
     }
   };
 
+  const selectAddress = (addressId: number) => {
+    setSelectedAddressId(addressId);
+    setAddingAddress(false);
+    shippingQuoteRequestId.current += 1;
+    setShippingQuote(null);
+    setShippingError('');
+    setOrderError('');
+    setQuoteLoading(false);
+  };
+
+  const startAddingAddress = () => {
+    setSelectedAddressId(null);
+    setAddingAddress(true);
+    setMakeDefaultAddress(savedAddresses.length === 0);
+    setForm((current) => ({
+      ...current,
+      label: 'Rumah',
+      province_code: '',
+      regency_code: '',
+      district_code: '',
+      village_code: '',
+      zip: '',
+      rt: '',
+      rw: '',
+      neighborhood: '',
+      landmark: '',
+      address: '',
+    }));
+    shippingQuoteRequestId.current += 1;
+    setShippingQuote(null);
+    setShippingError('');
+    setOrderError('');
+    setQuoteLoading(false);
+  };
+
   const continueToPayment = async () => {
-    if (
+    const selectedAddress = savedAddresses.find((address) => address.id === selectedAddressId);
+    if (!addingAddress && !selectedAddress) {
+      setShippingError('Pilih alamat pengiriman atau tambahkan alamat baru.');
+      return;
+    }
+
+    if (addingAddress && (
+      !form.label.trim() ||
       !form.name.trim() ||
       !form.phone.trim() ||
       !form.province_code ||
@@ -282,11 +400,12 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
       !form.village_code ||
       !/^\d{5}$/.test(form.zip.trim()) ||
       !form.address.trim()
-    ) {
-      setShippingError('Lengkapi data penerima, seluruh pilihan wilayah, kode pos 5 digit, dan alamat jalan.');
+    )) {
+      setShippingError('Lengkapi label, data penerima, seluruh wilayah, kode pos 5 digit, dan alamat jalan.');
       return;
     }
 
+    const location = addingAddress ? form : selectedAddress!;
     const requestId = ++shippingQuoteRequestId.current;
     setQuoteLoading(true);
     setShippingError('');
@@ -295,14 +414,44 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
       const response = await apiFetch<ShippingQuoteResponse>('/shipping-methods/quote', {
         method: 'POST',
         body: JSON.stringify({
-          province_code: form.province_code,
-          regency_code: form.regency_code,
-          district_code: form.district_code,
-          village_code: form.village_code,
+          province_code: location.province_code,
+          regency_code: location.regency_code,
+          district_code: location.district_code,
+          village_code: location.village_code,
         }),
       });
 
-      if (requestId === shippingQuoteRequestId.current) {
+      if (requestId !== shippingQuoteRequestId.current) return;
+
+      let addressId = selectedAddressId;
+      if (addingAddress) {
+        const addressResponse = await apiFetch<AddressResponse>('/addresses', {
+          method: 'POST',
+          body: JSON.stringify({
+            label: form.label.trim(),
+            name: form.name.trim(),
+            phone: form.phone.trim(),
+            province_code: form.province_code,
+            regency_code: form.regency_code,
+            district_code: form.district_code,
+            village_code: form.village_code,
+            postal_code: form.zip.trim(),
+            rt: form.rt.trim() || null,
+            rw: form.rw.trim() || null,
+            neighborhood: form.neighborhood.trim() || null,
+            landmark: form.landmark.trim() || null,
+            address: form.address.trim(),
+            is_default: makeDefaultAddress,
+          }),
+        });
+        if (requestId !== shippingQuoteRequestId.current) return;
+        addressId = addressResponse.data.id;
+        setSavedAddresses((current) => [addressResponse.data, ...current]);
+        setSelectedAddressId(addressId);
+        setAddingAddress(false);
+      }
+
+      if (addressId) {
         setShippingQuote(response.data);
         setOrderError('');
         setStep(2);
@@ -337,42 +486,28 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
       return;
     }
 
+    if (!selectedAddressId) {
+      setOrderError('Pilih alamat pengiriman terlebih dahulu.');
+      setStep(1);
+      return;
+    }
+
     setSubmittingOrder(true);
 
     try {
-      const addressResponse = await apiFetch<AddressResponse>('/addresses', {
-        method: 'POST',
-        body: JSON.stringify({
-          label: 'Alamat Checkout',
-          name: form.name.trim(),
-          phone: form.phone.trim(),
-          province_code: form.province_code,
-          regency_code: form.regency_code,
-          district_code: form.district_code,
-          village_code: form.village_code,
-          postal_code: form.zip.trim(),
-          rt: form.rt.trim() || null,
-          rw: form.rw.trim() || null,
-          neighborhood: form.neighborhood.trim() || null,
-          landmark: form.landmark.trim() || null,
-          address: form.address.trim(),
-          is_default: false,
-        }),
-      });
-
       const orderResponse = await apiFetch<OrderResponse>('/orders', {
         method: 'POST',
         body: JSON.stringify({
-          address_id: addressResponse.data.id,
+          address_id: selectedAddressId,
           shipping_method_id: shippingQuote.courier.id,
           payment_method: payment,
         }),
       });
 
-      setOrderNumber(orderResponse.data.order_number);
-      onOrderPlaced();
-      setSuccess(true);
-      setTimeout(() => navigate('home'), 3000);
+      if (typeof onOrderPlaced === 'function') {
+        onOrderPlaced();
+      }
+      navigate('payment', { orderId: orderResponse.data.id });
     } catch (error) {
       setOrderError(
         error instanceof Error ? error.message : 'Gagal membuat pesanan.'
@@ -381,18 +516,6 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
       setSubmittingOrder(false);
     }
   };
-
-  if (success) return (
-    <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ textAlign: 'center', maxWidth: 400 }}>
-        <div style={{ width: 100, height: 100, borderRadius: '50%', background: 'rgba(22,163,74,0.1)', margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48 }}>✅</div>
-        <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#1F2937', margin: '0 0 12px' }}>Pesanan Berhasil!</h2>
-        <p style={{ color: '#6B7280', margin: '0 0 8px' }}>Terima kasih telah berbelanja di Wicaksono.</p>
-        <p style={{ color: '#9CA3AF', fontSize: '0.85rem', margin: '0 0 24px' }}>No. Pesanan: <strong style={{ color: '#F97316' }}>{orderNumber}</strong></p>
-        <p style={{ color: '#9CA3AF', fontSize: '0.8rem' }}>Mengalihkan ke beranda...</p>
-      </div>
-    </div>
-  );
 
   return (
     <div style={{ maxWidth: 1280, margin: '0 auto', padding: '32px 24px' }}>
@@ -427,7 +550,101 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
         <div>
           {step === 1 && (
             <div style={{ background: 'white', borderRadius: 14, padding: '28px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-              <h3 style={{ margin: '0 0 24px', fontWeight: 700, color: '#1F2937' }}>Alamat Pengiriman</h3>
+              <h3 style={{ margin: '0 0 6px', fontWeight: 700, color: '#1F2937' }}>Alamat Pengiriman</h3>
+              <p style={{ margin: '0 0 20px', color: '#6B7280', fontSize: '0.85rem' }}>
+                Pilih alamat yang sudah tersimpan atau tambahkan alamat baru ke akun Anda.
+              </p>
+              {addressesLoading && (
+                <p style={{ color: '#6B7280', fontSize: '0.85rem' }}>Memuat alamat tersimpan...</p>
+              )}
+              {addressesError && (
+                <p role="alert" style={{ color: '#DC2626', fontSize: '0.85rem' }}>{addressesError}</p>
+              )}
+              {!addressesLoading && usableAddresses.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                  {usableAddresses.map((address) => {
+                    const selected = selectedAddressId === address.id && !addingAddress;
+                    return (
+                      <button
+                        key={address.id}
+                        type="button"
+                        onClick={() => selectAddress(address.id)}
+                        aria-pressed={selected}
+                        style={{
+                          textAlign: 'left',
+                          padding: 16,
+                          borderRadius: 10,
+                          border: `1px solid ${selected ? '#F97316' : '#E5E7EB'}`,
+                          background: selected ? '#FFF7ED' : 'white',
+                          cursor: 'pointer',
+                          fontFamily: 'Poppins',
+                        }}
+                      >
+                        <span style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                          <strong style={{ color: '#1F2937', fontSize: '0.9rem' }}>{address.label}</strong>
+                          {address.is_default && (
+                            <span style={{ color: '#15803D', fontSize: '0.7rem', fontWeight: 700 }}>UTAMA</span>
+                          )}
+                        </span>
+                        <span style={{ display: 'block', marginTop: 8, color: '#374151', fontSize: '0.82rem', fontWeight: 600 }}>
+                          {address.name} · {address.phone}
+                        </span>
+                        <span style={{ display: 'block', marginTop: 5, color: '#6B7280', fontSize: '0.78rem', lineHeight: 1.6 }}>
+                          {address.address}
+                          {address.rt || address.rw ? `, RT ${address.rt || '-'} / RW ${address.rw || '-'}` : ''}
+                          {address.neighborhood ? `, ${address.neighborhood}` : ''}
+                          {address.landmark ? `, patokan ${address.landmark}` : ''}
+                          {`, ${address.village}, ${address.district}, ${address.city}, ${address.province} ${address.postal_code}`}
+                        </span>
+                        <span style={{ display: 'block', marginTop: 8, color: selected ? '#C2410C' : '#9CA3AF', fontSize: '0.75rem', fontWeight: 600 }}>
+                          {selected ? 'Alamat dipilih' : 'Pilih alamat'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {!addressesLoading && incompleteAddresses.length > 0 && (
+                <p style={{ margin: '12px 0 0', padding: '10px 12px', borderRadius: 8, background: '#FFFBEB', color: '#92400E', fontSize: '0.78rem' }}>
+                  Ada alamat lama yang belum memiliki wilayah lengkap. Tambahkan ulang alamat tersebut agar bisa dipakai untuk pengiriman.
+                </p>
+              )}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 16 }}>
+                <button
+                  type="button"
+                  onClick={startAddingAddress}
+                  aria-pressed={addingAddress}
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: 8,
+                    border: `1px solid ${addingAddress ? '#F97316' : '#D1D5DB'}`,
+                    background: addingAddress ? '#FFF7ED' : 'white',
+                    color: addingAddress ? '#C2410C' : '#374151',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    fontFamily: 'Poppins',
+                    fontSize: '0.82rem',
+                  }}
+                >
+                  + Tambah alamat baru
+                </button>
+              </div>
+              {addingAddress && (
+                <>
+                  <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #E5E7EB' }}>
+                    <h4 style={{ margin: '0 0 16px', color: '#1F2937', fontWeight: 700 }}>Detail alamat baru</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                      <div>
+                        <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', color: '#374151', marginBottom: 6 }}>Label alamat</label>
+                        <input className="input-field" placeholder="Contoh: Rumah, Kantor" maxLength={255} value={form.label} onChange={event => updateAddressField('label', event.target.value)} />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'end', paddingBottom: 9 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#374151', fontSize: '0.82rem', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={makeDefaultAddress} onChange={event => setMakeDefaultAddress(event.target.checked)} />
+                          Jadikan alamat utama
+                        </label>
+                      </div>
+                    </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 {[
                   { field: 'name', label: 'Nama Lengkap', placeholder: 'Masukkan nama lengkap' },
@@ -503,11 +720,14 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
                 <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', color: '#374151', marginBottom: 6 }}>Nama Jalan, Nomor Rumah, dan Detail Alamat</label>
                 <textarea className="input-field" placeholder="Contoh: Jl. Mawar No. 10, Gang 2, rumah pagar hijau" rows={3} value={form.address} onChange={e => updateAddressField('address', e.target.value)} style={{ resize: 'vertical' }} />
               </div>
+                  </div>
+                </>
+              )}
               {locationError && <p role="alert" style={{ color: '#DC2626', fontSize: '0.85rem', margin: '16px 0 0' }}>{locationError}</p>}
               {shippingError && (
                 <p style={{ color: '#DC2626', fontSize: '0.85rem', margin: '16px 0 0' }}>{shippingError}</p>
               )}
-              <button className="btn-primary" onClick={continueToPayment} disabled={quoteLoading} style={{ marginTop: 24, padding: '12px 28px', opacity: quoteLoading ? 0.65 : 1 }}>
+              <button className="btn-primary" onClick={continueToPayment} disabled={quoteLoading || addressesLoading} style={{ marginTop: 24, padding: '12px 28px', opacity: quoteLoading || addressesLoading ? 0.65 : 1 }}>
                 {quoteLoading ? 'Menghitung ongkir...' : 'Lanjut ke Pembayaran →'}
               </button>
             </div>
@@ -524,8 +744,22 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
                       Ongkir ke {shippingQuote.location.city}, {shippingQuote.location.province}
                       {shippingQuote.courier.estimated_days ? ` · Estimasi ${shippingQuote.courier.estimated_days}` : ''}
                     </div>
+                    {shippingQuote.promotion_applied && (
+                      <div style={{ marginTop: 5, fontSize: '0.8rem', color: '#15803D', fontWeight: 600 }}>
+                        Gratis ongkir · Hemat {formatPrice(shippingQuote.shipping_discount)}
+                      </div>
+                    )}
                   </div>
-                  <span style={{ fontWeight: 800, color: '#F97316', whiteSpace: 'nowrap' }}>{formatPrice(shippingQuote.cost)}</span>
+                  <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    {shippingQuote.promotion_applied && (
+                      <div style={{ color: '#9CA3AF', fontSize: '0.78rem', textDecoration: 'line-through' }}>
+                        {formatPrice(shippingQuote.original_cost)}
+                      </div>
+                    )}
+                    <span style={{ fontWeight: 800, color: shippingQuote.promotion_applied ? '#15803D' : '#F97316' }}>
+                      {shippingQuote.promotion_applied ? 'GRATIS' : formatPrice(shippingQuote.cost)}
+                    </span>
+                  </div>
                 </div>
               )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 20 }}>
@@ -549,6 +783,9 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
                     <span style={{ fontSize: 20 }}>{method.icon ?? '💳'}</span>
                     <div>
                       <div style={{ fontWeight: 600, color: '#1F2937', fontSize: '0.9rem' }}>{method.name}</div>
+                      <div style={{ fontSize: '0.72rem', color: '#6B7280' }}>
+                        {method.type === 'bank' ? 'Transfer bank · perlu unggah bukti' : 'QRIS · scan dan unggah bukti'}
+                      </div>
                       {method.description && (
                         <div style={{ fontSize: '0.78rem', color: '#9CA3AF' }}>{method.description}</div>
                       )}
@@ -567,7 +804,7 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
                   disabled={submittingOrder || paymentMethodsLoading || paymentMethods.length === 0}
                   style={{ padding: '12px 28px', flex: 1, opacity: submittingOrder || paymentMethodsLoading || paymentMethods.length === 0 ? 0.65 : 1 }}
                 >
-                  {submittingOrder ? 'Menyimpan Pesanan...' : '✅ Konfirmasi Pesanan'}
+                  {submittingOrder ? 'Menyimpan Pesanan...' : 'Buat Pesanan & Lanjut Bayar'}
                 </button>
               </div>
             </div>

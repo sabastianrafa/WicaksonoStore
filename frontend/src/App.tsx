@@ -17,6 +17,7 @@ import ContactPage from "./pages/navbar/ContactPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
+import PaymentPage from "./pages/PaymentPage";
 import { LoginPage, RegisterPage } from "./pages/AuthPages";
 import DashboardPage from "./pages/DashboardPage";
 import AdminPage from "./pages/AdminPage";
@@ -34,6 +35,7 @@ export type Page =
   | "product-detail"
   | "cart"
   | "checkout"
+  | "payment"
   | "login"
   | "register"
   | "dashboard"
@@ -188,6 +190,7 @@ const PATHS: Record<Exclude<Page, "product-detail">, string> = {
   contact: "/kontak",
   cart: "/keranjang",
   checkout: "/checkout",
+  payment: "/pembayaran",
   login: "/login",
   register: "/register",
   dashboard: "/dashboard",
@@ -209,6 +212,7 @@ function AppContent() {
     const path = location.pathname.toLowerCase().replace(/\/$/, "") || "/";
 
     if (path.startsWith("/produk/")) return "product-detail";
+    if (path.startsWith("/pembayaran/")) return "payment";
 
     const match = Object.entries(PATHS).find(([, p]) => p === path);
     return (match?.[0] as Page) ?? "home";
@@ -231,6 +235,9 @@ function AppContent() {
     if (page === "product-detail") {
       const product = data as CartItem;
       if (product?.id) routerNavigate(`/produk/${product.id}`);
+    } else if (page === "payment") {
+      const orderId = (data as { orderId?: number } | undefined)?.orderId;
+      if (orderId) routerNavigate(`/pembayaran/${orderId}`);
     } else if (page === "catalog") {
       /*
       | HomePage mengirim { categoryId } saat kategori diklik. Tanpa ini
@@ -383,7 +390,19 @@ function AppContent() {
             path="/checkout"
             element={
               <ProtectedRoute>
-                <CheckoutPage cart={cart} navigate={navigate} />
+                <CheckoutPage
+                  cart={cart}
+                  navigate={navigate}
+                  onOrderPlaced={() => setCart([])}
+                />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/pembayaran/:orderId"
+            element={
+              <ProtectedRoute>
+                <PaymentPage navigate={navigate} />
               </ProtectedRoute>
             }
           />

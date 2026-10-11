@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { PaymentMethod, PaymentMethodType } from './types';
 import { PAYMENT_METHOD_TYPES } from './utils';
 import {
@@ -85,7 +85,19 @@ export default function PaymentMethodsSection({
 }: Props) {
   const [form, setForm] = useState<FormState | null>(null);
   const [qrisFile, setQrisFile] = useState<File | null>(null);
+  const [qrisPreview, setQrisPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!qrisFile) {
+      setQrisPreview(null);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(qrisFile);
+    setQrisPreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [qrisFile]);
 
   const openAdd = () => {
     setQrisFile(null);
@@ -127,11 +139,16 @@ export default function PaymentMethodsSection({
     }
 
     if (form.type === 'bank' && !form.accountNumber.trim()) {
-      window.alert('No Rek wajib diisi untuk metode Bank.');
+      window.alert('Nomor rekening wajib diisi untuk metode Bank.');
       return;
     }
 
-    if (form.type === 'qris' && !qrisFile && !form.existingQrisImage) {
+    if (form.type === 'bank' && !form.accountName.trim()) {
+      window.alert('Nama pemilik rekening wajib diisi untuk metode Bank.');
+      return;
+    }
+
+    if (form.type === 'qris' && form.isActive && !qrisFile && !form.existingQrisImage) {
       window.alert('Gambar QRIS wajib diunggah untuk metode QRIS.');
       return;
     }
@@ -177,7 +194,7 @@ export default function PaymentMethodsSection({
               Metode Pembayaran
             </h2>
             <p style={{ margin: '4px 0 0', color: '#9CA3AF', fontSize: '0.85rem' }}>
-              {methods.length} metode terdaftar
+              {methods.length} metode · lengkapi rekening bank atau gambar QRIS sebelum diaktifkan.
             </p>
           </div>
 
@@ -241,8 +258,8 @@ export default function PaymentMethodsSection({
                   <div style={{ fontWeight: 700, color: '#1F2937' }}>{method.name}</div>
                   <div style={{ color: '#9CA3AF', fontSize: '0.75rem' }}>
                     {method.type === 'bank'
-                      ? `No Rek: ${method.account_number ?? '-'}`
-                      : 'QRIS dinamis'}
+                      ? `No Rek: ${method.account_number ?? 'Belum diatur'}`
+                      : 'QRIS statis · verifikasi manual'}
                     {method.account_name ? ` · ${method.account_name}` : ''}
                   </div>
                 </div>
@@ -263,15 +280,15 @@ export default function PaymentMethodsSection({
 
                   <span
                     style={{
-                      background: method.is_active ? '#DCFCE7' : '#F3F4F6',
-                      color: method.is_active ? '#16A34A' : '#9CA3AF',
+                      background: method.is_active && method.is_ready ? '#DCFCE7' : '#FEF3C7',
+                      color: method.is_active && method.is_ready ? '#16A34A' : '#92400E',
                       borderRadius: 6,
                       padding: '3px 8px',
                       fontSize: '0.68rem',
                       fontWeight: 700,
                     }}
                   >
-                    {method.is_active ? 'Aktif' : 'Nonaktif'}
+                    {!method.is_active ? 'Nonaktif' : method.is_ready ? 'Siap checkout' : 'Perlu dilengkapi'}
                   </span>
                 </div>
 
@@ -404,7 +421,7 @@ export default function PaymentMethodsSection({
               >
                 {qrisFile || form.existingQrisImage ? (
                   <img
-                    src={qrisFile ? URL.createObjectURL(qrisFile) : form.existingQrisImage}
+                    src={qrisPreview ?? form.existingQrisImage}
                     alt="QRIS"
                     style={{ maxWidth: '100%', maxHeight: 220, objectFit: 'contain' }}
                   />
@@ -424,39 +441,6 @@ export default function PaymentMethodsSection({
                   </div>
                 )}
 
-                {(qrisFile || form.existingQrisImage) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setQrisFile(null);
-                      if (form.id) setForm({ ...form, existingQrisImage: '' });
-                    }}
-                    style={{
-                      position: 'absolute',
-                      top: 8,
-                      right: 8,
-                      width: 26,
-                      height: 26,
-                      borderRadius: '50%',
-                      border: 'none',
-                      background: '#F3F4F6',
-                      color: '#374151',
-                      cursor: 'pointer',
-                      fontSize: 15,
-                      fontWeight: 700,
-                      lineHeight: 1,
-                    }}
-                  >
-                    ×
-                  </button>
-                )}
-
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  hidden
-                  onChange={(event) => pickQrisImage(event.target.files?.[0])}
-                />
               </div>
 
               <label

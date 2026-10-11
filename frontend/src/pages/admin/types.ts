@@ -111,6 +111,13 @@ export interface ShippingMethod {
   sort_order: number;
 }
 
+export interface ShippingPromotion {
+  is_active: boolean;
+  minimum_purchase: number;
+  area_codes: string[];
+  areas: { code: string; name: string; level: 'province' | 'regency' }[];
+}
+
 /** Tipe metode pembayaran: bank (rekening) atau qris (gambar QR). */
 export type PaymentMethodType = 'bank' | 'qris';
 
@@ -121,11 +128,13 @@ export interface PaymentMethod {
   type: PaymentMethodType;
   account_number: string | null;
   account_name: string | null;
-  qris_image: string;
+  qris_image: string | null;
+  qris_image_url: string | null;
   description: string | null;
   icon: string | null;
   requires_proof: boolean;
   is_active: boolean;
+  is_ready: boolean;
   sort_order: number;
   payments_count: number;
 }

@@ -52,6 +52,9 @@ class OrderTest extends TestCase
         $this->paymentMethod = PaymentMethod::create([
             'name' => 'Transfer Bank Test',
             'code' => 'transfer_bank',
+            'type' => PaymentMethod::TYPE_BANK,
+            'account_number' => '1234567890',
+            'account_name' => 'Wicaksono Store',
             'requires_proof' => true,
             'is_active' => true,
         ]);
@@ -101,6 +104,10 @@ class OrderTest extends TestCase
                 ],
             ]);
 
+        $response->assertJsonPath('data.payment.payment_method_name', 'Transfer Bank Test')
+            ->assertJsonPath('data.payment.payment_account_number', '1234567890')
+            ->assertJsonPath('data.payment.payment_account_name', 'Wicaksono Store');
+
         // Stock decreased (10 - 2 = 8), sold increased (5 + 2 = 7)
         $this->assertEquals(8, $this->product->fresh()->stock);
         $this->assertEquals(7, $this->product->fresh()->sold);
@@ -114,6 +121,7 @@ class OrderTest extends TestCase
         $response = $this->actingAs($this->user)->postJson('/api/orders', [
             'address_id' => $this->address->id,
             'shipping_method_id' => $this->shippingMethod->id,
+            'payment_method' => 'transfer_bank',
         ]);
 
         $response->assertStatus(422)
@@ -134,6 +142,7 @@ class OrderTest extends TestCase
         $checkoutResponse = $this->actingAs($this->user)->postJson('/api/orders', [
             'address_id' => $this->address->id,
             'shipping_method_id' => $this->shippingMethod->id,
+            'payment_method' => 'transfer_bank',
         ]);
 
         $orderId = $checkoutResponse->json('data.id');
@@ -166,6 +175,7 @@ class OrderTest extends TestCase
         $checkout = $this->actingAs($this->user)->postJson('/api/orders', [
             'address_id' => $this->address->id,
             'shipping_method_id' => $this->shippingMethod->id,
+            'payment_method' => 'transfer_bank',
         ]);
         $orderId = $checkout->json('data.id');
 
@@ -187,6 +197,7 @@ class OrderTest extends TestCase
         $checkout = $this->actingAs($this->user)->postJson('/api/orders', [
             'address_id' => $this->address->id,
             'shipping_method_id' => $this->shippingMethod->id,
+            'payment_method' => 'transfer_bank',
         ]);
         $orderId = $checkout->json('data.id');
 
