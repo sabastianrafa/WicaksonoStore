@@ -1,6 +1,7 @@
 import type { Page } from '../../App';
 import { useState } from 'react';
 import { FiMapPin, FiPhoneCall, FiMail, FiClock } from 'react-icons/fi';
+import { apiFetch } from '../../api/client';
 
 interface ContactPageProps {
   navigate: (page: Page, data?: unknown) => void;
@@ -15,6 +16,8 @@ export default function ContactPage({ navigate }: ContactPageProps) {
   });
 
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({
@@ -23,12 +26,23 @@ export default function ContactPage({ navigate }: ContactPageProps) {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form data:', formData);
-    setIsSubmitted(true);
-    setTimeout(() => setIsSubmitted(false), 3000);
-    setFormData({ name: '', email: '', subject: '', message: '' });
+    setIsSubmitting(true);
+    setSubmitError('');
+    setIsSubmitted(false);
+    try {
+      await apiFetch('/contact', {
+        method: 'POST',
+        body: JSON.stringify(formData),
+      });
+      setIsSubmitted(true);
+      setFormData({ name: '', email: '', subject: '', message: '' });
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Pesan gagal dikirim. Silakan coba lagi.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -157,6 +171,8 @@ export default function ContactPage({ navigate }: ContactPageProps) {
               </div>
             )}
 
+            {submitError && <p role="alert" style={{ color: '#B91C1C', marginBottom: 20 }}>{submitError}</p>}
+
             <form onSubmit={handleSubmit}>
               <div style={{ marginBottom: 20 }}>
                 <label style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', color: '#374151', marginBottom: 8 }}>
@@ -245,6 +261,7 @@ export default function ContactPage({ navigate }: ContactPageProps) {
 
               <button
                 type="submit"
+                disabled={isSubmitting}
                 style={{
                   width: '100%', padding: '16px',
                   background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)',
@@ -262,7 +279,7 @@ export default function ContactPage({ navigate }: ContactPageProps) {
                   e.currentTarget.style.boxShadow = 'none';
                 }}
               >
-                Kirim Pesan Sekarang
+                {isSubmitting ? 'Mengirim Pesan...' : 'Kirim Pesan Sekarang'}
               </button>
             </form>
           </div>

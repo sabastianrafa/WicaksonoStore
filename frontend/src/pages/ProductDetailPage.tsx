@@ -14,7 +14,7 @@ import type { Page } from '../App';
    TYPES
 ========================================================= */
 interface ApiProductImage { id: number; path: string; alt_text?: string | null; is_primary?: boolean; url?: string; }
-interface ApiProduct { id: number; category_id: number; name: string; slug: string; description: string | null; price: string | number; original_price?: string | number | null; stock: number; sold: number; rating: string | number; review_count: number; discount: number; image?: string | null; category?: { id: number; name: string; slug?: string } | null; images?: ApiProductImage[]; }
+interface ApiProduct { id: number; category_id: number; name: string; slug: string; description: string | null; price: string | number; original_price?: string | number | null; stock: number; weight?: number; sold: number; rating: string | number; review_count: number; discount: number; image?: string | null; category?: { id: number; name: string; slug?: string } | null; images?: ApiProductImage[]; }
 interface ApiReview { id: number; rating: number; comment: string | null; created_at?: string; user?: { id?: number; name?: string } | null; }
 interface ApiShippingMethod { id: number; name: string; code: string; description: string | null; cost: string | number; estimated_days: string | null; }
 interface ListResponse<T> { success: boolean; message: string; data: T[]; meta?: { current_page: number; last_page: number; per_page: number; total: number }; }
@@ -280,6 +280,13 @@ export default function ProductDetailPage({ navigate, onAddToCart }: ProductDeta
               {stock > 0 ? `Stok tersedia (${stock} unit)` : 'Stok habis'}
             </span>
           </div>
+
+          {Number(product.weight) > 0 && (
+            <div className="mb-5 flex items-center gap-2 text-sm text-gray-600">
+              <FiBox className="text-orange-500" />
+              <span>Bobot: <strong className="text-gray-800">{Number(product.weight).toLocaleString('id-ID')} gram</strong> per produk</span>
+            </div>
+          )}
 
           <div className="flex items-center gap-4 mb-6">
             <span className="font-semibold text-gray-700 text-sm">Jumlah:</span>

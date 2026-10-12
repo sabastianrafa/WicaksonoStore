@@ -145,18 +145,6 @@ class CategoryController extends Controller
                 'unique:categories,name',
             ],
 
-            'icon' => [
-                'nullable',
-                'string',
-                'max:20',
-            ],
-
-            'color' => [
-                'nullable',
-                'string',
-                'max:20',
-            ],
-
             'is_active' => [
                 'sometimes',
                 'boolean',
@@ -183,12 +171,6 @@ class CategoryController extends Controller
             'name' => $validated['name'],
 
             'slug' => $slug,
-
-            'icon' =>
-                $validated['icon'] ?? null,
-
-            'color' =>
-                $validated['color'] ?? null,
 
             'is_active' =>
                 $validated['is_active'] ?? true,
@@ -250,18 +232,6 @@ class CategoryController extends Controller
                 'max:255',
                 'unique:categories,name,' .
                     $category->id,
-            ],
-
-            'icon' => [
-                'nullable',
-                'string',
-                'max:20',
-            ],
-
-            'color' => [
-                'nullable',
-                'string',
-                'max:20',
             ],
 
             'is_active' => [

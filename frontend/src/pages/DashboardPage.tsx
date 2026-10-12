@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { Page } from '../App';
 import { apiFetch } from '../api/client';
+import AddressBookSection from './AddressBookSection';
 
 interface ProfileFields {
   name: string;
@@ -310,10 +311,7 @@ export default function DashboardPage({ navigate }: DashboardPageProps) {
           )}
 
           {activeMenu === 'alamat' && (
-            <div className={cardClass}>
-              <h2 className="text-xl font-extrabold text-gray-900">Alamat Saya</h2>
-              <EmptyState icon="📍" title="Data alamat belum tersedia" description="Hubungkan bagian ini ke API alamat pelanggan untuk menampilkan dan mengelola alamat pengiriman." />
-            </div>
+            <AddressBookSection />
           )}
         </section>
       </div>

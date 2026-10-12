@@ -193,6 +193,26 @@ export function LoginPage({
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetNotice, setResetNotice] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [requestingReset, setRequestingReset] = useState(false);
+
+  const requestPasswordReset = async () => {
+    setResetNotice('');
+    setResetError('');
+    setRequestingReset(true);
+    try {
+      const response = await apiFetch<{ message: string }>('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+      setResetNotice(response.message);
+    } catch (err) {
+      setResetError(readApiError(err, 'Permintaan reset password gagal.'));
+    } finally {
+      setRequestingReset(false);
+    }
+  };
 
   const handleLogin = async () => {
     setError('');
@@ -423,6 +443,8 @@ export function LoginPage({
 
                 <button
                   type="button"
+                  onClick={() => void requestPasswordReset()}
+                  disabled={requestingReset || !email.trim()}
                   style={{
                     background: 'none',
                     border: 'none',
@@ -432,9 +454,12 @@ export function LoginPage({
                     fontFamily: 'Poppins',
                   }}
                 >
-                  Lupa password?
+                  {requestingReset ? 'Mengirim...' : 'Lupa password?'}
                 </button>
               </div>
+
+              {resetNotice && <p role="status" style={{ color: '#15803D', fontSize: '0.82rem', marginTop: 8 }}>{resetNotice}</p>}
+              {resetError && <p role="alert" style={{ color: '#B91C1C', fontSize: '0.82rem', marginTop: 8 }}>{resetError}</p>}
 
               <div style={{ position: 'relative' }}>
                 <input
@@ -551,6 +576,48 @@ export function LoginPage({
         </div>
       </div>
     </div>
+  );
+}
+
+export function PasswordResetPage({ navigate }: { navigate: (page: Page) => void }) {
+  const query = new URLSearchParams(window.location.search);
+  const [email, setEmail] = useState(query.get('email') ?? '');
+  const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [error, setError] = useState('');
+  const [done, setDone] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      await apiFetch('/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({ token: query.get('token'), email, password, password_confirmation: confirmation }),
+      });
+      setDone(true);
+    } catch (err) {
+      setError(readApiError(err, 'Tautan reset tidak valid atau sudah kedaluwarsa.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <main style={{ maxWidth: 480, margin: '8vh auto', padding: 24, background: 'white', borderRadius: 16, boxShadow: '0 4px 20px #00000012' }}>
+      <h1 style={{ color: '#1F2937' }}>Atur ulang password</h1>
+      {done ? <><p role="status" style={{ color: '#15803D' }}>Password berhasil diubah.</p><button className="btn-primary" onClick={() => navigate('login')}>Kembali ke login</button></> : (
+        <form onSubmit={submit}>
+          <label>Email<input className="input-field" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+          <label>Password baru<input className="input-field" type="password" minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+          <label>Ulangi password<input className="input-field" type="password" minLength={8} required value={confirmation} onChange={(e) => setConfirmation(e.target.value)} /></label>
+          {error && <p role="alert" style={{ color: '#B91C1C' }}>{error}</p>}
+          <button className="btn-primary" type="submit" disabled={loading}>{loading ? 'Menyimpan...' : 'Simpan password baru'}</button>
+        </form>
+      )}
+    </main>
   );
 }
 

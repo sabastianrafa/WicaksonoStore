@@ -108,15 +108,28 @@ class OrderController extends Controller
             ], 422);
         }
 
+        // 3. Ambil cart
+        $cart = $user->cart;
+        if (!$cart || $cart->items()->count() === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Keranjang belanja masih kosong.',
+            ], 422);
+        }
+
+        $cartItems = $cart->items()->with('product')->get();
+
         try {
             $quote = $quotes->quote(
                 $address->province_code,
                 $address->regency_code,
                 $address->district_code,
-                $address->village_code
+                $address->village_code,
+                $address->postal_code,
+                $cartItems
             );
-        } catch (LocationCatalogUnavailable $exception) {
-            Log::error('Tidak dapat memvalidasi wilayah alamat ketika membuat pesanan.', [
+        } catch (LocationCatalogUnavailable|\App\Services\BiteshipUnavailable $exception) {
+            Log::error('Tidak dapat menghitung ongkir ketika membuat pesanan.', [
                 'exception' => $exception,
                 'address_id' => $address->id,
             ]);
@@ -141,17 +154,6 @@ class OrderController extends Controller
                 'message' => 'Metode pengiriman tidak sesuai dengan wilayah alamat.',
             ], 422);
         }
-
-        // 3. Ambil cart
-        $cart = $user->cart;
-        if (!$cart || $cart->items()->count() === 0) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Keranjang belanja masih kosong.',
-            ], 422);
-        }
-
-        $cartItems = $cart->items()->with('product')->get();
 
         try {
             $order = DB::transaction(function () use ($user, $address, $shippingMethod, $quote, $quotes, $cart, $cartItems, $validated, $paymentMethod) {
@@ -199,6 +201,9 @@ class OrderController extends Controller
                     'user_id' => $user->id,
                     'address_id' => $address->id,
                     'shipping_method_id' => $shippingMethod->id,
+                    'shipping_courier_code' => $quote['courier_code'],
+                    'shipping_service_code' => $quote['service_code'] ?? null,
+                    'shipping_courier_name' => $quote['courier_name'],
                     'order_number' => $orderNumber,
                     'subtotal' => $subtotal,
                     'shipping_cost' => $shippingCost,

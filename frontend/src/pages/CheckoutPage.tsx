@@ -56,6 +56,8 @@ interface LocationOption {
 
 interface ShippingQuote {
   region: string;
+  weight_grams: number;
+  rate_source: 'biteship' | 'manual';
   location: {
     province: string;
     city: string;
@@ -418,6 +420,7 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
           regency_code: location.regency_code,
           district_code: location.district_code,
           village_code: location.village_code,
+          destination_postal_code: addingAddress ? form.zip : selectedAddress!.postal_code,
         }),
       });
 
@@ -743,6 +746,10 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
                     <div style={{ marginTop: 4, fontSize: '0.8rem', color: '#6B7280' }}>
                       Ongkir ke {shippingQuote.location.city}, {shippingQuote.location.province}
                       {shippingQuote.courier.estimated_days ? ` · Estimasi ${shippingQuote.courier.estimated_days}` : ''}
+                    </div>
+                    <div style={{ marginTop: 4, fontSize: '0.78rem', color: '#6B7280' }}>
+                      Bobot paket {shippingQuote.weight_grams.toLocaleString('id-ID')} gram
+                      {shippingQuote.rate_source === 'biteship' ? ' · Tarif live Biteship' : ' · Tarif manual'}
                     </div>
                     {shippingQuote.promotion_applied && (
                       <div style={{ marginTop: 5, fontSize: '0.8rem', color: '#15803D', fontWeight: 600 }}>

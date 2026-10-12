@@ -16,13 +16,7 @@ return new class extends Migration
                 ->constrained()
                 ->cascadeOnDelete();
 
-            $table->enum('method', [
-                'transfer_bank',
-                'gopay',
-                'ovo',
-                'dana',
-                'cod',
-            ]);
+            $table->string('method');
 
             $table->decimal('amount', 15, 2);
 

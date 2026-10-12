@@ -17,6 +17,7 @@ interface ProductForm {
   price: string;
   originalPrice: string;
   stock: string;
+  weight: string;
   discount: string;
   isActive: boolean;
   description: string;
@@ -123,6 +124,7 @@ export default function ProductFormModal({ product, categories, onClose, onSaved
         price: String(product.price ?? ''),
         originalPrice: String(product.originalPrice ?? product.price ?? ''),
         stock: String(product.stock ?? 0),
+        weight: product.weight > 0 ? String(product.weight) : '',
         discount: String(product.discount ?? 0),
         isActive: product.is_active,
         description: product.description ?? '',
@@ -135,6 +137,7 @@ export default function ProductFormModal({ product, categories, onClose, onSaved
       price: '',
       originalPrice: '',
       stock: '',
+      weight: '',
       discount: '0',
       isActive: true,
       description: '',
@@ -364,7 +367,7 @@ export default function ProductFormModal({ product, categories, onClose, onSaved
   const handleSave = async () => {
     if (saving || processingImages) return;
 
-    if (!form.name.trim() || !form.price || !form.stock || !form.description.trim()) {
+    if (!form.name.trim() || !form.price || !form.stock || !form.weight || !form.description.trim()) {
       window.alert('Mohon lengkapi semua field produk sebelum disimpan.');
       return;
     }
@@ -376,9 +379,10 @@ export default function ProductFormModal({ product, categories, onClose, onSaved
 
     const price = Number(form.price);
     const stock = Number(form.stock);
+    const weight = Number(form.weight);
 
-    if (!Number.isFinite(price) || price < 0 || !Number.isFinite(stock) || stock < 0) {
-      window.alert('Nilai harga atau stok tidak valid.');
+    if (!Number.isFinite(price) || price < 0 || !Number.isFinite(stock) || stock < 0 || !Number.isInteger(weight) || weight < 1) {
+      window.alert('Nilai harga, stok, atau bobot produk tidak valid. Bobot harus minimal 1 gram.');
       return;
     }
 
@@ -412,6 +416,7 @@ export default function ProductFormModal({ product, categories, onClose, onSaved
             price,
             original_price: originalPrice,
             stock,
+            weight,
             discount,
             is_active: form.isActive,
           }),
@@ -554,6 +559,21 @@ export default function ProductFormModal({ product, categories, onClose, onSaved
                 placeholder="50"
                 className="input-field"
               />
+            </div>
+
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Bobot per produk (gram)</label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={form.weight}
+                onChange={(event) => setField('weight', event.target.value.replace(/\D/g, ''))}
+                placeholder="Contoh: 250"
+                className="input-field"
+                required
+              />
+              <small style={{ color: '#6B7280' }}>Masukkan bobot satu kemasan produk dalam gram.</small>
             </div>
           </div>
 

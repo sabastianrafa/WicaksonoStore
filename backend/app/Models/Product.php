@@ -19,6 +19,7 @@ class Product extends Model
         'price',
         'original_price',
         'stock',
+        'weight',
         'sold',
         'rating',
         'review_count',
@@ -34,6 +35,7 @@ class Product extends Model
             'original_price' => 'decimal:2',
             'rating' => 'decimal:2',
             'is_active' => 'boolean',
+            'weight' => 'integer',
         ];
     }
 

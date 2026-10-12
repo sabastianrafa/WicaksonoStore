@@ -30,6 +30,7 @@ const HEADERS = [
   'Kategori',
   'Harga',
   'Stok',
+  'Bobot',
   'Terjual',
   'Rating & Ulasan',
   'Status',
@@ -245,6 +246,11 @@ export default function ProductsSection({
                     >
                       {product.stock}
                     </span>
+                  </td>
+
+                  {/* Bobot per unit */}
+                  <td style={{ padding: '12px 16px', color: '#6B7280', fontSize: '0.875rem' }}>
+                    {product.weight > 0 ? `${product.weight.toLocaleString('id-ID')} g` : 'Belum diisi'}
                   </td>
 
                   {/* Terjual */}

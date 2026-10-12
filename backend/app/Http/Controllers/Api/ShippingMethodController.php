@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ShippingMethod;
 use App\Services\LocationCatalogUnavailable;
+use App\Services\BiteshipUnavailable;
 use App\Services\ShippingQuoteService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -45,16 +46,21 @@ class ShippingMethodController extends Controller
             'regency_code' => ['required', 'string', 'max:20'],
             'district_code' => ['required', 'string', 'max:20'],
             'village_code' => ['required', 'string', 'max:20'],
+            'destination_postal_code' => ['sometimes', 'regex:/^\d{5}$/'],
         ]);
+
+        $cartItems = $request->user()->cart?->items()->with('product')->get() ?? collect();
 
         try {
             $quote = $quotes->quote(
                 $validated['province_code'],
                 $validated['regency_code'],
                 $validated['district_code'],
-                $validated['village_code']
+                $validated['village_code'],
+                $validated['destination_postal_code'],
+                $cartItems
             );
-        } catch (LocationCatalogUnavailable $exception) {
+        } catch (LocationCatalogUnavailable|BiteshipUnavailable $exception) {
             Log::error('Tidak dapat memvalidasi wilayah tujuan untuk ongkir.', [
                 'exception' => $exception,
             ]);
@@ -87,8 +93,11 @@ class ShippingMethodController extends Controller
                     'id' => $quote['method']->id,
                     'code' => $quote['courier_code'],
                     'name' => $quote['courier_name'],
-                    'estimated_days' => $quote['method']->estimated_days,
+                    'service_code' => $quote['service_code'] ?? null,
+                    'estimated_days' => $quote['estimated_days'] ?? $quote['method']->estimated_days,
                 ],
+                'weight_grams' => $cartItems->sum(fn ($item) => (int) ($item->product?->weight ?? 0) * $item->quantity),
+                'rate_source' => isset($quote['biteship_price']) ? 'biteship' : 'manual',
                 'cost' => $pricing['cost'],
                 'original_cost' => $pricing['original_cost'],
                 'shipping_discount' => $pricing['discount'],

@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\WishlistController;
 use App\Http\Controllers\Api\LocationController;
+use App\Http\Controllers\Api\ContactController;
 
 use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\ProductController as AdminProductController;
@@ -29,7 +30,11 @@ use App\Http\Controllers\Api\Admin\ShippingPromotionController;
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:3,1');
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
 });
+
+Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:3,1');
 
 Route::prefix('products')->group(function () {
     Route::get('/', [ProductController::class, 'index']);

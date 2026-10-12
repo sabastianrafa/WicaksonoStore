@@ -2,6 +2,17 @@
 
 return [
 
+    'contact' => [
+        'recipient' => env('CONTACT_RECIPIENT'),
+    ],
+
+    'biteship' => [
+        'key' => env('BITESHIP_API_KEY'),
+        'url' => env('BITESHIP_API_URL', 'https://api.biteship.com'),
+        'origin_postal_code' => env('BITESHIP_ORIGIN_POSTAL_CODE', '65142'),
+        'couriers' => env('BITESHIP_COURIERS', 'jne,sicepat,jnt,lion,anteraja'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Third Party Services

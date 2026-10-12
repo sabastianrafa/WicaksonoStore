@@ -18,7 +18,7 @@ import ProductDetailPage from "./pages/ProductDetailPage";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import PaymentPage from "./pages/PaymentPage";
-import { LoginPage, RegisterPage } from "./pages/AuthPages";
+import { LoginPage, PasswordResetPage, RegisterPage } from "./pages/AuthPages";
 import DashboardPage from "./pages/DashboardPage";
 import AdminPage from "./pages/AdminPage";
 import { apiFetch } from "./api/client";
@@ -367,6 +367,10 @@ function AppContent() {
                 <LoginPage navigate={navigate} />
               </GuestRoute>
             }
+          />
+          <Route
+            path="/reset-password"
+            element={<PasswordResetPage navigate={navigate} />}
           />
           <Route
             path="/register"

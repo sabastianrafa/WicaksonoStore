@@ -82,6 +82,7 @@ export const normalizeProduct = (item: any): AdminProduct => {
     reviews: Number(item.review_count ?? 0),
     sold: Number(item.sold ?? 0),
     stock: Number(item.stock ?? 0),
+    weight: Number(item.weight ?? 0),
     discount: Number(item.discount ?? 0),
     image: primary?.url || storageUrl(item.image),
     description: item.description ?? '',
@@ -141,7 +142,7 @@ export const normalizeOrder = (item: any): AdminOrder => {
     status: enumValue(item.order_status, 'pending'),
     payment_method: enumValue(item.payment?.method, '-'),
     payment_status: enumValue(item.payment?.status, 'pending'),
-    shipping_method: item.shipping_method?.name ?? '-',
+    shipping_method: item.shipping_courier_name ?? item.shipping_method?.name ?? '-',
     address: addressParts.join(', ') || '-',
   };
 };
