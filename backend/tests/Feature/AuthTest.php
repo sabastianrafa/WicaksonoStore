@@ -132,6 +132,43 @@ class AuthTest extends TestCase
             ]);
     }
 
+    public function test_authenticated_user_can_update_own_profile(): void
+    {
+        $user = User::factory()->create([
+            'name' => 'Nama Lama',
+            'email' => 'lama@example.com',
+            'phone' => '0811111111',
+            'role' => UserRole::USER,
+        ]);
+
+        $response = $this->actingAs($user)->patchJson('/api/auth/profile', [
+            'name' => 'Nama Baru',
+            'email' => 'baru@example.com',
+            'phone' => '0822222222',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'user' => [
+                        'id' => $user->id,
+                        'name' => 'Nama Baru',
+                        'email' => 'baru@example.com',
+                        'phone' => '0822222222',
+                        'role' => 'user',
+                    ],
+                ],
+            ]);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'name' => 'Nama Baru',
+            'email' => 'baru@example.com',
+            'phone' => '0822222222',
+        ]);
+    }
+
     public function test_admin_routes_are_protected_from_regular_users(): void
     {
         $user = User::factory()->create([

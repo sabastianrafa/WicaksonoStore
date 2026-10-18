@@ -48,10 +48,39 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        // Produk terlaris
-        $topProducts = Product::orderByDesc('sold')
+        // Ranking berdasarkan unit di pesanan nyata, tidak termasuk pesanan batal.
+        $productSales = DB::table('order_items')
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->select('order_items.product_id')
+            ->selectRaw('SUM(order_items.quantity) as sold')
+            ->selectRaw('COUNT(DISTINCT orders.user_id) as buyers_count')
+            ->where('orders.order_status', '!=', OrderStatus::CANCELLED->value)
+            ->groupBy('order_items.product_id');
+
+        $topProducts = Product::query()
+            ->joinSub($productSales, 'product_sales', 'product_sales.product_id', '=', 'products.id')
+            ->orderByDesc('product_sales.buyers_count')
+            ->orderByDesc('product_sales.sold')
+            ->orderBy('products.id')
             ->take(5)
-            ->get(['id', 'name', 'slug', 'price', 'stock', 'sold', 'rating', 'image']);
+            ->get([
+                'products.id',
+                'products.name',
+                'products.slug',
+                'products.price',
+                'products.stock',
+                'product_sales.sold as sold',
+                'product_sales.buyers_count as buyers_count',
+                'products.rating',
+                'products.image',
+            ])
+            ->map(function ($product) use ($totalUsers) {
+                $product->purchase_percentage = $totalUsers > 0
+                    ? round(((int) $product->buyers_count / $totalUsers) * 100, 1)
+                    : 0;
+
+                return $product;
+            });
 
         return response()->json([
             'success' => true,

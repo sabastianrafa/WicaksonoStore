@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Enums\UserRole;
 use App\Models\Category;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\User;
@@ -79,6 +80,102 @@ class AdminDashboardTest extends TestCase
                     ],
                 ],
             ]);
+    }
+
+    public function test_dashboard_best_sellers_use_purchased_quantities_and_ignore_cancelled_orders(): void
+    {
+        $category = Category::create([
+            'name' => 'Kategori Terlaris',
+            'slug' => 'kategori-terlaris',
+            'is_active' => true,
+        ]);
+
+        $staleTopProduct = Product::create([
+            'category_id' => $category->id,
+            'name' => 'Data Terjual Statis Tinggi',
+            'slug' => 'data-terjual-statis-tinggi',
+            'price' => 10000,
+            'stock' => 20,
+            'sold' => 999,
+            'is_active' => true,
+        ]);
+
+        $frequentlyPurchasedProduct = Product::create([
+            'category_id' => $category->id,
+            'name' => 'Sering Dibeli',
+            'slug' => 'sering-dibeli',
+            'price' => 15000,
+            'stock' => 20,
+            'sold' => 1,
+            'is_active' => true,
+        ]);
+
+        $customer = User::factory()->create(['role' => UserRole::USER]);
+        $repeatBuyer = User::factory()->create(['role' => UserRole::USER]);
+        $createOrder = fn (string $number, OrderStatus $status, User $buyer) => Order::create([
+            'user_id' => $buyer->id,
+            'order_number' => $number,
+            'subtotal' => 45000,
+            'shipping_cost' => 0,
+            'total' => 45000,
+            'shipping_name' => 'Customer',
+            'shipping_phone' => '08123456789',
+            'shipping_province' => 'Jatim',
+            'shipping_city' => 'Malang',
+            'shipping_postal_code' => '65145',
+            'shipping_address' => 'Alamat',
+            'order_status' => $status,
+        ]);
+
+        $completedOrder = $createOrder('ORD-TOP-1', OrderStatus::COMPLETED, $customer);
+        $cancelledOrder = $createOrder('ORD-TOP-2', OrderStatus::CANCELLED, $customer);
+        $repeatPurchaseOrder = $createOrder('ORD-TOP-3', OrderStatus::COMPLETED, $repeatBuyer);
+
+        OrderItem::create([
+            'order_id' => $completedOrder->id,
+            'product_id' => $staleTopProduct->id,
+            'product_name' => $staleTopProduct->name,
+            'price' => 10000,
+            'quantity' => 1,
+            'subtotal' => 10000,
+        ]);
+        OrderItem::create([
+            'order_id' => $completedOrder->id,
+            'product_id' => $frequentlyPurchasedProduct->id,
+            'product_name' => $frequentlyPurchasedProduct->name,
+            'price' => 15000,
+            'quantity' => 3,
+            'subtotal' => 45000,
+        ]);
+        OrderItem::create([
+            'order_id' => $repeatPurchaseOrder->id,
+            'product_id' => $frequentlyPurchasedProduct->id,
+            'product_name' => $frequentlyPurchasedProduct->name,
+            'price' => 15000,
+            'quantity' => 2,
+            'subtotal' => 30000,
+        ]);
+        OrderItem::create([
+            'order_id' => $cancelledOrder->id,
+            'product_id' => $staleTopProduct->id,
+            'product_name' => $staleTopProduct->name,
+            'price' => 10000,
+            'quantity' => 20,
+            'subtotal' => 200000,
+        ]);
+
+        $response = $this->actingAs($this->admin)->getJson('/api/admin/dashboard');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.top_products.0.id', $frequentlyPurchasedProduct->id)
+            ->assertJsonPath('data.top_products.0.sold', 5)
+            ->assertJsonPath('data.top_products.0.buyers_count', 2)
+            ->assertJsonPath('data.top_products.1.id', $staleTopProduct->id)
+            ->assertJsonPath('data.top_products.1.sold', 1)
+            ->assertJsonPath('data.top_products.1.buyers_count', 1);
+
+        $this->assertEquals(100, $response->json('data.top_products.0.purchase_percentage'));
+        $this->assertEquals(50, $response->json('data.top_products.1.purchase_percentage'));
     }
 
     public function test_admin_can_access_sales_and_product_reports(): void

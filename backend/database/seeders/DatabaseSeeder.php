@@ -8,6 +8,7 @@ use Database\Seeders\CartSeeder;
 use Database\Seeders\CategorySeeder;
 use Database\Seeders\OrderItemSeeder;
 use Database\Seeders\OrderSeeder;
+use Database\Seeders\PaymentMethodSeeder;
 use Database\Seeders\PaymentSeeder;
 use Database\Seeders\ProductImageSeeder;
 use Database\Seeders\ProductSeeder;
@@ -32,6 +33,7 @@ class DatabaseSeeder extends Seeder
             CartItemSeeder::class,
             OrderSeeder::class,
             OrderItemSeeder::class,
+            PaymentMethodSeeder::class,
             PaymentSeeder::class,
             ReviewSeeder::class,
             WishlistSeeder::class,

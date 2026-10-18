@@ -6,21 +6,25 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ShippingMethodController;
+use App\Http\Controllers\Api\PaymentMethodController;
 use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\WishlistController;
+use App\Http\Controllers\Api\LocationController;
 
 use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Api\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Api\Admin\ShippingMethodController as AdminShippingMethodController;
+use App\Http\Controllers\Api\Admin\PaymentMethodController as AdminPaymentMethodController;
 use App\Http\Controllers\Api\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Api\Admin\ProductImageController;
+use App\Http\Controllers\Api\Admin\ShippingPromotionController;
 
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
@@ -38,9 +42,25 @@ Route::prefix('categories')->group(function () {
     Route::get('/{category}', [CategoryController::class, 'show']);
 });
 
+Route::prefix('reviews')->group(function () {
+    Route::get('/', [ReviewController::class, 'latest']);
+});
+
 Route::prefix('shipping-methods')->group(function () {
     Route::get('/', [ShippingMethodController::class, 'index']);
     Route::get('/{shippingMethod}', [ShippingMethodController::class, 'show']);
+});
+
+Route::prefix('locations')->group(function () {
+    Route::get('/provinces', [LocationController::class, 'provinces']);
+    Route::get('/provinces/{province}/regencies', [LocationController::class, 'regencies']);
+    Route::get('/regencies/{regency}/districts', [LocationController::class, 'districts']);
+    Route::get('/districts/{district}/villages', [LocationController::class, 'villages']);
+});
+
+Route::prefix('payment-methods')->group(function () {
+    Route::get('/', [PaymentMethodController::class, 'index']);
+    Route::get('/{paymentMethod}', [PaymentMethodController::class, 'show']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -48,6 +68,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
+        Route::patch('/profile', [AuthController::class, 'updateProfile']);
     });
 
     Route::apiResource('addresses', AddressController::class);
@@ -59,6 +80,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/items/{item}', [CartController::class, 'removeItem']);
         Route::delete('/', [CartController::class, 'clear']);
     });
+
+    Route::post('/shipping-methods/quote', [ShippingMethodController::class, 'quote']);
 
     Route::prefix('wishlist')->group(function () {
         Route::get('/', [WishlistController::class, 'index']);
@@ -83,9 +106,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('role:admin')->prefix('admin')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index']);
-        
+
         Route::apiResource('products', AdminProductController::class);
-        
+
         Route::prefix('products/{product}/images')->group(function () {
             Route::post('/', [ProductImageController::class, 'store']);
             Route::delete('/{image}', [ProductImageController::class, 'destroy']);
@@ -94,7 +117,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::apiResource('categories', AdminCategoryController::class);
 
-        Route::apiResource('shipping-methods', AdminShippingMethodController::class);
+        Route::get('/shipping-methods', [AdminShippingMethodController::class, 'index']);
+        Route::get('/shipping-methods/{shippingMethod}', [AdminShippingMethodController::class, 'show']);
+        Route::put('/shipping-methods/{shippingMethod}', [AdminShippingMethodController::class, 'update']);
+        Route::patch('/shipping-methods/{shippingMethod}', [AdminShippingMethodController::class, 'update']);
+        Route::get('/shipping-promotion', [ShippingPromotionController::class, 'show']);
+        Route::put('/shipping-promotion', [ShippingPromotionController::class, 'update']);
+
+        Route::apiResource('payment-methods', AdminPaymentMethodController::class);
 
         Route::get('/orders', [AdminOrderController::class, 'index']);
         Route::get('/orders/{order}', [AdminOrderController::class, 'show']);

@@ -9,6 +9,7 @@ use App\Models\Payment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class PaymentController extends Controller
 {
@@ -111,15 +112,37 @@ class PaymentController extends Controller
         ]);
 
         DB::transaction(function () use ($request, $payment) {
-            $payment->update([
+            $lockedPayment = Payment::query()
+                ->with(['order', 'paymentMethod'])
+                ->lockForUpdate()
+                ->findOrFail($payment->id);
+
+            if ($lockedPayment->status !== PaymentStatus::PENDING) {
+                throw ValidationException::withMessages([
+                    'payment' => 'Pembayaran ini sudah diproses dan tidak dapat diverifikasi ulang.',
+                ]);
+            }
+
+            if ($lockedPayment->order?->order_status === OrderStatus::CANCELLED) {
+                throw ValidationException::withMessages([
+                    'payment' => 'Pesanan yang dibatalkan tidak dapat dibayar.',
+                ]);
+            }
+
+            if ($lockedPayment->paymentMethod?->requires_proof && ! $lockedPayment->proof) {
+                throw ValidationException::withMessages([
+                    'payment' => 'Bukti pembayaran belum diunggah oleh pelanggan.',
+                ]);
+            }
+
+            $lockedPayment->update([
                 'status' => PaymentStatus::PAID,
                 'verified_by' => $request->user()->id,
                 'verified_at' => now(),
-                'notes' => $request->input('notes', $payment->notes),
+                'notes' => $request->input('notes', $lockedPayment->notes),
             ]);
 
-            // Jika pesanan masih pending, ubah ke confirmed
-            $order = $payment->order;
+            $order = $lockedPayment->order;
             if ($order && $order->order_status === OrderStatus::PENDING) {
                 $order->update([
                     'order_status' => OrderStatus::CONFIRMED,
@@ -128,7 +151,7 @@ class PaymentController extends Controller
             }
         });
 
-        $payment->load(['order.user', 'verifier']);
+        $payment->refresh()->load(['order.user', 'verifier']);
 
         return response()->json([
             'success' => true,
@@ -145,20 +168,51 @@ class PaymentController extends Controller
     public function reject(Request $request, Payment $payment): JsonResponse
     {
         $request->validate([
-            'notes' => ['nullable', 'string', 'max:500'],
-            'reason' => ['nullable', 'string', 'max:500'],
+            'notes' => ['sometimes', 'nullable', 'string', 'min:3', 'max:500'],
+            'reason' => ['required_without:notes', 'nullable', 'string', 'min:3', 'max:500'],
         ]);
 
-        $notes = $request->input('reason') ?? $request->input('notes') ?? $payment->notes;
+        $notes = trim((string) ($request->input('reason') ?? $request->input('notes') ?? ''));
 
-        $payment->update([
-            'status' => PaymentStatus::REJECTED,
-            'verified_by' => $request->user()->id,
-            'verified_at' => now(),
-            'notes' => $notes,
-        ]);
+        if ($notes === '') {
+            throw ValidationException::withMessages([
+                'reason' => 'Alasan penolakan wajib diisi.',
+            ]);
+        }
 
-        $payment->load(['order.user', 'verifier']);
+        DB::transaction(function () use ($request, $payment, $notes) {
+            $lockedPayment = Payment::query()
+                ->with(['order', 'paymentMethod'])
+                ->lockForUpdate()
+                ->findOrFail($payment->id);
+
+            if ($lockedPayment->status !== PaymentStatus::PENDING) {
+                throw ValidationException::withMessages([
+                    'payment' => 'Pembayaran ini sudah diproses dan tidak dapat ditolak ulang.',
+                ]);
+            }
+
+            if ($lockedPayment->order?->order_status === OrderStatus::CANCELLED) {
+                throw ValidationException::withMessages([
+                    'payment' => 'Pembayaran pesanan yang dibatalkan tidak dapat diproses.',
+                ]);
+            }
+
+            if ($lockedPayment->paymentMethod?->requires_proof && ! $lockedPayment->proof) {
+                throw ValidationException::withMessages([
+                    'payment' => 'Belum ada bukti pembayaran yang dapat ditolak.',
+                ]);
+            }
+
+            $lockedPayment->update([
+                'status' => PaymentStatus::REJECTED,
+                'verified_by' => $request->user()->id,
+                'verified_at' => now(),
+                'notes' => $notes,
+            ]);
+        });
+
+        $payment->refresh()->load(['order.user', 'verifier']);
 
         return response()->json([
             'success' => true,

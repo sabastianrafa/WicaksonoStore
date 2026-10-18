@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\OrderStatus;
-use App\Enums\PaymentMethod;
+use App\Models\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Address;
@@ -11,9 +11,12 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\ShippingMethod;
+use App\Services\LocationCatalogUnavailable;
+use App\Services\ShippingQuoteService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -59,16 +62,32 @@ class OrderController extends Controller
      *
      * POST /api/orders
      */
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, ShippingQuoteService $quotes): JsonResponse
     {
         $validated = $request->validate([
             'address_id' => ['required', 'exists:addresses,id'],
             'shipping_method_id' => ['required', 'exists:shipping_methods,id'],
-            'payment_method' => ['sometimes', Rule::enum(PaymentMethod::class)],
+            'payment_method' => [
+                'required',
+                Rule::exists('payment_methods', 'code')->where('is_active', true),
+            ],
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
         $user = $request->user();
+
+        $paymentMethod = PaymentMethod::query()
+            ->where('code', $validated['payment_method'])
+            ->where('is_active', true)
+            ->configured()
+            ->first();
+
+        if (! $paymentMethod) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Metode pembayaran belum dikonfigurasi. Silakan pilih metode lain atau hubungi admin.',
+            ], 422);
+        }
 
         // 1. Ambil alamat dan pastikan milik user
         $address = Address::where('user_id', $user->id)
@@ -82,14 +101,44 @@ class OrderController extends Controller
             ], 422);
         }
 
-        // 2. Ambil metode pengiriman
-        $shippingMethod = ShippingMethod::where('is_active', true)
-            ->find($validated['shipping_method_id']);
-
-        if (!$shippingMethod) {
+        if (! $address->province_code || ! $address->regency_code || ! $address->district_code || ! $address->village_code) {
             return response()->json([
                 'success' => false,
-                'message' => 'Metode pengiriman tidak tersedia atau tidak aktif.',
+                'message' => 'Alamat belum memiliki wilayah terverifikasi. Perbarui alamat sebelum checkout.',
+            ], 422);
+        }
+
+        try {
+            $quote = $quotes->quote(
+                $address->province_code,
+                $address->regency_code,
+                $address->district_code,
+                $address->village_code
+            );
+        } catch (LocationCatalogUnavailable $exception) {
+            Log::error('Tidak dapat memvalidasi wilayah alamat ketika membuat pesanan.', [
+                'exception' => $exception,
+                'address_id' => $address->id,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $exception->getMessage(),
+            ], 503);
+        }
+
+        if (! $quote) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tarif kurir untuk wilayah ini belum tersedia. Silakan hubungi admin.',
+            ], 422);
+        }
+
+        $shippingMethod = $quote['method'];
+        if ($shippingMethod->id !== (int) $validated['shipping_method_id']) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Metode pengiriman tidak sesuai dengan wilayah alamat.',
             ], 422);
         }
 
@@ -105,7 +154,7 @@ class OrderController extends Controller
         $cartItems = $cart->items()->with('product')->get();
 
         try {
-            $order = DB::transaction(function () use ($user, $address, $shippingMethod, $cart, $cartItems, $validated) {
+            $order = DB::transaction(function () use ($user, $address, $shippingMethod, $quote, $quotes, $cart, $cartItems, $validated, $paymentMethod) {
                 $subtotal = 0;
                 $orderItemsData = [];
 
@@ -140,7 +189,7 @@ class OrderController extends Controller
                     ];
                 }
 
-                $shippingCost = (float) $shippingMethod->cost;
+                $shippingCost = $quotes->pricing($quote, $subtotal)['cost'];
                 $grandTotal = $subtotal + $shippingCost;
 
                 // Buat nomor pesanan unik
@@ -159,7 +208,15 @@ class OrderController extends Controller
                     'shipping_province' => $address->province,
                     'shipping_city' => $address->city,
                     'shipping_postal_code' => $address->postal_code,
-                    'shipping_address' => $address->address,
+                    'shipping_address' => implode(', ', array_filter([
+                        $address->address,
+                        $address->rt ? "RT {$address->rt}" : null,
+                        $address->rw ? "RW {$address->rw}" : null,
+                        $address->neighborhood,
+                        "Kel. {$address->village}",
+                        "Kec. {$address->district}",
+                        $address->landmark ? "Patokan: {$address->landmark}" : null,
+                    ])),
                     'order_status' => OrderStatus::PENDING,
                     'notes' => $validated['notes'] ?? null,
                 ]);
@@ -170,10 +227,15 @@ class OrderController extends Controller
                 }
 
                 // Buat Payment pending
-                $paymentMethod = $validated['payment_method'] ?? PaymentMethod::TRANSFER_BANK->value;
                 Payment::create([
                     'order_id' => $order->id,
-                    'method' => $paymentMethod,
+                    'method' => $validated['payment_method'],
+                    'payment_method_name' => $paymentMethod->name,
+                    'payment_method_type' => $paymentMethod->type,
+                    'payment_account_number' => $paymentMethod->account_number,
+                    'payment_account_name' => $paymentMethod->account_name,
+                    'payment_qris_image' => $paymentMethod->qris_image,
+                    'payment_method_description' => $paymentMethod->description,
                     'amount' => $grandTotal,
                     'status' => PaymentStatus::PENDING,
                 ]);

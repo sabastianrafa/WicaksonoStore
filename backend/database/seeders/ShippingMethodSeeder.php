@@ -11,63 +11,39 @@ class ShippingMethodSeeder extends Seeder
     {
         $shippingMethods = [
             [
-                'name' => 'JNE Regular',
-                'code' => 'JNE_REG',
-                'description' => 'Pengiriman reguler melalui JNE.',
-                'cost' => 15000,
-                'estimated_days' => '2-4 hari',
-                'is_active' => true,
-                'sort_order' => 1,
-            ],
-            [
                 'name' => 'J&T Express',
                 'code' => 'JNT_REG',
-                'description' => 'Pengiriman reguler melalui J&T Express.',
+                'description' => 'Untuk tujuan di Pulau Jawa di luar Malang Raya.',
                 'cost' => 14000,
                 'estimated_days' => '2-4 hari',
                 'is_active' => true,
                 'sort_order' => 2,
             ],
             [
-                'name' => 'SiCepat REG',
-                'code' => 'SICEPAT_REG',
-                'description' => 'Pengiriman reguler melalui SiCepat.',
-                'cost' => 13000,
-                'estimated_days' => '2-3 hari',
-                'is_active' => true,
-                'sort_order' => 3,
-            ],
-            [
-                'name' => 'AnterAja Regular',
-                'code' => 'ANTERAJA_REG',
-                'description' => 'Pengiriman reguler melalui AnterAja.',
-                'cost' => 12000,
-                'estimated_days' => '2-4 hari',
-                'is_active' => true,
-                'sort_order' => 4,
-            ],
-            [
-                'name' => 'Instant Delivery',
-                'code' => 'INSTANT',
-                'description' => 'Pengiriman instan untuk wilayah yang tersedia.',
+                'name' => 'GoSend',
+                'code' => 'GOSEND',
+                'description' => 'Pengiriman GoSend untuk wilayah Malang Raya.',
                 'cost' => 25000,
                 'estimated_days' => 'Hari yang sama',
                 'is_active' => true,
-                'sort_order' => 5,
+                'sort_order' => 1,
             ],
             [
-                'name' => 'Same Day Delivery',
-                'code' => 'SAME_DAY',
-                'description' => 'Pengiriman pada hari yang sama untuk wilayah tertentu.',
-                'cost' => 20000,
-                'estimated_days' => '1 hari',
+                'name' => 'Lion Parcel',
+                'code' => 'LION_PARCEL',
+                'description' => 'Pengiriman untuk tujuan di luar Pulau Jawa.',
+                'cost' => 30000,
+                'estimated_days' => '3-5 hari',
                 'is_active' => true,
-                'sort_order' => 6,
+                'sort_order' => 7,
             ],
         ];
 
         foreach ($shippingMethods as $shippingMethod) {
-            ShippingMethod::create($shippingMethod);
+            ShippingMethod::firstOrCreate(
+                ['code' => $shippingMethod['code']],
+                $shippingMethod
+            );
         }
     }
 }

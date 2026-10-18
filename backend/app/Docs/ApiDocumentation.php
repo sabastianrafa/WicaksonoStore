@@ -950,7 +950,7 @@ class ApiDocumentation
 
     #[OA\Get(
         path: '/api/admin/shipping-methods',
-        summary: 'Daftar metode pengiriman admin',
+        summary: 'Daftar GoSend, J&T, dan Lion Parcel beserta tarifnya',
         tags: ['Admin Shipping'],
         responses: [
                 new OA\Response(response: 200, description: 'Metode pengiriman berhasil diambil'),
@@ -959,34 +959,6 @@ class ApiDocumentation
         security: [['sanctum' => []]]
     )]
     public function adminShippingIndex(): void {}
-
-    #[OA\Post(
-        path: '/api/admin/shipping-methods',
-        summary: 'Tambah metode pengiriman',
-        tags: ['Admin Shipping'],
-        requestBody: new OA\RequestBody(
-            required: true,
-            content: new OA\JsonContent(
-                type: 'object',
-                required: ['name', 'code', 'cost'],
-                properties: [
-                    new OA\Property(property: 'name', type: 'string', example: 'JNE Reguler'),
-                    new OA\Property(property: 'code', type: 'string', example: 'JNE_REG'),
-                    new OA\Property(property: 'description', type: 'string', example: 'Pengiriman reguler'),
-                    new OA\Property(property: 'cost', type: 'number', example: 15000),
-                    new OA\Property(property: 'estimated_days', type: 'string', example: '2-4 hari'),
-                    new OA\Property(property: 'is_active', type: 'boolean', example: true),
-                    new OA\Property(property: 'sort_order', type: 'integer', example: 1)
-                ]
-            )
-        ),
-        responses: [
-                new OA\Response(response: 201, description: 'Metode pengiriman berhasil dibuat'),
-                new OA\Response(response: 422, description: 'Validasi gagal')
-            ],
-        security: [['sanctum' => []]]
-    )]
-    public function adminShippingStore(): void {}
 
     #[OA\Get(
         path: '/api/admin/shipping-methods/{shippingMethod}',
@@ -1005,7 +977,7 @@ class ApiDocumentation
 
     #[OA\Put(
         path: '/api/admin/shipping-methods/{shippingMethod}',
-        summary: 'Perbarui metode pengiriman',
+        summary: 'Atur tarif dan estimasi kurir yang sudah ditentukan',
         tags: ['Admin Shipping'],
         parameters: [
                 new OA\Parameter(name: 'shippingMethod', description: 'shippingMethod', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
@@ -1014,15 +986,10 @@ class ApiDocumentation
             required: true,
             content: new OA\JsonContent(
                 type: 'object',
-                required: [],
+                required: ['cost'],
                 properties: [
-                    new OA\Property(property: 'name', type: 'string', example: 'JNE Reguler'),
-                    new OA\Property(property: 'code', type: 'string', example: 'JNE_REG'),
-                    new OA\Property(property: 'description', type: 'string', example: 'Pengiriman reguler'),
                     new OA\Property(property: 'cost', type: 'number', example: 15000),
                     new OA\Property(property: 'estimated_days', type: 'string', example: '2-4 hari'),
-                    new OA\Property(property: 'is_active', type: 'boolean', example: true),
-                    new OA\Property(property: 'sort_order', type: 'integer', example: 1)
                 ]
             )
         ),
@@ -1034,21 +1001,6 @@ class ApiDocumentation
         security: [['sanctum' => []]]
     )]
     public function adminShippingUpdate(): void {}
-
-    #[OA\Delete(
-        path: '/api/admin/shipping-methods/{shippingMethod}',
-        summary: 'Hapus metode pengiriman',
-        tags: ['Admin Shipping'],
-        parameters: [
-                new OA\Parameter(name: 'shippingMethod', description: 'shippingMethod', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
-            ],
-        responses: [
-                new OA\Response(response: 200, description: 'Metode pengiriman berhasil dihapus'),
-                new OA\Response(response: 404, description: 'Metode tidak ditemukan')
-            ],
-        security: [['sanctum' => []]]
-    )]
-    public function adminShippingDestroy(): void {}
 
     #[OA\Get(
         path: '/api/admin/orders',
@@ -1179,10 +1131,9 @@ class ApiDocumentation
             required: true,
             content: new OA\JsonContent(
                 type: 'object',
-                required: [],
+                required: ['reason'],
                 properties: [
-                    new OA\Property(property: 'notes', type: 'string', example: 'Bukti pembayaran tidak jelas'),
-                    new OA\Property(property: 'reason', type: 'string', example: 'Bukti tidak valid')
+                    new OA\Property(property: 'reason', type: 'string', minLength: 3, maxLength: 500, example: 'Bukti tidak valid')
                 ]
             )
         ),

@@ -12,11 +12,11 @@ class UserSeeder extends Seeder
     {
         User::create([
             'name' => 'Admin Wicaksono',
-            'email' => 'admin@wicaksono.test',
+            'email' => 'sabastianrafariza@gmail.com',
             'phone' => '081234567890',
             'role' => 'admin',
             'email_verified_at' => now(),
-            'password' => Hash::make('password123'),
+            'password' => Hash::make('1234qwer'),
         ]);
 
         User::create([

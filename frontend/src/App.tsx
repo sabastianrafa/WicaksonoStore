@@ -1,297 +1,330 @@
-import { useState } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import {
   BrowserRouter,
   Routes,
   Route,
+  Navigate,
   useNavigate,
   useLocation,
 } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
-
-import HomePage from "./pages/HomePage";
-import CatalogPage from "./pages/CatalogPage";
+import HomePage from "./pages/navbar/HomePage";
+import CatalogPage from "./pages/navbar/CatalogPage";
+import AboutPage from "./pages/navbar/AboutPage";
+import ContactPage from "./pages/navbar/ContactPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
+import PaymentPage from "./pages/PaymentPage";
 import { LoginPage, RegisterPage } from "./pages/AuthPages";
 import DashboardPage from "./pages/DashboardPage";
 import AdminPage from "./pages/AdminPage";
+import { apiFetch } from "./api/client";
+
+/* =========================================================
+   TYPES
+========================================================= */
 
 export type Page =
   | "home"
   | "catalog"
+  | "about"
+  | "contact"
   | "product-detail"
   | "cart"
   | "checkout"
+  | "payment"
   | "login"
   | "register"
   | "dashboard"
   | "admin";
 
-interface CartItem {
+/*
+| Bentuk item keranjang harus sama dengan API (/api/cart) dan dengan
+| CartPage. Sebelumnya App memakai bentuk datar sendiri sehingga
+| TypeScript melaporkan dua tipe 'CartItem' yang tidak berkaitan, dan
+| halaman /keranjang bisa merender item tanpa `product`.
+*/
+interface CartProduct {
   id: number;
   name: string;
-  price: number;
-  image: string;
+  price: string | number;
+  stock: number;
+  image?: string | null;
+  category?: { id: number; name: string };
+  images?: { id: number; path: string; url?: string; is_primary?: boolean }[];
+}
+
+interface CartItem {
+  id: number;
+  product_id: number;
   quantity: number;
-  category: string;
+  subtotal: number;
+  product: CartProduct;
 }
 
-interface ToastProps {
-  message: string;
-  visible: boolean;
+interface CartAddProduct {
+  id: number;
+  name: string;
+  quantity?: number;
 }
 
-function Toast({ message, visible }: ToastProps) {
+interface MeResponse {
+  data: { user: { role: string } };
+}
+
+/* =========================================================
+   AUTH HELPERS
+========================================================= */
+
+const hasToken = () => !!localStorage.getItem("token");
+
+const clearSession = () => {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+};
+
+/* =========================================================
+   ROUTE GUARDS
+========================================================= */
+
+/**
+ * Halaman khusus user yang sudah login.
+ * Token diverifikasi ke server (/auth/me), jadi token palsu atau
+ * kedaluwarsa akan ditolak. Dengan adminOnly, role juga dicek.
+ */
+function ProtectedRoute({
+  children,
+  adminOnly = false,
+}: {
+  children: ReactNode;
+  adminOnly?: boolean;
+}) {
+  const location = useLocation();
+  const [status, setStatus] = useState<
+    "checking" | "allowed" | "unauthenticated" | "forbidden"
+  >(hasToken() ? "checking" : "unauthenticated");
+
+  useEffect(() => {
+    if (!hasToken()) {
+      setStatus("unauthenticated");
+      return;
+    }
+
+    let cancelled = false;
+
+    apiFetch<MeResponse>("/auth/me")
+      .then(({ data }) => {
+        if (cancelled) return;
+
+        localStorage.setItem("user", JSON.stringify(data.user));
+
+        const isAdmin = data.user.role?.toLowerCase() === "admin";
+        setStatus(adminOnly && !isAdmin ? "forbidden" : "allowed");
+      })
+      .catch(() => {
+        if (cancelled) return;
+
+        clearSession();
+        setStatus("unauthenticated");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [adminOnly]);
+
+  if (status === "checking") {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center text-sm text-gray-500">
+        Memuat...
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
+  if (status === "forbidden") {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+/** Halaman login/register: user yang sudah login diarahkan ke beranda. */
+function GuestRoute({ children }: { children: ReactNode }) {
+  return hasToken() ? <Navigate to="/" replace /> : <>{children}</>;
+}
+
+/* =========================================================
+   TOAST
+========================================================= */
+
+function Toast({ message, visible }: { message: string; visible: boolean }) {
   return (
     <div
-      style={{
-        position: "fixed",
-        bottom: 24,
-        right: 24,
-        zIndex: 9999,
-        background: "#1F2937",
-        color: "white",
-        borderRadius: 12,
-        padding: "14px 20px",
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
-        transform: visible ? "translateY(0)" : "translateY(80px)",
-        opacity: visible ? 1 : 0,
-        transition: "all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)",
-        pointerEvents: "none",
-        maxWidth: 320,
-      }}>
-      <div
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: 8,
-          background: "#16A34A",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}>
+      className={`pointer-events-none fixed bottom-6 right-6 z-[9999] flex max-w-[320px] items-center gap-2.5 rounded-xl bg-gray-800 px-5 py-3.5 text-white shadow-[0_8px_32px_rgba(0,0,0,0.15)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+        visible ? "translate-y-0 opacity-100" : "translate-y-20 opacity-0"
+      }`}
+    >
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-green-600 text-sm font-bold">
         ✓
       </div>
-
-      <span
-        style={{
-          fontFamily: "Poppins",
-          fontSize: "0.875rem",
-          fontWeight: 500,
-        }}>
-        {message}
-      </span>
+      <span className="font-[Poppins] text-sm font-medium">{message}</span>
     </div>
   );
 }
 
-/*
-|--------------------------------------------------------------------------
-| App Content
-|--------------------------------------------------------------------------
-*/
+/* =========================================================
+   APP CONTENT
+========================================================= */
+
+const PATHS: Record<Exclude<Page, "product-detail">, string> = {
+  home: "/",
+  catalog: "/produk",
+  about: "/tentang",
+  contact: "/kontak",
+  cart: "/keranjang",
+  checkout: "/checkout",
+  payment: "/pembayaran",
+  login: "/login",
+  register: "/register",
+  dashboard: "/dashboard",
+  admin: "/admin",
+};
+
+const NO_NAV_PAGES: Page[] = ["login", "register", "admin"];
 
 function AppContent() {
   const routerNavigate = useNavigate();
   const location = useLocation();
 
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [toast, setToast] = useState({ message: "", visible: false });
 
-  const [toast, setToast] = useState({
-    message: "",
-    visible: false,
-  });
-
-  /*
-  |--------------------------------------------------------------------------
-  | Convert URL -> Page
-  |--------------------------------------------------------------------------
-  */
+  /* ---------- Halaman aktif ---------- */
 
   const getCurrentPage = (): Page => {
-    const path = location.pathname;
+    const path = location.pathname.toLowerCase().replace(/\/$/, "") || "/";
 
-    if (path === "/") {
-      return "home";
-    }
+    if (path.startsWith("/produk/")) return "product-detail";
+    if (path.startsWith("/pembayaran/")) return "payment";
 
-    if (path === "/produk") {
-      return "catalog";
-    }
-
-    if (path.startsWith("/produk/")) {
-      return "product-detail";
-    }
-
-    if (path === "/keranjang") {
-      return "cart";
-    }
-
-    if (path === "/checkout") {
-      return "checkout";
-    }
-
-    if (path === "/login") {
-      return "login";
-    }
-
-    if (path === "/register") {
-      return "register";
-    }
-
-    if (path === "/dashboard") {
-      return "dashboard";
-    }
-
-    if (path === "/admin") {
-      return "admin";
-    }
-
-    return "home";
+    const match = Object.entries(PATHS).find(([, p]) => p === path);
+    return (match?.[0] as Page) ?? "home";
   };
 
   const currentPage = getCurrentPage();
 
-  /*
-  |--------------------------------------------------------------------------
-  | Navigation
-  |--------------------------------------------------------------------------
-  */
-
-  const navigate = (page: Page, data?: unknown) => {
-    switch (page) {
-      case "home":
-        routerNavigate("/");
-        break;
-
-      case "catalog":
-        routerNavigate("/produk");
-        break;
-
-      case "product-detail": {
-        const product = data as CartItem;
-
-        if (product?.id) {
-          routerNavigate(`/produk/${product.id}`);
-        }
-
-        break;
-      }
-
-      case "cart":
-        routerNavigate("/keranjang");
-        break;
-
-      case "checkout":
-        routerNavigate("/checkout");
-        break;
-
-      case "login":
-        routerNavigate("/login");
-        break;
-
-      case "register":
-        routerNavigate("/register");
-        break;
-
-      case "dashboard":
-        routerNavigate("/dashboard");
-        break;
-
-      case "admin":
-        routerNavigate("/admin");
-        break;
-
-      default:
-        routerNavigate("/");
-    }
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
-
-  /*
-  |--------------------------------------------------------------------------
-  | Toast
-  |--------------------------------------------------------------------------
-  */
+  /* ---------- Toast ---------- */
 
   const showToast = (message: string) => {
-    setToast({
-      message,
-      visible: true,
-    });
-
-    setTimeout(() => {
-      setToast((t) => ({
-        ...t,
-        visible: false,
-      }));
-    }, 2500);
+    setToast({ message, visible: true });
+    setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 3000);
   };
 
-  /*
-  |--------------------------------------------------------------------------
-  | Add To Cart
-  |--------------------------------------------------------------------------
-  */
+  /* ---------- Navigasi ---------- */
+  // Proteksi cart/checkout/dashboard/admin ditangani ProtectedRoute,
+  // jadi tidak perlu dicek lagi di sini.
 
-  const addToCart = (product: unknown) => {
-    const p = product as CartItem;
+  const navigate = (page: Page, data?: unknown) => {
+    if (page === "product-detail") {
+      const product = data as CartItem;
+      if (product?.id) routerNavigate(`/produk/${product.id}`);
+    } else if (page === "payment") {
+      const orderId = (data as { orderId?: number } | undefined)?.orderId;
+      if (orderId) routerNavigate(`/pembayaran/${orderId}`);
+    } else if (page === "catalog") {
+      /*
+      | HomePage mengirim { categoryId } saat kategori diklik. Tanpa ini
+      | datanya dibuang dan katalog terbuka tanpa filter.
+      */
+      const categoryId = (data as { categoryId?: number } | undefined)?.categoryId;
 
-    setCart((prev) => {
-      const existing = prev.find((item) => item.id === p.id);
+      routerNavigate(
+        categoryId
+          ? `/produk?kategori=${categoryId}`
+          : PATHS[page] ?? "/"
+      );
+    } else {
+      routerNavigate(PATHS[page] ?? "/");
+    }
 
-      if (existing) {
-        return prev.map((item) =>
-          item.id === p.id
-            ? {
-                ...item,
-                quantity: item.quantity + 1,
-              }
-            : item,
-        );
-      }
-
-      return [
-        ...prev,
-        {
-          id: p.id,
-          name: p.name,
-          price: p.price,
-          image: p.image,
-          category: p.category,
-          quantity: 1,
-        },
-      ];
-    });
-
-    showToast(`${p.name.slice(0, 28)}... ditambahkan ke keranjang`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const noNavPages: Page[] = ["login", "register", "admin"];
-  const showNav = !noNavPages.includes(currentPage);
+  /* ---------- Keranjang ---------- */
 
+  const addToCart = async (product: unknown): Promise<boolean> => {
+    if (!hasToken()) {
+      navigate("login");
+      return false;
+    }
+
+    if (
+      typeof product !== "object" ||
+      product === null ||
+      !("id" in product) ||
+      typeof product.id !== "number" ||
+      !("name" in product) ||
+      typeof product.name !== "string" ||
+      ("quantity" in product &&
+        (typeof product.quantity !== "number" ||
+          !Number.isInteger(product.quantity) ||
+          product.quantity < 1))
+    ) {
+      console.error("Gagal menambahkan ke keranjang: data produk tidak valid.");
+      showToast("Data produk tidak valid.");
+      return false;
+    }
+
+    const p: CartAddProduct = product;
+
+    /*
+    | Keranjang disimpan di server (POST /api/cart/items). Sebelumnya
+    | hanya mengubah state lokal, sehingga:
+    | - item tidak pernah masuk ke database,
+    | - state lokal berisi bentuk data berbeda dari CartPage,
+    |   sehingga /keranjang bisa render putih.
+    */
+    try {
+      await apiFetch<{ success: boolean; message: string }>("/cart/items", {
+        method: "POST",
+        body: JSON.stringify({
+          product_id: p.id,
+          quantity: p.quantity ?? 1,
+        }),
+      });
+
+      // Ambil ulang keranjang dari server agar state mengikuti bentuk API.
+      const response = await apiFetch<{ data?: { items?: CartItem[] } }>("/cart");
+      setCart(response.data?.items ?? []);
+      showToast(`${p.name.slice(0, 28)}... ditambahkan ke keranjang`);
+      return true;
+    } catch (error) {
+      console.error("Gagal menambahkan ke keranjang:", error);
+      showToast(
+        error instanceof Error
+          ? error.message
+          : "Gagal menambahkan ke keranjang."
+      );
+      return false;
+    }
+  };
+
+  /* ---------- Render ---------- */
+
+  const showNav = !NO_NAV_PAGES.includes(currentPage);
   const productId = location.pathname.startsWith("/produk/")
     ? location.pathname.split("/")[2]
     : null;
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#FFF8F0",
-        fontFamily: "Poppins, sans-serif",
-      }}>
+    <div className="min-h-screen bg-[#FFF8F0] font-[Poppins,sans-serif]">
       {showNav && (
         <Navbar
           currentPage={currentPage}
@@ -300,67 +333,100 @@ function AppContent() {
         />
       )}
 
-      <main className="fade-in" key={location.pathname}>
+      <main
+        key={location.pathname}
+        className={currentPage === 'admin' ? undefined : 'fade-in'}
+      >
         <Routes>
-          {/* HOME */}
+          {/* ===== Publik ===== */}
           <Route
             path="/"
             element={<HomePage navigate={navigate} onAddToCart={addToCart} />}
           />
-
-          {/* CATALOG */}
           <Route
             path="/produk"
-            element={
-              <CatalogPage navigate={navigate} onAddToCart={addToCart} />
-            }
+            element={<CatalogPage navigate={navigate} onAddToCart={addToCart} />}
           />
-
-          {/* PRODUCT DETAIL */}
+          <Route path="/tentang" element={<AboutPage navigate={navigate} />} />
+          <Route path="/kontak" element={<ContactPage navigate={navigate} />} />
           <Route
             path="/produk/:id"
             element={
               <ProductDetailPage
-                product={{
-                  id: Number(productId),
-                }}
                 navigate={navigate}
                 onAddToCart={addToCart}
               />
             }
           />
 
-          {/* CART */}
+          {/* ===== Hanya tamu (belum login) ===== */}
           <Route
-            path="/keranjang"
+            path="/login"
             element={
-              <CartPage cart={cart} setCart={setCart} navigate={navigate} />
+              <GuestRoute>
+                <LoginPage navigate={navigate} />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              <GuestRoute>
+                <RegisterPage navigate={navigate} />
+              </GuestRoute>
             }
           />
 
-          {/* CHECKOUT */}
+          {/* ===== Wajib login ===== */}
+          <Route
+            path="/keranjang"
+            element={
+              <ProtectedRoute>
+                <CartPage cart={cart} setCart={setCart} navigate={navigate} />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/checkout"
-            element={<CheckoutPage cart={cart} navigate={navigate} />}
+            element={
+              <ProtectedRoute>
+                <CheckoutPage
+                  cart={cart}
+                  navigate={navigate}
+                  onOrderPlaced={() => setCart([])}
+                />
+              </ProtectedRoute>
+            }
           />
-
-          {/* LOGIN */}
-          <Route path="/login" element={<LoginPage navigate={navigate} />} />
-
-          {/* REGISTER */}
           <Route
-            path="/register"
-            element={<RegisterPage navigate={navigate} />}
+            path="/pembayaran/:orderId"
+            element={
+              <ProtectedRoute>
+                <PaymentPage navigate={navigate} />
+              </ProtectedRoute>
+            }
           />
-
-          {/* DASHBOARD */}
           <Route
             path="/dashboard"
-            element={<DashboardPage navigate={navigate} />}
+            element={
+              <ProtectedRoute>
+                <DashboardPage navigate={navigate} />
+              </ProtectedRoute>
+            }
           />
 
-          {/* ADMIN */}
-          <Route path="/admin" element={<AdminPage navigate={navigate} />} />
+          {/* ===== Wajib login + role admin ===== */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute adminOnly>
+                <AdminPage navigate={navigate} />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* URL tidak dikenal */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
 
