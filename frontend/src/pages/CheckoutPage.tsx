@@ -18,6 +18,7 @@ interface CartItem {
     name: string;
     price: string | number;
     stock: number;
+    weight: number;
     image?: string | null;
     images?: { id: number; path: string; url?: string; is_primary?: boolean }[];
   };
@@ -821,7 +822,12 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
                   <img src={productImage(item)} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', background: '#FFF8F0' }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 600, color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.product.name}</p>
-                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#9CA3AF' }}>×{item.quantity}</p>
+                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#9CA3AF' }}>
+                      ×{item.quantity}
+                      {item.product.weight > 0
+                        ? ` · ${item.product.weight.toLocaleString('id-ID')} g`
+                        : ''}
+                    </p>
                   </div>
                   <span style={{ fontWeight: 600, color: '#1F2937', fontSize: '0.85rem', flexShrink: 0 }}>{formatPrice(Number(item.product.price) * item.quantity)}</span>
                 </div>

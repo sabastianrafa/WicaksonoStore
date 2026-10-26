@@ -71,6 +71,7 @@ class ProductTest extends TestCase
             'slug' => 'produk-detail-test',
             'price' => 15000,
             'stock' => 10,
+            'weight' => 280,
             'is_active' => true,
         ]);
 
@@ -82,6 +83,7 @@ class ProductTest extends TestCase
                 'data' => [
                     'id' => $product->id,
                     'name' => 'Produk Detail Test',
+                    'weight' => 280,
                 ],
             ]);
     }
@@ -108,6 +110,16 @@ class ProductTest extends TestCase
             'role' => UserRole::ADMIN,
         ]);
 
+        $missingWeightResponse = $this->actingAs($admin)->postJson('/api/admin/products', [
+            'category_id' => $this->category->id,
+            'name' => 'Produk Tanpa Berat',
+            'price' => 30000,
+            'stock' => 25,
+        ]);
+
+        $missingWeightResponse->assertStatus(422)
+            ->assertJsonValidationErrors(['weight']);
+
         // 1. Create
         $createResponse = $this->actingAs($admin)->postJson('/api/admin/products', [
             'category_id' => $this->category->id,
@@ -115,6 +127,7 @@ class ProductTest extends TestCase
             'price' => 30000,
             'original_price' => 35000,
             'stock' => 25,
+            'weight' => 350,
             'discount' => 14,
             'description' => 'Deskripsi produk admin',
             'is_active' => true,
@@ -126,6 +139,7 @@ class ProductTest extends TestCase
                 'data' => [
                     'name' => 'Produk Admin Baru',
                     'price' => '30000.00',
+                    'weight' => 350,
                 ],
             ]);
 
@@ -135,6 +149,7 @@ class ProductTest extends TestCase
         $updateResponse = $this->actingAs($admin)->putJson("/api/admin/products/{$productId}", [
             'name' => 'Produk Admin Diedit',
             'price' => 32000,
+            'weight' => 400,
         ]);
 
         $updateResponse->assertStatus(200)
@@ -143,6 +158,7 @@ class ProductTest extends TestCase
                 'data' => [
                     'name' => 'Produk Admin Diedit',
                     'price' => '32000.00',
+                    'weight' => 400,
                 ],
             ]);
 

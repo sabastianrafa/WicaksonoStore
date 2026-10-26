@@ -703,7 +703,7 @@ class ApiDocumentation
             required: true,
             content: new OA\JsonContent(
                 type: 'object',
-                required: ['category_id', 'name', 'price', 'stock'],
+                required: ['category_id', 'name', 'price', 'stock', 'weight'],
                 properties: [
                     new OA\Property(property: 'category_id', type: 'integer', example: 1),
                     new OA\Property(property: 'name', type: 'string', example: 'Keripik Tempe'),
@@ -711,6 +711,7 @@ class ApiDocumentation
                     new OA\Property(property: 'price', type: 'number', example: 15000),
                     new OA\Property(property: 'original_price', type: 'number', example: 18000),
                     new OA\Property(property: 'stock', type: 'integer', example: 100),
+                    new OA\Property(property: 'weight', description: 'Berat produk dalam gram', type: 'integer', example: 250),
                     new OA\Property(property: 'discount', type: 'integer', example: 10),
                     new OA\Property(property: 'image', type: 'string', example: 'products/keripik.jpg'),
                     new OA\Property(property: 'is_active', type: 'boolean', example: true)
@@ -760,6 +761,7 @@ class ApiDocumentation
                     new OA\Property(property: 'price', type: 'number', example: 15000),
                     new OA\Property(property: 'original_price', type: 'number', example: 18000),
                     new OA\Property(property: 'stock', type: 'integer', example: 100),
+                    new OA\Property(property: 'weight', description: 'Berat produk dalam gram', type: 'integer', example: 250),
                     new OA\Property(property: 'discount', type: 'integer', example: 10),
                     new OA\Property(property: 'image', type: 'string', example: 'products/keripik.jpg'),
                     new OA\Property(property: 'is_active', type: 'boolean', example: true)

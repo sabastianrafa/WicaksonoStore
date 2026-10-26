@@ -12,6 +12,7 @@ interface Product {
   reviews: number;
   sold: number;
   stock: number;
+  weight: number;
   discount: number;
   image: string;
   description: string;
@@ -313,6 +314,11 @@ export default function ProductCard({
         >
           Terjual {product.sold.toLocaleString('id-ID')}
         </p>
+        {product.weight > 0 && (
+          <p style={{ margin: 0, fontSize: '0.75rem', color: '#6B7280' }}>
+            Berat {product.weight.toLocaleString('id-ID')} g
+          </p>
+        )}
       </div>
 
     </div>
