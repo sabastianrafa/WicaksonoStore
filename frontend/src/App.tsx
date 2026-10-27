@@ -20,7 +20,7 @@ import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import PaymentPage from "./pages/PaymentPage";
 import { LoginPage, RegisterPage } from "./pages/AuthPages";
-import DashboardPage from "./pages/DashboardPage";
+import DashboardPage from "./pages/navbar/profil/DashboardPage";
 import AdminPage from "./pages/AdminPage";
 import { apiFetch } from "./api/client";
 
