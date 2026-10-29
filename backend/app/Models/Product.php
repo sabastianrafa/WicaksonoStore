@@ -19,6 +19,7 @@ class Product extends Model
         'price',
         'original_price',
         'stock',
+        'weight',
         'sold',
         'rating',
         'review_count',

@@ -10,7 +10,7 @@ import type { Page } from "../App";
 /* =========================================================
    TYPES
 ========================================================= */
-interface CartProduct { id: number; name: string; price: string | number; stock: number; category?: { id: number; name: string; }; images?: { id: number; path: string; url?: string; is_primary?: boolean; }[]; image?: string | null; }
+interface CartProduct { id: number; name: string; price: string | number; stock: number; weight: number; category?: { id: number; name: string; }; images?: { id: number; path: string; url?: string; is_primary?: boolean; }[]; image?: string | null; }
 interface CartItem { id: number; product_id: number; quantity: number; subtotal: number; product: CartProduct; }
 interface CartData { id: number; user_id: number; items: CartItem[]; total_items: number; subtotal: number; }
 interface CartResponse { success: boolean; message: string; data: CartData; }
@@ -230,6 +230,11 @@ export default function CartPage({ cart, setCart, navigate }: CartPageProps) {
                     <h3 className="font-semibold text-gray-800 text-sm md:text-base truncate mb-1">
                       {item.product.name}
                     </h3>
+                    <p className="text-xs text-gray-500 mb-1">
+                      {item.product.weight > 0
+                        ? `Berat ${item.product.weight.toLocaleString('id-ID')} g`
+                        : 'Berat belum diatur'}
+                    </p>
                     <p className="font-bold text-[#DF401F]">
                       {formatPrice(Number(item.product.price))}
                     </p>

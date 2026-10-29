@@ -43,6 +43,7 @@ interface ApiProduct {
   price: string | number;
   original_price?: string | number | null;
   stock: number;
+  weight: number;
   sold: number;
   rating: string | number;
   review_count: number;
@@ -67,6 +68,7 @@ interface Product {
   reviews: number;
   sold: number;
   stock: number;
+  weight: number;
   discount: number;
   image: string;
   description: string;
@@ -188,6 +190,7 @@ function normalizeProduct(product: ApiProduct): Product {
     reviews: Number(product.review_count ?? 0),
     sold: Number(product.sold ?? 0),
     stock: Number(product.stock ?? 0),
+    weight: Number(product.weight ?? 0),
     discount: Number(product.discount ?? 0),
 
     image:

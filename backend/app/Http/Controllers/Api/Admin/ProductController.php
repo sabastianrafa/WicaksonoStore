@@ -145,6 +145,13 @@ class ProductController extends Controller
                 'min:0',
             ],
 
+            'weight' => [
+                'required',
+                'integer',
+                'min:1',
+                'max:4294967295',
+            ],
+
             'discount' => [
                 'nullable',
                 'integer',
@@ -173,6 +180,7 @@ class ProductController extends Controller
             'price' => $validated['price'],
             'original_price' => $validated['original_price'] ?? null,
             'stock' => $validated['stock'],
+            'weight' => $validated['weight'],
             'sold' => 0,
             'rating' => 0,
             'review_count' => 0,
@@ -255,6 +263,14 @@ class ProductController extends Controller
                 'sometimes',
                 'integer',
                 'min:0',
+            ],
+
+            'weight' => [
+                'sometimes',
+                'required',
+                'integer',
+                'min:1',
+                'max:4294967295',
             ],
 
             'discount' => [

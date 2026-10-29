@@ -37,6 +37,7 @@ export interface AdminProduct {
   reviews: number;
   sold: number;
   stock: number;
+  weight: number;
   discount: number;
   image: string;
   description: string;
