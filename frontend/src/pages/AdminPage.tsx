@@ -12,7 +12,6 @@ import CategoriesSection from './admin/CategoriesSection';
 import CategoryFormModal from './admin/CategoryFormModal';
 import OrdersSection from './admin/OrdersSection';
 import PaymentsSection from './admin/PaymentsSection';
-import PaymentMethodsSection from './admin/PaymentMethodsSection';
 import ShippingSection from './admin/ShippingSection';
 import CustomersSection from './admin/CustomersSection';
 import ReportsSection from './admin/ReportsSection';
@@ -176,15 +175,6 @@ export default function AdminPage({ navigate }: { navigate: (page: Page) => void
             onPageChange={(page) => data.setPaymentFilter({ page })}
             onVerify={data.verifyPayment}
             onReject={data.rejectPayment}
-          />
-        )}
-
-        {activeMenu === 'paymethods' && (
-          <PaymentMethodsSection
-            methods={data.paymentMethods}
-            loading={data.loadingPaymentMethods}
-            onSave={data.savePaymentMethod}
-            onDelete={data.deletePaymentMethod}
           />
         )}
 

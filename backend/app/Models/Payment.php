@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\PaymentStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Payment extends Model
 {
@@ -23,6 +24,9 @@ class Payment extends Model
         'notes',
         'verified_by',
         'verified_at',
+        'midtrans_transaction_id',
+        'midtrans_transaction_status',
+        'midtrans_payment_type',
     ];
 
     protected function casts(): array
@@ -53,6 +57,11 @@ class Payment extends Model
     public function paymentMethod(): BelongsTo
     {
         return $this->belongsTo(PaymentMethod::class, 'method', 'code');
+    }
+
+    public function midtransTransactions(): HasMany
+    {
+        return $this->hasMany(MidtransTransaction::class);
     }
 
     public function getProofUrlAttribute(): ?string

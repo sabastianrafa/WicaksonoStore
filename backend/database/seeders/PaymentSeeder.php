@@ -4,7 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Order;
 use App\Models\Payment;
-use App\Models\User;
+use App\Models\PaymentMethod;
 use Illuminate\Database\Seeder;
 
 class PaymentSeeder extends Seeder
@@ -12,19 +12,14 @@ class PaymentSeeder extends Seeder
     public function run(): void
     {
         $orders = Order::all();
+        $paymentMethod = PaymentMethod::query()->where('code', 'midtrans')->first();
 
-        $admin = User::where('role', 'admin')->first();
+        if (! $paymentMethod) {
+            return;
+        }
 
         foreach ($orders as $order) {
-            $method = collect([
-                'transfer_bank',
-                'gopay',
-                'ovo',
-                'dana',
-                'cod',
-            ])->random();
-
-            // Status payment disesuaikan dengan status order.
+            // Status contoh mengikuti status order; pembayaran baru tetap melalui Midtrans Snap.
             if ($order->order_status === 'pending') {
                 $status = 'pending';
             } elseif ($order->order_status === 'cancelled') {
@@ -33,31 +28,23 @@ class PaymentSeeder extends Seeder
                 $status = 'paid';
             }
 
-            Payment::create([
-                'order_id' => $order->id,
-
-                'method' => $method,
-
-                'amount' => $order->total,
-
-                'status' => $status,
-
-                'proof' => $status === 'paid' && $method !== 'cod'
-                    ? 'payments/payment-' . $order->id . '.jpg'
-                    : null,
-
-                'notes' => $status === 'rejected'
-                    ? 'Pembayaran ditolak.'
-                    : null,
-
-                'verified_by' => $status === 'paid' && $method !== 'cod'
-                    ? $admin?->id
-                    : null,
-
-                'verified_at' => $status === 'paid' && $method !== 'cod'
-                    ? $order->created_at->copy()->addHours(3)
-                    : null,
-            ]);
+            Payment::firstOrCreate(
+                ['order_id' => $order->id],
+                [
+                    'method' => 'midtrans',
+                    'payment_method_name' => $paymentMethod->name,
+                    'payment_method_type' => $paymentMethod->type,
+                    'payment_method_description' => $paymentMethod->description,
+                    'amount' => $order->total,
+                    'status' => $status,
+                    'proof' => null,
+                    'notes' => $status === 'rejected' ? 'Pesanan dibatalkan.' : null,
+                    'verified_by' => null,
+                    'verified_at' => $status === 'paid'
+                        ? $order->created_at->copy()->addHours(3)
+                        : null,
+                ]
+            );
         }
     }
 }

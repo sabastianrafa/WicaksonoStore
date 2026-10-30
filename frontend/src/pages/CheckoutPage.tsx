@@ -78,15 +78,6 @@ interface ShippingQuoteResponse {
   data: ShippingQuote;
 }
 
-interface PaymentMethod {
-  id: number;
-  name: string;
-  code: string;
-  type: 'bank' | 'qris';
-  description: string | null;
-  icon: string | null;
-}
-
 interface SavedAddress {
   id: number;
   label: string;
@@ -126,10 +117,6 @@ interface OrderResponse {
 
 export default function CheckoutPage({ cart, navigate, onOrderPlaced }: CheckoutPageProps) {
   const [step, setStep] = useState(1);
-  const [payment, setPayment] = useState('');
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
-  const [paymentMethodsError, setPaymentMethodsError] = useState('');
   const [provinces, setProvinces] = useState<LocationOption[]>([]);
   const [regencies, setRegencies] = useState<LocationOption[]>([]);
   const [districts, setDistricts] = useState<LocationOption[]>([]);
@@ -272,36 +259,6 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
     };
   }, [form.district_code]);
 
-  useEffect(() => {
-    let active = true;
-
-    apiFetch<{ data: PaymentMethod[] }>('/payment-methods')
-      .then((response) => {
-        if (!active) return;
-        setPaymentMethods(response.data);
-        setPayment((current) =>
-          response.data.some((method) => method.code === current)
-            ? current
-            : response.data[0]?.code ?? ''
-        );
-      })
-      .catch((error) => {
-        if (!active) return;
-        setPaymentMethodsError(
-          error instanceof Error
-            ? error.message
-            : 'Gagal memuat metode pembayaran.'
-        );
-      })
-      .finally(() => {
-        if (active) setPaymentMethodsLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
   const items = validItems(cart);
 
   const subtotal = items.reduce(
@@ -384,7 +341,7 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
     setQuoteLoading(false);
   };
 
-  const continueToPayment = async () => {
+  const continueToConfirmation = async () => {
     const selectedAddress = savedAddresses.find((address) => address.id === selectedAddressId);
     if (!addingAddress && !selectedAddress) {
       setShippingError('Pilih alamat pengiriman atau tambahkan alamat baru.');
@@ -477,11 +434,6 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
       return;
     }
 
-    if (!payment) {
-      setOrderError('Pilih metode pembayaran terlebih dahulu.');
-      return;
-    }
-
     if (items.length === 0) {
       setOrderError('Keranjang kosong. Tambahkan produk sebelum checkout.');
       return;
@@ -501,7 +453,6 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
         body: JSON.stringify({
           address_id: selectedAddressId,
           shipping_method_id: shippingQuote.courier.id,
-          payment_method: payment,
         }),
       });
 
@@ -530,7 +481,7 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
 
       {/* Steps */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 40, maxWidth: 500 }}>
-        {[{ n: 1, label: 'Alamat' }, { n: 2, label: 'Pembayaran' }].map(({ n, label }, idx) => (
+        {[{ n: 1, label: 'Alamat & Pengiriman' }, { n: 2, label: 'Konfirmasi Pesanan' }].map(({ n, label }, idx) => (
           <div key={n} style={{ display: 'flex', alignItems: 'center', flex: idx < 2 ? 1 : 'none' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
               <div style={{
@@ -728,15 +679,29 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
               {shippingError && (
                 <p style={{ color: '#DC2626', fontSize: '0.85rem', margin: '16px 0 0' }}>{shippingError}</p>
               )}
-              <button className="btn-primary" onClick={continueToPayment} disabled={quoteLoading || addressesLoading} style={{ marginTop: 24, padding: '12px 28px', opacity: quoteLoading || addressesLoading ? 0.65 : 1 }}>
-                {quoteLoading ? 'Menghitung ongkir...' : 'Lanjut ke Pembayaran →'}
+              <button className="btn-primary" onClick={continueToConfirmation} disabled={quoteLoading || addressesLoading} style={{ marginTop: 24, padding: '12px 28px', opacity: quoteLoading || addressesLoading ? 0.65 : 1 }}>
+                {quoteLoading ? 'Menghitung ongkir...' : 'Lanjut konfirmasi →'}
               </button>
             </div>
           )}
 
           {step === 2 && (
             <div style={{ background: 'white', borderRadius: 14, padding: '28px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-              <h3 style={{ margin: '0 0 24px', fontWeight: 700, color: '#1F2937' }}>Metode Pembayaran</h3>
+              <h3 style={{ margin: '0 0 6px', fontWeight: 700, color: '#1F2937' }}>Konfirmasi Pesanan</h3>
+              <p style={{ margin: '0 0 20px', color: '#6B7280', fontSize: '0.85rem' }}>
+                Periksa kembali alamat dan pengiriman. Setelah pesanan dibuat, Anda akan melanjutkan ke halaman pembayaran.
+              </p>
+              {savedAddresses.find((address) => address.id === selectedAddressId) && (() => {
+                const address = savedAddresses.find((item) => item.id === selectedAddressId)!;
+                return (
+                  <div style={{ padding: '16px 18px', marginBottom: 16, borderRadius: 10, border: '1px solid #E5E7EB', background: '#FAFAFA' }}>
+                    <div style={{ fontWeight: 700, color: '#1F2937' }}>{address.name} · {address.phone}</div>
+                    <div style={{ marginTop: 4, fontSize: '0.82rem', color: '#6B7280' }}>
+                      {[address.address, address.village, address.district, address.city, address.province, address.postal_code].filter(Boolean).join(', ')}
+                    </div>
+                  </div>
+                );
+              })()}
               {shippingQuote && (
                 <div style={{ padding: '16px 18px', borderRadius: 10, border: '1px solid #FED7AA', background: '#FFF7ED', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
                   <div>
@@ -763,36 +728,8 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
                   </div>
                 </div>
               )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 20 }}>
-                {paymentMethodsLoading && (
-                  <p style={{ color: '#6B7280', fontSize: '0.85rem' }}>Memuat metode pembayaran...</p>
-                )}
-                {paymentMethodsError && (
-                  <p role="alert" style={{ color: '#DC2626', fontSize: '0.85rem' }}>{paymentMethodsError}</p>
-                )}
-                {!paymentMethodsLoading && !paymentMethodsError && paymentMethods.length === 0 && (
-                  <p style={{ color: '#DC2626', fontSize: '0.85rem' }}>Belum ada metode pembayaran yang tersedia.</p>
-                )}
-                {paymentMethods.map((method) => (
-                  <label key={method.id} style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '14px 16px', borderRadius: 10, border: `2px solid ${payment === method.code ? '#F97316' : '#E5E7EB'}`,
-                    background: payment === method.code ? 'rgba(249,115,22,0.04)' : 'white',
-                    cursor: 'pointer', transition: 'all 0.2s',
-                  }}>
-                    <input type="radio" checked={payment === method.code} onChange={() => setPayment(method.code)} style={{ accentColor: '#F97316', width: 16, height: 16 }} />
-                    <span style={{ fontSize: 20 }}>{method.icon ?? '💳'}</span>
-                    <div>
-                      <div style={{ fontWeight: 600, color: '#1F2937', fontSize: '0.9rem' }}>{method.name}</div>
-                      <div style={{ fontSize: '0.72rem', color: '#6B7280' }}>
-                        {method.type === 'bank' ? 'Transfer bank · perlu unggah bukti' : 'QRIS · scan dan unggah bukti'}
-                      </div>
-                      {method.description && (
-                        <div style={{ fontSize: '0.78rem', color: '#9CA3AF' }}>{method.description}</div>
-                      )}
-                    </div>
-                  </label>
-                ))}
+              <div style={{ marginTop: 20, padding: '14px 16px', borderRadius: 10, background: '#F8FAFC', color: '#475569', fontSize: '0.85rem' }}>
+                Jumlah barang: {items.reduce((sum, item) => sum + item.quantity, 0)} · Total: <strong>{formatPrice(total)}</strong>
               </div>
               {orderError && (
                 <p role="alert" style={{ color: '#DC2626', fontSize: '0.85rem', margin: '16px 0 0' }}>{orderError}</p>
@@ -802,10 +739,10 @@ export default function CheckoutPage({ cart, navigate, onOrderPlaced }: Checkout
                 <button
                   className="btn-primary"
                   onClick={handleOrder}
-                  disabled={submittingOrder || paymentMethodsLoading || paymentMethods.length === 0}
-                  style={{ padding: '12px 28px', flex: 1, opacity: submittingOrder || paymentMethodsLoading || paymentMethods.length === 0 ? 0.65 : 1 }}
+                  disabled={submittingOrder}
+                  style={{ padding: '12px 28px', flex: 1, opacity: submittingOrder ? 0.65 : 1 }}
                 >
-                  {submittingOrder ? 'Menyimpan Pesanan...' : 'Buat Pesanan & Lanjut Bayar'}
+                  {submittingOrder ? 'Menyimpan Pesanan...' : 'Buat Pesanan & Lanjut ke Pembayaran'}
                 </button>
               </div>
             </div>

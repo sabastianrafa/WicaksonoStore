@@ -18,7 +18,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
 class OrderController extends Controller
 {
@@ -67,17 +66,13 @@ class OrderController extends Controller
         $validated = $request->validate([
             'address_id' => ['required', 'exists:addresses,id'],
             'shipping_method_id' => ['required', 'exists:shipping_methods,id'],
-            'payment_method' => [
-                'required',
-                Rule::exists('payment_methods', 'code')->where('is_active', true),
-            ],
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
         $user = $request->user();
 
         $paymentMethod = PaymentMethod::query()
-            ->where('code', $validated['payment_method'])
+            ->where('code', 'midtrans')
             ->where('is_active', true)
             ->configured()
             ->first();
@@ -85,7 +80,7 @@ class OrderController extends Controller
         if (! $paymentMethod) {
             return response()->json([
                 'success' => false,
-                'message' => 'Metode pembayaran belum dikonfigurasi. Silakan pilih metode lain atau hubungi admin.',
+                'message' => 'Midtrans belum dikonfigurasi. Silakan hubungi admin.',
             ], 422);
         }
 
@@ -229,7 +224,7 @@ class OrderController extends Controller
                 // Buat Payment pending
                 Payment::create([
                     'order_id' => $order->id,
-                    'method' => $validated['payment_method'],
+                    'method' => $paymentMethod->code,
                     'payment_method_name' => $paymentMethod->name,
                     'payment_method_type' => $paymentMethod->type,
                     'payment_account_number' => $paymentMethod->account_number,

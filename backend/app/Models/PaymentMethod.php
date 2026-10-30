@@ -12,6 +12,7 @@ class PaymentMethod extends Model
     public const TYPE_BANK = 'bank';
 
     public const TYPE_QRIS = 'qris';
+    public const TYPE_GATEWAY = 'gateway';
 
     protected $fillable = [
         'name',
@@ -53,6 +54,11 @@ class PaymentMethod extends Model
 
     public function isConfigured(): bool
     {
+        if ($this->type === self::TYPE_GATEWAY && $this->code === 'midtrans') {
+            return filled(config('services.midtrans.server_key'))
+                && filled(config('services.midtrans.client_key'));
+        }
+
         return $this->isQris()
             ? filled($this->qris_image)
             : filled($this->account_number) && filled($this->account_name);
@@ -65,19 +71,12 @@ class PaymentMethod extends Model
 
     public function scopeConfigured(Builder $query): Builder
     {
-        return $query->where(function (Builder $query) {
-            $query->where(function (Builder $query) {
-                $query->where('type', self::TYPE_BANK)
-                    ->whereNotNull('account_number')
-                    ->where('account_number', '<>', '')
-                    ->whereNotNull('account_name')
-                    ->where('account_name', '<>', '');
-            })->orWhere(function (Builder $query) {
-                $query->where('type', self::TYPE_QRIS)
-                    ->whereNotNull('qris_image')
-                    ->where('qris_image', '<>', '');
-            });
-        });
+        $gatewayConfigured = filled(config('services.midtrans.server_key'))
+            && filled(config('services.midtrans.client_key'));
+
+        return $query->where('type', self::TYPE_GATEWAY)
+            ->where('code', 'midtrans')
+            ->when(! $gatewayConfigured, fn (Builder $query) => $query->whereRaw('1 = 0'));
     }
 
     public function getQrisImageUrlAttribute(): ?string

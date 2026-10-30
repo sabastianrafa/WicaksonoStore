@@ -10,7 +10,8 @@
         "darkaonline/l5-swagger": "^11.1",
         "laravel/framework": "^13.17",
         "laravel/sanctum": "^4.0",
-        "laravel/tinker": "^3.0"
+        "laravel/tinker": "^3.0",
+        "midtrans/midtrans-php": "^2.6"
     },
     "require-dev": {
         "barryvdh/laravel-ide-helper": "^3.7",

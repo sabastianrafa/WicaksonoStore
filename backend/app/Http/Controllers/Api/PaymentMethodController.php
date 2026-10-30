@@ -41,6 +41,7 @@ class PaymentMethodController extends Controller
     ): JsonResponse {
         $method = PaymentMethod::query()
             ->where('is_active', true)
+            ->configured()
             ->where('code', $paymentMethod)
             ->first();
 

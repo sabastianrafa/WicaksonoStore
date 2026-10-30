@@ -30,6 +30,8 @@ const STATUS_TABS = [
   { value: 'pending', label: 'Menunggu' },
   { value: 'paid', label: 'Lunas' },
   { value: 'rejected', label: 'Ditolak' },
+  { value: 'partially_refunded', label: 'Refund Sebagian' },
+  { value: 'refunded', label: 'Dikembalikan' },
 ];
 
 export default function PaymentsSection({
@@ -236,7 +238,9 @@ export default function PaymentsSection({
                   </td>
 
                   <td style={{ padding: '14px 16px' }}>
-                    {payment.status === 'pending' && payment.proof_url ? (
+                    {payment.method === 'midtrans' && payment.status === 'pending' ? (
+                      <span style={{ ...metaText, fontSize: '0.7rem' }}>Status dikelola Midtrans</span>
+                    ) : payment.status === 'pending' && payment.proof_url ? (
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button
                           disabled={busyId === payment.id}

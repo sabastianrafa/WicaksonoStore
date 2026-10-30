@@ -163,20 +163,6 @@ class ApiDocumentation
     public function categoriesIndex(): void {}
 
     #[OA\Get(
-        path: '/api/categories/{category}',
-        summary: 'Detail kategori',
-        tags: ['Categories'],
-        parameters: [
-                new OA\Parameter(name: 'category', description: 'category', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
-            ],
-        responses: [
-                new OA\Response(response: 200, description: 'Detail kategori berhasil diambil'),
-                new OA\Response(response: 404, description: 'Kategori tidak ditemukan')
-            ]
-    )]
-    public function categoriesShow(): void {}
-
-    #[OA\Get(
         path: '/api/shipping-methods',
         summary: 'Daftar metode pengiriman aktif',
         tags: ['Shipping Methods'],
@@ -608,6 +594,22 @@ class ApiDocumentation
         security: [['sanctum' => []]]
     )]
     public function paymentStore(): void {}
+
+    #[OA\Post(
+        path: '/api/orders/{order}/payment/change-method',
+        summary: 'Batalkan pembayaran pending untuk mengganti kanal Midtrans',
+        tags: ['Payments'],
+        parameters: [
+            new OA\Parameter(name: 'order', description: 'ID pesanan', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Transaksi pending dibatalkan dan kanal baru dapat dipilih'),
+            new OA\Response(response: 409, description: 'Transaksi tidak dapat dibatalkan karena sudah selesai atau kedaluwarsa'),
+            new OA\Response(response: 422, description: 'Tidak ada transaksi Midtrans pending untuk dibatalkan')
+        ],
+        security: [['sanctum' => []]]
+    )]
+    public function paymentChangeMethod(): void {}
 
     #[OA\Post(
         path: '/api/products/{product}/reviews',

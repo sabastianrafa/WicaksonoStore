@@ -23,7 +23,6 @@ export const MENUS = [
   { id: 'orders', label: 'Pesanan', icon: '🛒' },
   { id: 'payments', label: 'Pembayaran', icon: '💳' },
   { id: 'shipping', label: 'Pengiriman', icon: '🚚' },
-  { id: 'paymethods', label: 'Metode Bayar', icon: '🧾' },
   { id: 'customers', label: 'Pelanggan', icon: '👥' },
   { id: 'reports', label: 'Laporan', icon: '📈' },
 ];
@@ -258,6 +257,8 @@ export const PAYMENT_STATUSES = [
   { value: 'pending', label: 'Menunggu Verifikasi' },
   { value: 'paid', label: 'Lunas' },
   { value: 'rejected', label: 'Ditolak' },
+  { value: 'partially_refunded', label: 'Refund Sebagian' },
+  { value: 'refunded', label: 'Dikembalikan' },
 ] as const;
 
 /* ---------- Metode pembayaran (App\Models\PaymentMethod) ---------- */
@@ -290,6 +291,8 @@ export const PAYMENT_STATUS_COLORS: Record<
   pending: { bg: '#FEF3C7', text: '#D97706' },
   paid: { bg: '#DCFCE7', text: '#16A34A' },
   rejected: { bg: '#FEE2E2', text: '#DC2626' },
+  partially_refunded: { bg: '#EDE9FE', text: '#6D28D9' },
+  refunded: { bg: '#F3F4F6', text: '#4B5563' },
 };
 
 /* ---------- Warna & label status ---------- */

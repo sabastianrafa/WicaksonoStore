@@ -107,6 +107,12 @@ class PaymentController extends Controller
      */
     public function verify(Request $request, Payment $payment): JsonResponse
     {
+        if ($payment->method === 'midtrans') {
+            throw ValidationException::withMessages([
+                'payment' => 'Pembayaran Midtrans hanya dapat diverifikasi melalui notifikasi Midtrans.',
+            ]);
+        }
+
         $request->validate([
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
@@ -120,6 +126,12 @@ class PaymentController extends Controller
             if ($lockedPayment->status !== PaymentStatus::PENDING) {
                 throw ValidationException::withMessages([
                     'payment' => 'Pembayaran ini sudah diproses dan tidak dapat diverifikasi ulang.',
+                ]);
+            }
+
+            if ($lockedPayment->method === 'midtrans') {
+                throw ValidationException::withMessages([
+                    'payment' => 'Pembayaran Midtrans hanya dapat diverifikasi melalui notifikasi Midtrans.',
                 ]);
             }
 
@@ -167,6 +179,12 @@ class PaymentController extends Controller
      */
     public function reject(Request $request, Payment $payment): JsonResponse
     {
+        if ($payment->method === 'midtrans') {
+            throw ValidationException::withMessages([
+                'payment' => 'Status pembayaran Midtrans dikelola oleh notifikasi Midtrans.',
+            ]);
+        }
+
         $request->validate([
             'notes' => ['sometimes', 'nullable', 'string', 'min:3', 'max:500'],
             'reason' => ['required_without:notes', 'nullable', 'string', 'min:3', 'max:500'],
@@ -189,6 +207,12 @@ class PaymentController extends Controller
             if ($lockedPayment->status !== PaymentStatus::PENDING) {
                 throw ValidationException::withMessages([
                     'payment' => 'Pembayaran ini sudah diproses dan tidak dapat ditolak ulang.',
+                ]);
+            }
+
+            if ($lockedPayment->method === 'midtrans') {
+                throw ValidationException::withMessages([
+                    'payment' => 'Status pembayaran Midtrans dikelola oleh notifikasi Midtrans.',
                 ]);
             }
 

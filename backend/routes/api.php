@@ -39,7 +39,6 @@ Route::prefix('products')->group(function () {
 
 Route::prefix('categories')->group(function () {
     Route::get('/', [CategoryController::class, 'index']);
-    Route::get('/{category}', [CategoryController::class, 'show']);
 });
 
 Route::prefix('reviews')->group(function () {
@@ -62,6 +61,9 @@ Route::prefix('payment-methods')->group(function () {
     Route::get('/', [PaymentMethodController::class, 'index']);
     Route::get('/{paymentMethod}', [PaymentMethodController::class, 'show']);
 });
+
+// Midtrans calls this endpoint directly; it must not require Sanctum auth.
+Route::post('/payments/midtrans/notification', [PaymentController::class, 'handleMidtransNotification']);
 
 Route::middleware('auth:sanctum')->group(function () {
 
@@ -100,6 +102,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('orders/{order}/payment')->group(function () {
         Route::get('/', [PaymentController::class, 'show']);
         Route::post('/', [PaymentController::class, 'store']);
+        Route::post('/snap-token', [PaymentController::class, 'createSnapToken']);
+        Route::post('/change-method', [PaymentController::class, 'changeMidtransMethod']);
     });
 
     Route::post('/products/{product}/reviews', [ReviewController::class, 'store']);
@@ -124,7 +128,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/shipping-promotion', [ShippingPromotionController::class, 'show']);
         Route::put('/shipping-promotion', [ShippingPromotionController::class, 'update']);
 
-        Route::apiResource('payment-methods', AdminPaymentMethodController::class);
+        Route::apiResource('payment-methods', AdminPaymentMethodController::class)
+            ->only(['index', 'show']);
 
         Route::get('/orders', [AdminOrderController::class, 'index']);
         Route::get('/orders/{order}', [AdminOrderController::class, 'show']);

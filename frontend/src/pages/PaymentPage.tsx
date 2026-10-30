@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { DragEvent } from 'react';
 import { useParams } from 'react-router-dom';
-import { apiFetch, BACKEND_URL } from '../api/client';
+import { apiFetch } from '../api/client';
 import { formatPrice } from '../data';
 import type { Page } from '../App';
 
@@ -10,19 +9,15 @@ interface PaymentDetails {
     id: number;
     method: string;
     amount: number | string;
-    status: 'pending' | 'paid' | 'rejected';
-    proof: string | null;
-    notes: string | null;
+    status: 'pending' | 'paid' | 'rejected' | 'refunded' | 'partially_refunded';
   };
   payment_method: {
     name: string;
     code: string;
-    type: 'bank' | 'qris';
-    account_number: string | null;
-    account_name: string | null;
-    qris_image_url: string | null;
+    type: string;
     description: string | null;
   } | null;
+  midtrans_attempt_status: string | null;
   order: {
     id: number;
     order_number: string;
@@ -35,9 +30,28 @@ interface Props {
   navigate: (page: Page, data?: unknown) => void;
 }
 
-const MAX_PROOF_SIZE = 1800 * 1024;
-const ALLOWED_PROOF_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const STEPS = ['Pesanan dibuat', 'Pembayaran', 'Verifikasi', 'Selesai'];
+const STEPS = ['Pesanan dibuat', 'Pilih kanal', 'Pembayaran', 'Selesai'];
+
+declare global {
+  interface Window {
+    snap?: {
+      embed: (token: string, options: {
+        embedId: string;
+        onSuccess?: () => void;
+        onPending?: () => void;
+        onError?: () => void;
+        onClose?: () => void;
+      }) => void;
+      hide?: () => void;
+      pay: (token: string, callbacks?: {
+        onSuccess?: () => void;
+        onPending?: () => void;
+        onError?: () => void;
+        onClose?: () => void;
+      }) => void;
+    };
+  }
+}
 
 const styles = `
 .pay { --o:#EA580C; --od:#C2410C; --ol:#FFF7ED; --ob:#FED7AA; --ink:#1F2937; --mut:#6B7280; --line:#E5E7EB;
@@ -101,37 +115,7 @@ const styles = `
 .pay-method-name { margin:0; font-weight:700; }
 .pay-method-type { margin:2px 0 0; color:var(--mut); font-size:.82rem; }
 .pay-desc { margin:14px 0 0; color:#4B5563; font-size:.88rem; line-height:1.6; }
-.pay-bank { margin-top:14px; padding:20px; border-radius:14px; color:#fff; background:linear-gradient(135deg,#111827,#374151); }
-.pay-bank-label { margin:0; color:#D1D5DB; font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
-.pay-bank-row { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-top:8px; }
-.pay-bank-number { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:1.5rem; font-weight:700; letter-spacing:.08em; word-break:break-all; }
-.pay-bank-name { margin:14px 0 0; padding-top:12px; border-top:1px solid rgba(255,255,255,.15); color:#D1D5DB; font-size:.88rem; }
-.pay-bank-name b { color:#fff; }
-.pay-bank .pay-btn { background:rgba(255,255,255,.14); border-color:transparent; color:#fff; }
-.pay-bank .pay-btn:hover:not(:disabled) { background:rgba(255,255,255,.26); border-color:transparent; }
-.pay-bank .pay-btn.copied { background:#22C55E; color:#fff; }
-.pay-qr { margin-top:14px; padding:20px; text-align:center; background:#F9FAFB; border-radius:14px; }
-.pay-qr-frame { display:inline-block; padding:12px; background:#fff; border:1px solid var(--line); border-radius:16px; box-shadow:0 2px 10px rgba(0,0,0,.05); }
-.pay-qr img { display:block; width:232px; max-width:100%; aspect-ratio:1; object-fit:contain; border-radius:8px; }
-.pay-qr p { margin:14px 0 0; color:var(--mut); font-size:.84rem; line-height:1.55; }
-.pay-tips { margin:18px 0 0; padding:0; list-style:none; display:grid; gap:8px; color:#4B5563; font-size:.84rem; line-height:1.5; }
-.pay-tips li { display:flex; gap:8px; }
-.pay-tips li::before { content:'✓'; color:#16A34A; font-weight:800; }
-.pay-drop { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:176px; padding:24px 16px; text-align:center;
-  border:2px dashed #D1D5DB; border-radius:14px; cursor:pointer; transition:border-color .15s, background .15s; }
-.pay-drop:hover, .pay-drop.drag { border-color:var(--o); background:var(--ol); }
-.pay-drop-ico { width:48px; height:48px; margin-bottom:12px; border-radius:50%; display:grid; place-items:center; background:#F3F4F6; color:#4B5563; font-size:1.3rem; }
-.pay-drop strong { font-size:.9rem; }
-.pay-drop span { margin-top:4px; color:var(--mut); font-size:.76rem; }
-.pay-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
-.pay-preview { overflow:hidden; border:1px solid var(--line); border-radius:14px; }
-.pay-preview-img { position:relative; background:#F9FAFB; }
-.pay-preview-img img { display:block; width:100%; max-height:260px; object-fit:contain; }
-.pay-remove { position:absolute; top:8px; right:8px; width:30px; height:30px; border:0; border-radius:50%; background:rgba(17,24,39,.7); color:#fff; font-size:1rem; cursor:pointer; }
-.pay-remove:hover { background:#111827; }
-.pay-file { display:flex; justify-content:space-between; gap:12px; padding:10px 12px; border-top:1px solid #F3F4F6; font-size:.76rem; color:#4B5563; }
-.pay-file b { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.pay-file span { flex:none; color:var(--mut); }
+.pay-snap-container { width:100%; min-height:620px; overflow:auto; border-radius:12px; background:#fff; }
 .pay-note { display:flex; gap:10px; margin:0; padding:14px; border-radius:12px; font-size:.86rem; line-height:1.55; }
 .pay-note.info { background:#EFF6FF; color:#1E40AF; }
 .pay-note.success { background:#F0FDF4; color:#166534; }
@@ -147,7 +131,6 @@ const styles = `
 .pay-foot-actions { display:flex; justify-content:center; margin-top:18px; }
 .pay-skel { animation:pay-pulse 1.4s ease-in-out infinite; }
 .pay-skel div { background:#E5E7EB; border-radius:8px; }
-.pay-spin { width:16px; height:16px; border-radius:50%; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; animation:pay-rot .7s linear infinite; }
 .pay-error-box { padding:36px 24px; text-align:center; }
 .pay-error-box h1 { margin:0 0 8px; font-size:1.15rem; }
 .pay-error-box p { margin:0 auto 18px; max-width:420px; color:var(--mut); font-size:.9rem; line-height:1.55; }
@@ -161,18 +144,12 @@ const styles = `
   .pay-grid { grid-template-columns:1fr; }
   .pay-section { padding:20px 18px; }
   .pay-total-value { font-size:1.7rem; }
-  .pay-bank-number { font-size:1.25rem; }
   .pay-step-label { font-size:.68rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .pay *, .pay *::before { animation:none !important; transition:none !important; }
 }
 `;
-
-function formatFileSize(bytes: number) {
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-}
 
 async function copyText(value: string) {
   if (navigator.clipboard?.writeText) {
@@ -194,16 +171,14 @@ async function copyText(value: string) {
 export default function PaymentPage({ navigate }: Props) {
   const { orderId } = useParams();
   const [details, setDetails] = useState<PaymentDetails | null>(null);
-  const [proof, setProof] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [dragging, setDragging] = useState(false);
-  const [copied, setCopied] = useState<'account' | 'amount' | null>(null);
+  const [copied, setCopied] = useState<'amount' | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [startingSnap, setStartingSnap] = useState(false);
+  const [changingMethod, setChangingMethod] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const fileInput = useRef<HTMLInputElement>(null);
+  const autoEmbedAttemptedOrderId = useRef<string | null>(null);
 
   const loadPayment = useCallback(async () => {
     if (!orderId) {
@@ -216,6 +191,9 @@ export default function PaymentPage({ navigate }: Props) {
       const response = await apiFetch<{ data: PaymentDetails }>(`/orders/${orderId}/payment`);
       setDetails(response.data);
       setError('');
+      if (response.data.payment.status === 'paid') {
+        setMessage('Pembayaran sudah dikonfirmasi oleh server.');
+      }
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Gagal memuat informasi pembayaran.');
     } finally {
@@ -236,16 +214,6 @@ export default function PaymentPage({ navigate }: Props) {
   }, [details?.payment.status, loadPayment]);
 
   useEffect(() => {
-    if (!proof) {
-      setPreview(null);
-      return;
-    }
-    const url = URL.createObjectURL(proof);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [proof]);
-
-  useEffect(() => {
     if (!copied) return;
     const timeout = window.setTimeout(() => setCopied(null), 2000);
     return () => window.clearTimeout(timeout);
@@ -257,107 +225,139 @@ export default function PaymentPage({ navigate }: Props) {
     setRefreshing(false);
   };
 
-  const selectFile = (file: File | null) => {
-    setMessage('');
-    if (!file) {
-      setProof(null);
-      return;
-    }
-    if (!ALLOWED_PROOF_TYPES.includes(file.type)) {
-      setError('Bukti harus berupa gambar JPG, PNG, atau WEBP.');
-      setProof(null);
-      if (fileInput.current) fileInput.current.value = '';
-      return;
-    }
-    if (file.size > MAX_PROOF_SIZE) {
-      setError('Ukuran bukti pembayaran maksimal 1,8 MB. Kompres atau pilih gambar yang lebih kecil.');
-      setProof(null);
-      if (fileInput.current) fileInput.current.value = '';
-      return;
-    }
+  const startMidtransPayment = useCallback(async () => {
+    if (!orderId) return;
+    setStartingSnap(true);
     setError('');
-    setProof(file);
-  };
-
-  const clearProof = () => {
-    setProof(null);
-    if (fileInput.current) fileInput.current.value = '';
-  };
-
-  const handleDrop = (event: DragEvent<HTMLLabelElement>) => {
-    event.preventDefault();
-    setDragging(false);
-    if (submitting) return;
-    selectFile(event.dataTransfer.files?.[0] ?? null);
-  };
-
-  const uploadProof = async () => {
-    if (!orderId || !proof) {
-      setError('Pilih bukti pembayaran terlebih dahulu.');
-      return;
+    setMessage('');
+    window.snap?.hide?.();
+    document.getElementById('midtrans-snap-container')?.replaceChildren();
+    try {
+      const response = await apiFetch<{ data: { snap_token: string; client_key: string; is_production: boolean } }>(
+        `/orders/${orderId}/payment/snap-token`,
+        { method: 'POST' }
+      );
+      const { snap_token: token, client_key: clientKey, is_production: production } = response.data;
+      if (!window.snap) {
+        await new Promise<void>((resolve, reject) => {
+          const existing = document.querySelector<HTMLScriptElement>('script[data-midtrans-snap]');
+          if (existing) {
+            existing.addEventListener('load', () => resolve(), { once: true });
+            existing.addEventListener('error', () => reject(new Error('Skrip Midtrans gagal dimuat.')), { once: true });
+            return;
+          }
+          const script = document.createElement('script');
+          script.dataset.midtransSnap = 'true';
+          script.src = `${production ? 'https://app.midtrans.com' : 'https://app.sandbox.midtrans.com'}/snap/snap.js?client-key=${encodeURIComponent(clientKey)}`;
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error('Skrip Midtrans gagal dimuat.'));
+          document.body.appendChild(script);
+        });
+      }
+      if (!window.snap?.embed) throw new Error('Midtrans Snap embed belum siap.');
+      window.snap.embed(token, {
+        embedId: 'midtrans-snap-container',
+        onSuccess: () => { setMessage('Midtrans menerima hasil pembayaran. Menunggu konfirmasi akhir dari server.'); void loadPayment(); },
+        onPending: () => {
+          setMessage('Selesaikan instruksi pada panel Midtrans. Status akan berubah otomatis setelah pembayaran dikonfirmasi.');
+          void loadPayment();
+        },
+        onError: () => setError('Pembayaran gagal diproses. Silakan coba lagi.'),
+        onClose: () => { setMessage('Proses pembayaran ditutup. Anda dapat melanjutkannya dari halaman ini.'); void loadPayment(); },
+      });
+    } catch (snapError) {
+      setError(snapError instanceof Error ? snapError.message : 'Gagal membuka pembayaran Midtrans.');
+    } finally {
+      setStartingSnap(false);
     }
+  }, [loadPayment, orderId]);
 
-    const formData = new FormData();
-    formData.append('proof', proof);
+  const changePaymentMethod = useCallback(async () => {
+    if (!orderId) return;
 
-    setSubmitting(true);
+    setChangingMethod(true);
     setError('');
     setMessage('');
     try {
-      await apiFetch(`/orders/${orderId}/payment`, {
-        method: 'POST',
-        body: formData,
-      });
-      clearProof();
-      setMessage('Bukti pembayaran berhasil dikirim. Pembayaran akan diperiksa oleh admin.');
+      await apiFetch(`/orders/${orderId}/payment/change-method`, { method: 'POST' });
+      window.snap?.hide?.();
+      document.getElementById('midtrans-snap-container')?.replaceChildren();
+      await startMidtransPayment();
       await loadPayment();
-    } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : 'Gagal mengunggah bukti pembayaran.');
+    } catch (changeError) {
+      setError(changeError instanceof Error
+        ? changeError.message
+        : 'Gagal mengganti kanal pembayaran.');
     } finally {
-      setSubmitting(false);
+      setChangingMethod(false);
     }
-  };
+  }, [loadPayment, orderId, startMidtransPayment]);
 
-  const copyValue = async (value: string | null | undefined, kind: 'account' | 'amount') => {
+  useEffect(() => {
+    if (
+      !loading
+      && details?.payment.method === 'midtrans'
+      && ['pending', 'rejected'].includes(details.payment.status)
+      && orderId
+      && autoEmbedAttemptedOrderId.current !== orderId
+    ) {
+      autoEmbedAttemptedOrderId.current = orderId;
+      void startMidtransPayment();
+    }
+  }, [details, loading, orderId, startMidtransPayment]);
+
+  const copyValue = async (value: string | null | undefined) => {
     if (!value) return;
     try {
       await copyText(value);
       setError('');
-      setCopied(kind);
+      setCopied('amount');
     } catch {
       setError('Teks tidak dapat disalin oleh browser ini. Silakan salin secara manual.');
     }
   };
 
   const paymentMethod = details?.payment_method;
-  const qrImage = paymentMethod?.qris_image_url
-    ? paymentMethod.qris_image_url.startsWith('http')
-      ? paymentMethod.qris_image_url
-      : `${BACKEND_URL}${paymentMethod.qris_image_url}`
-    : null;
-  const proofUrl = details?.payment.proof
-    ? details.payment.proof.startsWith('http')
-      ? details.payment.proof
-      : `${BACKEND_URL}/storage/${details.payment.proof.replace(/^\/+/, '')}`
-    : null;
-
   const cancelled = details?.order.status === 'cancelled';
   const paid = details?.payment.status === 'paid';
   const rejected = details?.payment.status === 'rejected';
-  const awaitingReview = Boolean(details?.payment.proof) && !paid && !rejected && !cancelled;
-  const canUpload = Boolean(details && !cancelled && !paid && (rejected || !details.payment.proof));
+  const refunded = details?.payment.status === 'refunded';
+  const partiallyRefunded = details?.payment.status === 'partially_refunded';
+  const isMidtrans = paymentMethod?.type === 'gateway' || details?.payment.method === 'midtrans';
+  const canChangeMidtransMethod = Boolean(
+    isMidtrans
+      && details?.payment.status === 'pending'
+      && details.midtrans_attempt_status === 'pending'
+      && !cancelled
+  );
+  const canRetryMidtransAttempt = Boolean(
+    isMidtrans
+      && details?.payment.status === 'pending'
+      && ['expire', 'deny', 'cancel'].includes(details.midtrans_attempt_status ?? '')
+      && !cancelled
+  );
   const amount = details ? Number(details.payment.amount) : 0;
-  const activeStep = paid ? STEPS.length : awaitingReview ? 2 : 1;
+  const activeStep = paid
+    ? STEPS.length
+    : canChangeMidtransMethod
+      ? 2
+      : 1;
 
   const status = cancelled
     ? { label: 'Pesanan dibatalkan', tone: 'neutral', pulse: false }
-    : paid
+    : refunded
+      ? { label: 'Pembayaran dikembalikan', tone: 'neutral', pulse: false }
+      : partiallyRefunded
+        ? { label: 'Refund sebagian', tone: 'neutral', pulse: false }
+      : paid
       ? { label: 'Terverifikasi', tone: 'success', pulse: false }
       : rejected
         ? { label: 'Perlu pembayaran ulang', tone: 'danger', pulse: false }
-        : awaitingReview
-          ? { label: 'Menunggu verifikasi admin', tone: 'info', pulse: true }
-          : { label: 'Menunggu pembayaran', tone: 'warning', pulse: true };
+        : canRetryMidtransAttempt
+          ? { label: 'Percobaan berakhir', tone: 'danger', pulse: false }
+          : canChangeMidtransMethod
+          ? { label: 'Menunggu pembayaran', tone: 'warning', pulse: true }
+          : { label: 'Pilih kanal pembayaran', tone: 'info', pulse: true };
 
   return (
     <div className="pay">
@@ -396,20 +396,28 @@ export default function PaymentPage({ navigate }: Props) {
                   <h1 className="pay-title">
                     {cancelled
                       ? 'Pesanan Dibatalkan'
+                      : refunded
+                        ? 'Pembayaran Dikembalikan'
+                        : partiallyRefunded
+                          ? 'Refund Sebagian'
                       : paid
                         ? 'Pembayaran Selesai'
-                        : awaitingReview
-                          ? 'Pembayaran Sedang Diperiksa'
+                        : canChangeMidtransMethod
+                          ? 'Menunggu Pembayaran'
                           : 'Selesaikan Pembayaran'}
                   </h1>
                   <p className="pay-sub">
                     {cancelled
                       ? 'Pesanan ini sudah dibatalkan.'
+                      : refunded
+                        ? 'Pembayaran pesanan ini telah dikembalikan.'
+                        : partiallyRefunded
+                          ? 'Sebagian pembayaran telah dikembalikan.'
                       : paid
                         ? 'Pembayaran sudah diverifikasi. Terima kasih telah berbelanja.'
-                        : awaitingReview
-                          ? 'Bukti sudah kami terima. Halaman ini diperbarui otomatis saat admin selesai memeriksa.'
-                          : 'Transfer sesuai nominal di bawah, lalu unggah bukti pembayaran.'}
+                        : isMidtrans
+                            ? 'Pilih kanal pembayaran di bawah untuk menyelesaikan transaksi.'
+                            : 'Metode pembayaran ini sudah tidak tersedia. Hubungi admin untuk bantuan.'}
                   </p>
                 </div>
                 <span className={`pay-badge ${status.tone}${status.pulse ? ' pulse' : ''}`}>
@@ -448,7 +456,7 @@ export default function PaymentPage({ navigate }: Props) {
                     <button
                       type="button"
                       className={`pay-btn sm${copied === 'amount' ? ' copied' : ''}`}
-                      onClick={() => void copyValue(String(amount), 'amount')}
+                      onClick={() => void copyValue(String(amount))}
                     >
                       {copied === 'amount' ? '✓ Tersalin' : 'Salin nominal'}
                     </button>
@@ -471,64 +479,35 @@ export default function PaymentPage({ navigate }: Props) {
                 </div>
               </div>
 
-              {paymentMethod ? (
+              {isMidtrans ? (
                 <>
                   <div className="pay-method">
-                    <div className="pay-method-ico" aria-hidden="true">{paymentMethod.type === 'bank' ? '🏦' : '▦'}</div>
+                    <div className="pay-method-ico" aria-hidden="true">💳</div>
                     <div style={{ minWidth: 0 }}>
-                      <p className="pay-method-name">{paymentMethod.name}</p>
-                      <p className="pay-method-type">
-                        {paymentMethod.type === 'bank' ? 'Transfer bank' : 'Pembayaran QRIS'}
-                      </p>
+                      <p className="pay-method-name">{paymentMethod?.name ?? 'Midtrans'}</p>
+                      <p className="pay-method-type">Pilih Virtual Account, QRIS, e-wallet, atau kanal lain di Snap.</p>
                     </div>
                   </div>
 
-                  {paymentMethod.description && <p className="pay-desc">{paymentMethod.description}</p>}
+                  {paymentMethod?.description && <p className="pay-desc">{paymentMethod.description}</p>}
 
-                  {paymentMethod.type === 'bank' ? (
-                    <div className="pay-bank">
-                      <p className="pay-bank-label">Transfer ke nomor rekening</p>
-                      <div className="pay-bank-row">
-                        <strong className="pay-bank-number">
-                          {paymentMethod.account_number || 'Belum tersedia'}
-                        </strong>
-                        {paymentMethod.account_number && (
-                          <button
-                            type="button"
-                            className={`pay-btn sm${copied === 'account' ? ' copied' : ''}`}
-                            onClick={() => void copyValue(paymentMethod.account_number, 'account')}
-                          >
-                            {copied === 'account' ? '✓ Tersalin' : 'Salin nomor'}
-                          </button>
-                        )}
-                      </div>
-                      {paymentMethod.account_name && (
-                        <p className="pay-bank-name">Atas nama <b>{paymentMethod.account_name}</b></p>
+                  {!paid && !cancelled && !refunded && !partiallyRefunded ? (
+                    <div style={{ marginTop: 16 }}>
+                      {startingSnap && <p className="pay-note info mb" role="status">Menyiapkan pilihan pembayaran...</p>}
+                      <div id="midtrans-snap-container" className="pay-snap-container" />
+                      {error && (
+                        <button type="button" className="pay-btn primary full" onClick={() => void startMidtransPayment()} disabled={startingSnap || changingMethod}>
+                          {startingSnap ? 'Memuat pembayaran...' : 'Coba tampilkan pembayaran'}
+                        </button>
                       )}
                     </div>
-                  ) : qrImage ? (
-                    <div className="pay-qr">
-                      <div className="pay-qr-frame">
-                        <img src={qrImage} alt={`Kode QR ${paymentMethod.name}`} />
-                      </div>
-                      <p>Scan kode QRIS dengan aplikasi bank atau e-wallet, lalu bayar sesuai total pesanan.</p>
-                    </div>
                   ) : (
-                    <p role="alert" className="pay-note danger mt">
-                      Informasi QRIS metode ini belum tersedia. Hubungi admin untuk bantuan.
-                    </p>
-                  )}
-
-                  {!paid && !cancelled && (
-                    <ul className="pay-tips">
-                      <li>Pastikan nominal transfer sama persis dengan total pembayaran.</li>
-                      <li>Simpan bukti transfer, lalu unggah pada langkah berikutnya.</li>
-                    </ul>
+                    <p className="pay-note neutral mt">Pembayaran ini tidak memerlukan tindakan lebih lanjut.</p>
                   )}
                 </>
               ) : (
-                <p role="alert" className="pay-note danger">
-                  Detail metode pembayaran tidak tersedia. Hubungi admin untuk bantuan.
+                <p role="alert" className="pay-note neutral">
+                  Pesanan ini menggunakan metode pembayaran lama yang sudah tidak tersedia. Hubungi admin jika perlu bantuan.
                 </p>
               )}
             </section>
@@ -537,112 +516,70 @@ export default function PaymentPage({ navigate }: Props) {
               <div className="pay-sec-head">
                 <span className="pay-num">2</span>
                 <div>
-                  <h2 className="pay-sec-title">Bukti pembayaran</h2>
-                  <p className="pay-sec-hint">JPG, PNG, WEBP · maks. 1,8 MB</p>
+                  <h2 className="pay-sec-title">Status pembayaran</h2>
+                  <p className="pay-sec-hint">Dikonfirmasi otomatis oleh server</p>
                 </div>
               </div>
 
-              {rejected && (
-                <div role="alert" className="pay-note danger mb">
-                  <span aria-hidden="true">⚠</span>
-                  <div>
-                    <strong>Bukti sebelumnya ditolak</strong>
-                    {details.payment.notes && <div style={{ marginTop: 4 }}>Catatan admin: {details.payment.notes}</div>}
-                    <div style={{ marginTop: 4 }}>Silakan unggah bukti yang benar.</div>
-                  </div>
-                </div>
-              )}
-
-              {canUpload ? (
-                <>
-                  {proof && preview ? (
-                    <div className="pay-preview">
-                      <div className="pay-preview-img">
-                        <img src={preview} alt="Pratinjau bukti pembayaran" />
-                        <button
-                          type="button"
-                          className="pay-remove"
-                          onClick={clearProof}
-                          disabled={submitting}
-                          aria-label="Hapus gambar"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                      <div className="pay-file">
-                        <b>{proof.name}</b>
-                        <span>{formatFileSize(proof.size)}</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <label
-                      htmlFor="payment-proof"
-                      className={`pay-drop${dragging ? ' drag' : ''}`}
-                      onDragOver={(event) => {
-                        event.preventDefault();
-                        setDragging(true);
-                      }}
-                      onDragLeave={() => setDragging(false)}
-                      onDrop={handleDrop}
-                    >
-                      <span className="pay-drop-ico" aria-hidden="true">↑</span>
-                      <strong>{dragging ? 'Lepaskan gambar di sini' : 'Pilih atau seret gambar bukti'}</strong>
-                      <span>Foto atau tangkapan layar bukti transfer</span>
-                      <input
-                        ref={fileInput}
-                        id="payment-proof"
-                        className="pay-sr"
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        disabled={submitting}
-                        onChange={(event) => selectFile(event.target.files?.[0] ?? null)}
-                      />
-                    </label>
-                  )}
-
-                  <button
-                    type="button"
-                    className="pay-btn primary full"
-                    style={{ marginTop: 14 }}
-                    onClick={() => void uploadProof()}
-                    disabled={!proof || submitting}
-                  >
-                    {submitting ? (
-                      <>
-                        <span className="pay-spin" /> Mengunggah...
-                      </>
-                    ) : details.payment.proof ? (
-                      'Unggah Bukti Baru'
-                    ) : (
-                      'Kirim Bukti Pembayaran'
-                    )}
-                  </button>
-                </>
-              ) : cancelled ? (
-                <p className="pay-note neutral">Pesanan dibatalkan, bukti pembayaran tidak dapat dikirim.</p>
+              {cancelled ? (
+                <p className="pay-note neutral">Pesanan dibatalkan.</p>
+              ) : refunded ? (
+                <p role="status" className="pay-note neutral">Pembayaran ini telah dikembalikan. Hubungi admin bila Anda membutuhkan rincian.</p>
+              ) : partiallyRefunded ? (
+                <p role="status" className="pay-note neutral">Pembayaran ini telah dikembalikan sebagian. Hubungi admin untuk rincian nominal refund.</p>
               ) : paid ? (
                 <p role="status" className="pay-note success">
-                  <span aria-hidden="true">✓</span> Pembayaran Anda sudah diverifikasi. Pesanan sedang diproses.
+                  <span aria-hidden="true">✓</span> Pembayaran telah dikonfirmasi oleh server.
                 </p>
+              ) : rejected ? (
+                <div>
+                  <p role="status" className="pay-note info">Pembayaran perlu dicoba kembali. Snap akan menyiapkan percobaan baru.</p>
+                  <button type="button" className="pay-btn primary full" style={{ marginTop: 12 }} onClick={() => void startMidtransPayment()} disabled={startingSnap}>
+                    {startingSnap ? 'Menyiapkan pembayaran...' : 'Coba bayar lagi'}
+                  </button>
+                </div>
+              ) : canRetryMidtransAttempt ? (
+                <div>
+                  <p role="status" className="pay-note neutral">Percobaan pembayaran sebelumnya berakhir. Buat percobaan baru untuk memilih kanal pembayaran lagi.</p>
+                  <button type="button" className="pay-btn primary full" style={{ marginTop: 12 }} onClick={() => void startMidtransPayment()} disabled={startingSnap || changingMethod}>
+                    {startingSnap ? 'Menyiapkan pembayaran...' : 'Pilih kanal pembayaran lagi'}
+                  </button>
+                </div>
+              ) : isMidtrans ? (
+                <div>
+                  <p role="status" className="pay-note info">
+                    {canChangeMidtransMethod
+                      ? 'Transaksi sebelumnya masih menunggu pembayaran. Anda dapat melanjutkannya di panel Snap atau membatalkannya untuk memilih kanal lain.'
+                      : 'Pilih salah satu kanal pada panel Snap. Instruksi pembayaran akan tampil di sana.'}
+                  </p>
+                  {canChangeMidtransMethod && (
+                    <button
+                      type="button"
+                      className="pay-btn full"
+                      style={{ marginTop: 12 }}
+                      onClick={() => void changePaymentMethod()}
+                      disabled={changingMethod || startingSnap}
+                    >
+                      {changingMethod ? 'Membatalkan transaksi...' : 'Batalkan & pilih kanal lain'}
+                    </button>
+                  )}
+                </div>
               ) : (
-                <p role="status" className="pay-note info">
-                  <span aria-hidden="true">●</span> Bukti pembayaran sudah diterima dan sedang diperiksa oleh admin.
-                </p>
-              )}
-
-              {proofUrl && (
-                <a className="pay-link" href={proofUrl} target="_blank" rel="noreferrer">
-                  <span>Bukti yang sudah dikirim</span>
-                  <b>Lihat ↗</b>
-                </a>
+                <p role="status" className="pay-note neutral">Metode pembayaran lama ini perlu ditangani admin.</p>
               )}
 
               {error && details && <p role="alert" className="pay-note danger mt">{error}</p>}
-              {message && details && <p role="status" className="pay-note success mt">{message}</p>}
+              {message && details && (
+                <p role="status" className={`pay-note ${paid ? 'success' : 'info'} mt`}>{message}</p>
+              )}
             </section>
           </div>
 
-          <p className="pay-foot">Simpan bukti transfer sampai pembayaran selesai diverifikasi.</p>
+          <p className="pay-foot">
+            {isMidtrans
+              ? 'Status pembayaran diperbarui otomatis setelah Midtrans mengonfirmasi transaksi.'
+              : 'Hubungi admin untuk bantuan terkait transaksi lama ini.'}
+          </p>
           <div className="pay-foot-actions">
             <button type="button" className="pay-btn" onClick={() => navigate('dashboard', { menu: 'pesanan' })}>Lihat pesanan saya</button>
           </div>
