@@ -1,340 +1,654 @@
-import { useEffect, useState } from 'react';
-import { 
-  FiShoppingCart, FiTrash2, FiMinus, FiPlus, 
-  FiArrowRight, FiArrowLeft, FiCreditCard 
-} from 'react-icons/fi';
-import { formatPrice } from '../data';
-import { apiFetch, storageUrl } from '../api/client';
-import type { Page } from "../App";
+import { useEffect, useMemo, useState } from "react"
+import type { Dispatch, SetStateAction } from "react"
+import {
+  FiArrowLeft,
+  FiArrowRight,
+  FiLoader,
+  FiMinus,
+  FiPackage,
+  FiPlus,
+  FiShoppingCart,
+  FiTrash2,
+} from "react-icons/fi"
 
-/* =========================================================
-   TYPES
-========================================================= */
-interface CartProduct { id: number; name: string; price: string | number; stock: number; weight: number; category?: { id: number; name: string; }; images?: { id: number; path: string; url?: string; is_primary?: boolean; }[]; image?: string | null; }
-interface CartItem { id: number; product_id: number; quantity: number; subtotal: number; product: CartProduct; }
-interface CartData { id: number; user_id: number; items: CartItem[]; total_items: number; subtotal: number; }
-interface CartResponse { success: boolean; message: string; data: CartData; }
-interface CartItemResponse { success: boolean; message: string; data: CartItem; }
-interface CartActionResponse { success: boolean; message: string; }
-interface PaymentMethod { id: number; name: string; code: string; icon: string | null; is_active: boolean; }
-interface CartPageProps { cart: CartItem[]; setCart: (cart: CartItem[]) => void; navigate: (page: Page) => void; }
+import { formatPrice } from "../data"
+import { apiFetch, storageUrl } from "../api/client"
+import type { Page } from "../App"
 
-/**
- * Helper: Mendapatkan URL gambar produk.
- */
-const getProductImage = (item: CartItem) => {
-  const product = item.product;
-  if (!product) return '';
+interface CartProduct {
+  id: number
+  name: string
+  price: string | number
+  stock: number
+  /** Berat satu produk dalam gram. */
+  weight: number
+  category?: {
+    id: number
+    name: string
+  }
+  images?: {
+    id: number
+    path: string
+    url?: string
+    is_primary?: boolean
+  }[]
+  image?: string | null
+}
 
-  const imageUrl = product.images?.find((img) => img.is_primary)?.url ?? product.images?.[0]?.url ?? product.image ?? '';
-  if (!imageUrl) return '';
+interface CartItem {
+  id: number
+  product_id: number
+  quantity: number
+  subtotal: number
+  product: CartProduct
+}
 
-  return imageUrl.startsWith('http') ? imageUrl : storageUrl(imageUrl);
-};
+interface CartResponse {
+  success: boolean
+  message: string
+  data: {
+    id: number
+    user_id: number
+    items: CartItem[]
+    total_items: number
+    subtotal: number
+  }
+}
 
-/* =========================================================
-   COMPONENT
-========================================================= */
-export default function CartPage({ cart, setCart, navigate }: CartPageProps) {
-  const [loading, setLoading] = useState(true);
-  const [updatingId, setUpdatingId] = useState<number | null>(null);
-  const [error, setError] = useState("");
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+interface CartItemResponse {
+  success: boolean
+  message: string
+  data: CartItem
+}
 
-  /* LOAD DATA */
-  const loadCart = async () => {
-    try {
-      setError("");
-      const response = await apiFetch<CartResponse>("/cart");
-      setCart(response.data.items);
-    } catch (error) {
-      console.error("Gagal mengambil keranjang:", error);
-      setError(error instanceof Error ? error.message : "Gagal mengambil data keranjang.");
-    } finally {
-      setLoading(false);
-    }
-  };
+interface CartActionResponse {
+  success: boolean
+  message: string
+}
+
+interface CartPageProps {
+  cart: CartItem[]
+  setCart: Dispatch<SetStateAction<CartItem[]>>
+  navigate: (page: Page) => void
+}
+
+const getProductImage = (item: CartItem): string => {
+  const imageUrl =
+    item.product.images?.find((image) => image.is_primary)?.url ??
+    item.product.images?.[0]?.url ??
+    item.product.image ??
+    ""
+
+  if (!imageUrl) return ""
+
+  return imageUrl.startsWith("http") ? imageUrl : storageUrl(imageUrl)
+}
+
+const getErrorMessage = (error: unknown, fallback: string): string =>
+  error instanceof Error ? error.message : fallback
+
+const formatWeight = (weightInGrams: number): string => {
+  if (!Number.isFinite(weightInGrams) || weightInGrams <= 0) {
+    return "0 g"
+  }
+
+  if (weightInGrams >= 1000) {
+    const kilograms = weightInGrams / 1000
+    return `${kilograms.toLocaleString("id-ID", {
+      maximumFractionDigits: 2,
+    })} kg (${weightInGrams.toLocaleString("id-ID")} g)`
+  }
+
+  return `${weightInGrams.toLocaleString("id-ID")} g`
+}
+
+export default function CartPage({
+  cart,
+  setCart,
+  navigate,
+}: CartPageProps) {
+  const [loading, setLoading] = useState(true)
+  const [updatingIds, setUpdatingIds] = useState<Set<number>>(
+    () => new Set(),
+  )
+  const [isClearing, setIsClearing] = useState(false)
+  const [error, setError] = useState("")
 
   useEffect(() => {
-    loadCart();
-  }, []);
+    let isActive = true
 
-  useEffect(() => {
-    let active = true;
-    const loadPaymentMethods = async () => {
+    const loadCart = async () => {
       try {
-        const response = await apiFetch<{ data?: PaymentMethod[] }>("/payment-methods");
-        if (active) setPaymentMethods(response.data ?? []);
-      } catch (err) {
-        console.error("Gagal memuat metode pembayaran:", err);
-      }
-    };
-    loadPaymentMethods();
-    return () => { active = false; };
-  }, []);
+        setError("")
+        const response = await apiFetch<CartResponse>("/cart")
 
-  /* ACTIONS */
+        if (isActive) {
+          setCart(response.data.items ?? [])
+        }
+      } catch (err) {
+        console.error("Gagal mengambil keranjang:", err)
+
+        if (isActive) {
+          setError(
+            getErrorMessage(err, "Gagal mengambil data keranjang."),
+          )
+        }
+      } finally {
+        if (isActive) setLoading(false)
+      }
+    }
+
+    loadCart()
+
+    return () => {
+      isActive = false
+    }
+  }, [setCart])
+
+  const validItems = useMemo(
+    () => cart.filter((item) => Boolean(item?.product)),
+    [cart],
+  )
+
+  const totalItems = useMemo(
+    () =>
+      validItems.reduce(
+        (total, item) => total + Number(item.quantity || 0),
+        0,
+      ),
+    [validItems],
+  )
+
+  const subtotal = useMemo(
+    () =>
+      validItems.reduce((total, item) => {
+        const serverSubtotal = Number(item.subtotal)
+
+        const itemTotal =
+          item.subtotal != null && Number.isFinite(serverSubtotal)
+            ? serverSubtotal
+            : Number(item.product.price || 0) *
+              Number(item.quantity || 0)
+
+        return total + itemTotal
+      }, 0),
+    [validItems],
+  )
+
+  // Berat produk dikalikan jumlah unit yang ada di keranjang.
+  const totalWeight = useMemo(
+    () =>
+      validItems.reduce((total, item) => {
+        const productWeight = Number(item.product.weight || 0)
+        const quantity = Number(item.quantity || 0)
+
+        return total + productWeight * quantity
+      }, 0),
+    [validItems],
+  )
+
+  const setItemUpdating = (itemId: number, isUpdating: boolean) => {
+    setUpdatingIds((previous) => {
+      const next = new Set(previous)
+
+      if (isUpdating) {
+        next.add(itemId)
+      } else {
+        next.delete(itemId)
+      }
+
+      return next
+    })
+  }
+
   const updateQty = async (item: CartItem, quantity: number) => {
+    if (updatingIds.has(item.id) || isClearing) return
+
     if (quantity <= 0) {
-      await removeItem(item.id);
-      return;
+      await removeItem(item.id)
+      return
+    }
+
+    if (quantity > item.product.stock) {
+      setError("Jumlah produk melebihi stok yang tersedia.")
+      return
     }
 
     try {
-      setUpdatingId(item.id);
-      setError("");
-      const response = await apiFetch<CartItemResponse>(`/cart/items/${item.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ quantity }),
-      });
-      setCart(cart.map((cartItem) => cartItem.id === item.id ? response.data : cartItem));
-    } catch (error) {
-      console.error("Gagal memperbarui quantity:", error);
-      setError(error instanceof Error ? error.message : "Gagal memperbarui jumlah produk.");
+      setItemUpdating(item.id, true)
+      setError("")
+
+      const response = await apiFetch<CartItemResponse>(
+        `/cart/items/${item.id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ quantity }),
+        },
+      )
+
+      setCart((previous) =>
+        previous.map((cartItem) =>
+          cartItem.id === item.id ? response.data : cartItem,
+        ),
+      )
+    } catch (err) {
+      console.error("Gagal memperbarui quantity:", err)
+      setError(
+        getErrorMessage(err, "Gagal memperbarui jumlah produk."),
+      )
     } finally {
-      setUpdatingId(null);
+      setItemUpdating(item.id, false)
     }
-  };
+  }
 
   const removeItem = async (itemId: number) => {
+    if (updatingIds.has(itemId) || isClearing) return
+
     try {
-      setUpdatingId(itemId);
-      setError("");
-      await apiFetch<CartActionResponse>(`/cart/items/${itemId}`, { method: "DELETE" });
-      setCart(cart.filter((item) => item.id !== itemId));
-    } catch (error) {
-      console.error("Gagal menghapus item:", error);
-      setError(error instanceof Error ? error.message : "Gagal menghapus produk.");
+      setItemUpdating(itemId, true)
+      setError("")
+
+      await apiFetch<CartActionResponse>(`/cart/items/${itemId}`, {
+        method: "DELETE",
+      })
+
+      setCart((previous) =>
+        previous.filter((item) => item.id !== itemId),
+      )
+    } catch (err) {
+      console.error("Gagal menghapus item:", err)
+      setError(getErrorMessage(err, "Gagal menghapus produk."))
     } finally {
-      setUpdatingId(null);
+      setItemUpdating(itemId, false)
     }
-  };
+  }
 
   const clearCart = async () => {
-    if (validItems.length === 0) return;
+    if (validItems.length === 0 || isClearing) return
+
+    const confirmed = window.confirm(
+      "Apakah kamu yakin ingin menghapus semua produk dari keranjang?",
+    )
+
+    if (!confirmed) return
+
     try {
-      setLoading(true);
-      setError("");
-      await apiFetch<CartActionResponse>("/cart", { method: "DELETE" });
-      setCart([]);
-    } catch (error) {
-      console.error("Gagal mengosongkan keranjang:", error);
-      setError(error instanceof Error ? error.message : "Gagal mengosongkan keranjang.");
+      setIsClearing(true)
+      setError("")
+
+      await apiFetch<CartActionResponse>("/cart", {
+        method: "DELETE",
+      })
+
+      setCart([])
+    } catch (err) {
+      console.error("Gagal mengosongkan keranjang:", err)
+      setError(
+        getErrorMessage(err, "Gagal mengosongkan keranjang."),
+      )
     } finally {
-      setLoading(false);
+      setIsClearing(false)
     }
-  };
+  }
 
-  /* CALCULATIONS */
-  const validItems = cart.filter((item): item is CartItem => Boolean(item && item.product));
+  const isBusy = updatingIds.size > 0 || isClearing
 
-  const itemSubtotal = (item: CartItem) => {
-    const fromServer = Number(item.subtotal);
-    if (Number.isFinite(fromServer) && item.subtotal != null) return fromServer;
-    return Number(item.product?.price ?? 0) * Number(item.quantity ?? 0);
-  };
-
-  const subtotal = validItems.reduce((sum, item) => sum + itemSubtotal(item), 0);
-  const totalItems = validItems.reduce((sum, item) => sum + Number(item.quantity), 0);
-  const total = subtotal;
-
-  /* =========================================================
-     RENDER STATES
-  ========================================================= */
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto py-20 px-6 text-center">
-        <FiShoppingCart className="mx-auto text-5xl text-gray-400 mb-4" />
-        <h2 className="text-xl font-bold text-gray-800 mb-2">Memuat keranjang...</h2>
-        <p className="text-gray-500">Mengambil data keranjang dari server.</p>
-      </div>
-    );
+      <main
+        className="mx-auto flex max-w-7xl flex-col items-center px-6 py-24 text-center"
+        aria-live="polite"
+      >
+        <FiLoader
+          className="mb-4 h-9 w-9 animate-spin text-[#DF401F]"
+          aria-hidden="true"
+        />
+        <h2 className="mb-2 text-lg font-semibold text-gray-800">
+          Memuat keranjang...
+        </h2>
+        <p className="text-sm text-gray-500">
+          Mengambil data keranjang belanja.
+        </p>
+      </main>
+    )
   }
 
   return (
-    <div className="max-w-7xl mx-auto py-8 px-6">
+    <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 mb-6 text-sm text-gray-400">
-        <button 
-          onClick={() => navigate("home")} 
-          className="text-[#DF401F] hover:underline font-medium font-poppins"
+      <nav
+        aria-label="Breadcrumb"
+        className="mb-6 flex items-center gap-2 text-sm"
+      >
+        <button
+          type="button"
+          onClick={() => navigate("home")}
+          className="rounded font-medium text-[#DF401F] transition-colors hover:text-[#b83219] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#DF401F] focus-visible:ring-offset-2"
         >
           Beranda
         </button>
-        <span>/</span>
-        <span className="text-gray-800 font-semibold">Keranjang Belanja</span>
+        <span className="text-gray-300" aria-hidden="true">
+          /
+        </span>
+        <span className="font-medium text-gray-700" aria-current="page">
+          Keranjang Belanja
+        </span>
+      </nav>
+
+      {/* Page heading */}
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+            Keranjang Belanja
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Periksa produk dan jumlah pesanan sebelum melanjutkan.
+          </p>
+        </div>
+
+        {validItems.length > 0 && (
+          <span className="rounded-full bg-orange-50 px-3 py-1 text-sm font-medium text-[#DF401F]">
+            {totalItems} item
+          </span>
+        )}
       </div>
 
-      {/* Error Alert */}
+      {/* Error feedback */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-5 text-sm font-medium">
-          {error}
+        <div
+          role="alert"
+          className="mb-5 flex items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          <p>{error}</p>
+          <button
+            type="button"
+            onClick={() => setError("")}
+            aria-label="Tutup pesan error"
+            className="shrink-0 rounded p-1 text-red-600 transition-colors hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+          >
+            ×
+          </button>
         </div>
       )}
 
-      {/* Title */}
-      <h1 className="text-[20px] font-[400] text-gray-800 mb-4">
-        Keranjang Belanja {validItems.length > 0 && <span className="text-gray-400">| {totalItems}</span>}
-      </h1>
-
-      {/* EMPTY CART */}
       {validItems.length === 0 ? (
-        <div className="text-center py-20 px-5">
-          <FiShoppingCart className="mx-auto text-7xl text-gray-300 mb-5" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-3">Keranjang Kosong</h2>
-          <p className="text-gray-500 mb-7">Belum ada produk di keranjangmu. Mulai belanja yuk!</p>
-          <button 
+        /* Empty cart */
+        <section className="rounded-2xl border border-gray-100 bg-white px-5 py-20 text-center shadow-sm">
+          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-gray-50">
+            <FiShoppingCart
+              className="h-9 w-9 text-gray-300"
+              aria-hidden="true"
+            />
+          </div>
+
+          <h2 className="mb-2 text-xl font-bold text-gray-900">
+            Keranjang masih kosong
+          </h2>
+          <p className="mx-auto mb-7 max-w-sm text-sm leading-6 text-gray-500">
+            Belum ada produk yang ditambahkan. Yuk, temukan oleh-oleh
+            favoritmu!
+          </p>
+
+          <button
+            type="button"
             onClick={() => navigate("catalog")}
-            className="bg-[#DF401F] hover:bg-orange-700 text-white py-3 px-8 rounded-xl font-semibold flex items-center justify-center gap-2 mx-auto transition-colors"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#DF401F] px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#c9361b] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#DF401F] focus-visible:ring-offset-2"
           >
-            <FiShoppingCart /> Mulai Belanja
+            <FiShoppingCart aria-hidden="true" />
+            Mulai Belanja
           </button>
-        </div>
+        </section>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 items-start">
-          
-          {/* CART ITEMS */}
-          <div className="flex flex-col gap-4">
-            {/* Header / Select All Bar */}
-            <div className="bg-white rounded-xl p-4 flex justify-between items-center shadow-sm border border-gray-100">
-              <span className="font-semibold text-gray-800 text-sm">Semua Produk</span>
-              <button 
-                onClick={clearCart} 
-                disabled={loading}
-                className="text-red-600 hover:text-red-700 font-medium text-sm flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+          {/* Cart list */}
+          <section
+            aria-label="Daftar produk di keranjang"
+            className="min-w-0 space-y-4"
+          >
+            <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-800">
+                  Produk pilihanmu
+                </h2>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  {validItems.length} jenis produk
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={clearCart}
+                disabled={isBusy}
+                className="inline-flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 disabled:cursor-default disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
               >
-                <FiTrash2 /> Hapus Semua
+                {isClearing ? (
+                  <FiLoader className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FiTrash2 className="h-4 w-4" />
+                )}
+                {isClearing ? "Menghapus..." : "Hapus semua"}
               </button>
             </div>
 
-            {/* Item List */}
             {validItems.map((item) => {
-              const isUpdating = updatingId === item.id;
-              
-              return (
-                <div 
-                  key={item.id} 
-                  className={`bg-white rounded-xl p-5 flex gap-4 items-center shadow-sm border border-gray-100 transition-opacity ${isUpdating ? 'opacity-50' : 'opacity-100'}`}
-                >
-                  {/* Image */}
-                  <img 
-                    src={getProductImage(item)} 
-                    alt={item.product?.name ?? 'Produk'} 
-                    className="w-20 h-20 object-cover rounded-lg bg-gray-50 flex-shrink-0"
-                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                  />
+              const isUpdating = updatingIds.has(item.id)
+              const isOutOfStock = item.product.stock <= 0
+              const isMaxStock =
+                item.quantity >= item.product.stock || isOutOfStock
+              const imageUrl = getProductImage(item)
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-400 capitalize mb-1">{item.product.category?.name ?? ""}</p>
-                    <h3 className="font-semibold text-gray-800 text-sm md:text-base truncate mb-1">
+              return (
+                <article
+                  key={item.id}
+                  aria-busy={isUpdating}
+                  className={`relative flex gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-opacity sm:gap-4 sm:p-5 ${
+                    isUpdating ? "opacity-60" : "opacity-100"
+                  }`}
+                >
+                  {/* Product image */}
+                  {imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt={item.product.name}
+                      loading="lazy"
+                      className="h-20 w-20 shrink-0 rounded-lg bg-gray-50 object-cover sm:h-24 sm:w-24"
+                      onError={(event) => {
+                        event.currentTarget.style.display = "none"
+                      }}
+                    />
+                  ) : (
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-gray-50 sm:h-24 sm:w-24">
+                      <FiPackage className="h-7 w-7 text-gray-300" />
+                    </div>
+                  )}
+
+                  {/* Product information */}
+                  <div className="min-w-0 flex-1">
+                    {item.product.category?.name && (
+                      <p className="mb-1 text-xs capitalize text-gray-400">
+                        {item.product.category.name}
+                      </p>
+                    )}
+
+                    <h3 className="line-clamp-2 text-sm font-semibold text-gray-900 sm:text-base">
                       {item.product.name}
                     </h3>
-                    <p className="text-xs text-gray-500 mb-1">
-                      {item.product.weight > 0
-                        ? `Berat ${item.product.weight.toLocaleString('id-ID')} g`
-                        : 'Berat belum diatur'}
+
+                    <p className="mt-1 text-xs text-gray-500">
+                      Berat satuan:{" "}
+                      {formatWeight(Number(item.product.weight || 0))}
                     </p>
-                    <p className="font-bold text-[#DF401F]">
+
+                    <p className="mt-2 text-sm font-bold text-[#DF401F]">
                       {formatPrice(Number(item.product.price))}
                     </p>
+
+                    {isMaxStock && (
+                      <p className="mt-1 text-xs text-amber-600">
+                        {isOutOfStock
+                          ? "Stok sedang habis"
+                          : "Stok maksimum tercapai"}
+                      </p>
+                    )}
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex flex-col items-end gap-3 flex-shrink-0">
-                    <button 
+                  {/* Item actions */}
+                  <div className="flex shrink-0 flex-col items-end justify-between gap-3">
+                    <button
+                      type="button"
                       onClick={() => removeItem(item.id)}
-                      disabled={isUpdating}
-                      className="text-gray-400 hover:text-red-500 transition-colors disabled:cursor-not-allowed"
+                      disabled={isUpdating || isBusy}
+                      aria-label={`Hapus ${item.product.name} dari keranjang`}
+                      title="Hapus produk"
+                      className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-default disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                     >
-                      <FiTrash2 className="w-5 h-5" />
+                      <FiTrash2 className="h-4 w-4" />
                     </button>
 
-                    <div className="flex items-center border-2 border-gray-100 rounded-lg overflow-hidden">
-                      <button 
-                        onClick={() => updateQty(item, item.quantity - 1)}
-                        disabled={isUpdating}
-                        className="w-8 h-8 flex items-center justify-center bg-gray-50 hover:bg-gray-100 text-gray-600 disabled:cursor-not-allowed transition-colors"
+                    {/* Quantity control */}
+                    <div className="flex items-center overflow-hidden rounded-lg border border-gray-200">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateQty(item, item.quantity - 1)
+                        }
+                        disabled={isUpdating || isBusy}
+                        aria-label={`Kurangi jumlah ${item.product.name}`}
+                        className="flex h-9 w-9 items-center justify-center bg-gray-50 text-gray-600 transition-colors hover:bg-gray-100 active:bg-gray-200 disabled:cursor-default disabled:opacity-40 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#DF401F]"
                       >
-                        <FiMinus />
+                        {isUpdating ? (
+                          <FiLoader className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <FiMinus className="h-4 w-4" />
+                        )}
                       </button>
-                      <span className="w-10 text-center font-bold text-sm text-gray-800">
+
+                      <span
+                        className="min-w-10 px-2 text-center text-sm font-semibold tabular-nums text-gray-900"
+                        aria-live="polite"
+                        aria-label={`Jumlah ${item.quantity}`}
+                      >
                         {item.quantity}
                       </span>
-                      <button 
-                        onClick={() => updateQty(item, item.quantity + 1)}
-                        disabled={isUpdating || item.quantity >= item.product.stock}
-                        className="w-8 h-8 flex items-center justify-center bg-gray-50 hover:bg-gray-100 text-gray-600 disabled:cursor-not-allowed transition-colors"
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateQty(item, item.quantity + 1)
+                        }
+                        disabled={isUpdating || isBusy || isMaxStock}
+                        aria-label={`Tambah jumlah ${item.product.name}`}
+                        title={
+                          isMaxStock
+                            ? "Stok maksimum tercapai"
+                            : "Tambah jumlah"
+                        }
+                        className="flex h-9 w-9 items-center justify-center bg-gray-50 text-gray-600 transition-colors hover:bg-gray-100 active:bg-gray-200 disabled:cursor-default disabled:opacity-40 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#DF401F]"
                       >
-                        <FiPlus />
+                        <FiPlus className="h-4 w-4" />
                       </button>
                     </div>
 
-                    <span className="font-bold text-gray-800 text-sm">
-                      {formatPrice(itemSubtotal(item))}
-                    </span>
+                    <p className="text-right text-sm font-bold text-gray-900">
+                      {formatPrice(
+                        Number(item.subtotal) ||
+                          Number(item.product.price) * item.quantity,
+                      )}
+                    </p>
                   </div>
-                </div>
-              );
+                </article>
+              )
             })}
-          </div>
+          </section>
 
-          {/* ORDER SUMMARY (Sidebar) */}
-          <div className="sticky top-24">
-            <div className="bg-white rounded-2xl p-6 shadow-md border border-gray-100">
-              <h3 className="font-bold text-gray-800 mb-5 text-lg">Ringkasan Pesanan</h3>
+          {/* Order summary */}
+          <aside className="lg:sticky lg:top-24">
+            <section
+              aria-labelledby="order-summary-title"
+              className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6"
+            >
+              <h2
+                id="order-summary-title"
+                className="text-lg font-bold text-gray-900"
+              >
+                Ringkasan Pesanan
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Periksa kembali pesananmu.
+              </p>
 
-              <div className="flex flex-col gap-3 mb-5">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Subtotal ({totalItems} produk)</span>
-                  <span className="font-semibold text-gray-800">{formatPrice(subtotal)}</span>
+              <div className="my-5 space-y-4">
+                {/* Item count */}
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-gray-500">
+                    Subtotal ({totalItems} item)
+                  </span>
+                  <span className="font-semibold tabular-nums text-gray-900">
+                    {formatPrice(subtotal)}
+                  </span>
+                </div>
+
+                {/* Total weight */}
+                <div className="flex items-start justify-between gap-3 text-sm">
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <FiPackage
+                      className="h-4 w-4 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <span>Total berat</span>
+                  </div>
+                  <span className="text-right font-semibold tabular-nums text-gray-900">
+                    {formatWeight(totalWeight)}
+                  </span>
                 </div>
               </div>
 
-              <div className="border-t border-gray-100 pt-4 mb-6 flex justify-between items-center">
-                <span className="font-bold text-gray-800">Total</span>
-                <span className="font-black text-xl text-[#DF401F]">{formatPrice(total)}</span>
+              <div className="border-t border-dashed border-gray-200 pt-4">
+                <div className="mb-5 flex items-center justify-between gap-3">
+                  <span className="font-semibold text-gray-800">
+                    Total belanja
+                  </span>
+                  <span className="text-xl font-bold tabular-nums text-[#DF401F]">
+                    {formatPrice(subtotal)}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => navigate("checkout")}
+                  disabled={isBusy || validItems.length === 0}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#DF401F] px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#c9361b] active:scale-[0.99] disabled:cursor-default disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#DF401F] focus-visible:ring-offset-2"
+                >
+                  {isBusy ? (
+                    <>
+                      <FiLoader className="h-4 w-4 animate-spin" />
+                      Memproses...
+                    </>
+                  ) : (
+                    <>
+                      Lanjut ke Pembayaran
+                      <FiArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigate("catalog")}
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#DF401F] focus-visible:ring-offset-2"
+                >
+                  <FiArrowLeft className="h-4 w-4" />
+                  Lanjut Belanja
+                </button>
               </div>
 
-              <button 
-                onClick={() => navigate("checkout")}
-                className="w-full bg-[#DF401F] hover:bg-orange-700 text-white font-bold py-3.5 rounded-xl flex justify-center items-center gap-2 transition-colors mb-3"
-              >
-                Lanjut ke Pembayaran <FiArrowRight />
-              </button>
-
-              <button 
-                onClick={() => navigate("catalog")}
-                className="w-full text-gray-500 hover:text-gray-700 font-medium py-2 flex justify-center items-center gap-2 transition-colors text-sm"
-              >
-                <FiArrowLeft /> Lanjut Belanja
-              </button>
-            </div>
-
-            {/* PAYMENT METHODS */}
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 mt-4">
-              <p className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider flex items-center gap-2">
-                <FiCreditCard /> Metode Pembayaran
+              <p className="mt-4 text-center text-xs leading-5 text-gray-400">
+                Biaya pengiriman akan dihitung pada tahap checkout.
               </p>
-              <div className="flex flex-wrap gap-2">
-                {paymentMethods.length === 0 ? (
-                  <span className="text-xs text-gray-400">Belum ada metode pembayaran aktif.</span>
-                ) : (
-                  paymentMethods.map((method) => (
-                    <span 
-                      key={method.id} 
-                      className="bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-gray-600 flex items-center gap-1.5"
-                    >
-                      {method.icon ?? <FiCreditCard className="text-gray-400" />} {method.name}
-                    </span>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-
+            </section>
+          </aside>
         </div>
       )}
-    </div>
-  );
+    </main>
+  )
 }

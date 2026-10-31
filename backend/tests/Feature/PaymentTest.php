@@ -10,12 +10,14 @@ use App\Models\Category;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
+use App\Models\MidtransTransaction;
 use App\Models\Product;
 use App\Models\ShippingMethod;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
 
 class PaymentTest extends TestCase
@@ -93,7 +95,7 @@ class PaymentTest extends TestCase
         ]);
     }
 
-    public function test_user_can_upload_payment_proof(): void
+    public function test_manual_payment_proof_upload_is_rejected_for_midtrans(): void
     {
         Storage::fake('public');
 
@@ -104,25 +106,9 @@ class PaymentTest extends TestCase
             'notes' => 'Transfer via BCA an Budi',
         ]);
 
-        $response->assertStatus(200)
-            ->assertJson([
-                'success' => true,
-                'message' => 'Bukti pembayaran berhasil diunggah.',
-                'data' => [
-                    'status' => 'pending',
-                ],
-            ]);
-
-        $proofPath = $response->json('data.proof');
-        Storage::disk('public')->assertExists($proofPath);
-
-        $replacement = $this->actingAs($this->user)->postJson("/api/orders/{$this->order->id}/payment", [
-            'proof' => UploadedFile::fake()->image('bukti_pengganti.jpg'),
-        ]);
-
-        $replacement->assertUnprocessable()
-            ->assertJsonPath('message', 'Bukti pembayaran sedang menunggu verifikasi admin.');
-        Storage::disk('public')->assertExists($proofPath);
+        $response->assertUnprocessable()
+            ->assertJsonPath('message', 'Unggah bukti pembayaran manual sudah tidak tersedia. Selesaikan pembayaran melalui Midtrans Snap.');
+        $this->assertNull($this->payment->fresh()->proof);
     }
 
     public function test_payment_proof_must_fit_php_upload_limit(): void
@@ -134,7 +120,7 @@ class PaymentTest extends TestCase
         ]);
 
         $response->assertUnprocessable()
-            ->assertJsonValidationErrors('proof');
+            ->assertJsonPath('message', 'Unggah bukti pembayaran manual sudah tidak tersedia. Selesaikan pembayaran melalui Midtrans Snap.');
     }
 
     public function test_user_can_view_order_total_and_payment_instructions(): void
@@ -234,5 +220,80 @@ class PaymentTest extends TestCase
             ->assertJsonValidationErrors('payment');
 
         $this->assertSame(PaymentStatus::PENDING, $this->payment->fresh()->status);
+    }
+
+    public function test_midtrans_webhook_rejects_invalid_signature_and_mismatched_amount(): void
+    {
+        $attempt = $this->prepareMidtransAttempt();
+        $payload = $this->midtransPayload($attempt, 'settlement');
+
+        $this->postJson('/api/payments/midtrans/notification', [...$payload, 'signature_key' => 'wrong'])
+            ->assertForbidden();
+        $this->postJson('/api/payments/midtrans/notification', $this->midtransPayload($attempt, 'settlement', '1.00'))
+            ->assertUnprocessable();
+
+        $this->assertSame(PaymentStatus::PENDING, $this->payment->fresh()->status);
+    }
+
+    public function test_midtrans_webhook_is_idempotent_and_handles_settlement_cancel_and_refund(): void
+    {
+        $attempt = $this->prepareMidtransAttempt();
+        $settlement = $this->midtransPayload($attempt, 'settlement');
+
+        $this->postJson('/api/payments/midtrans/notification', $settlement)->assertOk();
+        $this->postJson('/api/payments/midtrans/notification', $settlement)->assertOk();
+        $this->assertSame(PaymentStatus::PAID, $this->payment->fresh()->status);
+        $this->assertSame(OrderStatus::CONFIRMED, $this->order->fresh()->order_status);
+
+        $refund = $this->midtransPayload($attempt, 'refund');
+        $refund['refund_amount'] = '60000';
+        $refund['signature_key'] = $this->signature($refund);
+        $this->postJson('/api/payments/midtrans/notification', $refund)->assertOk();
+        $this->assertSame(PaymentStatus::REFUNDED, $this->payment->fresh()->status);
+    }
+
+    public function test_failed_attempt_can_be_retried_and_late_success_does_not_confirm_cancelled_order(): void
+    {
+        $attempt = $this->prepareMidtransAttempt();
+        $this->payment->update(['status' => PaymentStatus::REJECTED]);
+        $this->postJson('/api/payments/midtrans/notification', $this->midtransPayload($attempt, 'expire'))
+            ->assertOk();
+        $this->assertSame(PaymentStatus::PENDING, $this->payment->fresh()->status);
+
+        $this->order->update(['order_status' => OrderStatus::CANCELLED]);
+        $this->postJson('/api/payments/midtrans/notification', $this->midtransPayload($attempt, 'settlement'))
+            ->assertOk();
+        $this->assertSame(PaymentStatus::PENDING, $this->payment->fresh()->status);
+        $this->assertSame(OrderStatus::CANCELLED, $this->order->fresh()->order_status);
+    }
+
+    private function prepareMidtransAttempt(): MidtransTransaction
+    {
+        Config::set('services.midtrans.server_key', 'webhook-test-key');
+        $this->payment->update(['method' => 'midtrans']);
+        return MidtransTransaction::create([
+            'payment_id' => $this->payment->id,
+            'midtrans_order_id' => $this->order->order_number.'-RTEST1234',
+            'status' => 'created',
+            'gross_amount' => $this->order->total,
+        ]);
+    }
+
+    private function midtransPayload(MidtransTransaction $attempt, string $status, ?string $amount = null): array
+    {
+        $payload = [
+            'order_id' => $attempt->midtrans_order_id,
+            'status_code' => '200',
+            'gross_amount' => $amount ?? '60000.00',
+            'transaction_status' => $status,
+            'transaction_id' => 'TX-TEST-1',
+        ];
+        $payload['signature_key'] = $this->signature($payload);
+        return $payload;
+    }
+
+    private function signature(array $payload): string
+    {
+        return hash('sha512', $payload['order_id'].$payload['status_code'].$payload['gross_amount'].'webhook-test-key');
     }
 }

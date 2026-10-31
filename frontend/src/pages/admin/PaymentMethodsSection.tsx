@@ -63,7 +63,7 @@ const toForm = (method: PaymentMethod): FormState => ({
   isActive: method.is_active,
   codeTouched: true,
   code: method.code,
-  existingQrisImage: method.qris_image,
+  existingQrisImage: method.qris_image ?? '',
 });
 
 /** payments.method menyimpan string, jadi tetap dinormalisasi konsisten. */

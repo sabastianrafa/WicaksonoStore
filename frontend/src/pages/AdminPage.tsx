@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import type { Page } from '../App';
 import { apiFetch } from '../api/client';
 import type { AdminProduct, Category } from './admin/types';
@@ -6,16 +6,16 @@ import { MENUS, formatIndonesianDate } from './admin/utils';
 import { primaryButton } from './admin/styles';
 import { useAdminData } from './admin/useAdminData';
 import Sidebar from './admin/Sidebar';
-import DashboardSection from './admin/DashboardSection';
-import ProductsSection from './admin/ProductsSection';
-import CategoriesSection from './admin/CategoriesSection';
-import CategoryFormModal from './admin/CategoryFormModal';
-import OrdersSection from './admin/OrdersSection';
-import PaymentsSection from './admin/PaymentsSection';
-import ShippingSection from './admin/ShippingSection';
-import CustomersSection from './admin/CustomersSection';
-import ReportsSection from './admin/ReportsSection';
-import ProductFormModal from './admin/ProductFormModal';
+const DashboardSection = lazy(() => import('./admin/DashboardSection'));
+const ProductsSection = lazy(() => import('./admin/ProductsSection'));
+const CategoriesSection = lazy(() => import('./admin/CategoriesSection'));
+const CategoryFormModal = lazy(() => import('./admin/CategoryFormModal'));
+const OrdersSection = lazy(() => import('./admin/OrdersSection'));
+const PaymentsSection = lazy(() => import('./admin/PaymentsSection'));
+const ShippingSection = lazy(() => import('./admin/ShippingSection'));
+const CustomersSection = lazy(() => import('./admin/CustomersSection'));
+const ReportsSection = lazy(() => import('./admin/ReportsSection'));
+const ProductFormModal = lazy(() => import('./admin/ProductFormModal'));
 
 export default function AdminPage({ navigate }: { navigate: (page: Page) => void }) {
   const data = useAdminData();
@@ -120,6 +120,7 @@ export default function AdminPage({ navigate }: { navigate: (page: Page) => void
         </div>
 
         {/* Konten */}
+        <Suspense fallback={<div role="status" style={{ padding: 24, color: '#6B7280' }}>Memuat bagian admin...</div>}>
         {activeMenu === 'dashboard' && (
           <DashboardSection
             summary={data.summary}
@@ -211,17 +212,18 @@ export default function AdminPage({ navigate }: { navigate: (page: Page) => void
             productReport={data.productReport}
           />
         )}
-      </div>
-
-      {productModal && (
+        {productModal && (
         <ProductFormModal
           product={productModal.product}
           categories={data.categories}
           onClose={() => setProductModal(null)}
           onSaved={handleProductSaved}
         />
-      )}
+        )}
+        </Suspense>
+      </div>
 
+      <Suspense fallback={null}>
       {categoryModal !== undefined && (
         <CategoryFormModal
           category={categoryModal}
@@ -229,6 +231,7 @@ export default function AdminPage({ navigate }: { navigate: (page: Page) => void
           onSave={data.saveCategory}
         />
       )}
+      </Suspense>
     </div>
   );
 }
