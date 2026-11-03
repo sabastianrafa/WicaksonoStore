@@ -19,22 +19,10 @@ return new class extends Migration
             $table->string('payment_type')->nullable();
             $table->timestamps();
         });
-
-        Schema::table('payments', function (Blueprint $table) {
-            $table->enum('status', ['pending', 'paid', 'rejected', 'refunded', 'partially_refunded'])
-                ->default('pending')
-                ->change();
-        });
     }
 
     public function down(): void
     {
-        Schema::table('payments', function (Blueprint $table) {
-            $table->enum('status', ['pending', 'paid', 'rejected', 'refunded'])
-                ->default('pending')
-                ->change();
-        });
-
         Schema::dropIfExists('midtrans_transactions');
     }
 };

@@ -10,27 +10,13 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-
             $table->string('name');
-
-            $table->string('email')
-                ->unique();
-
-            $table->string('phone', 20)
-                ->nullable();
-
-            $table->enum('role', [
-                'user',
-                'admin',
-            ])->default('user');
-
-            $table->timestamp('email_verified_at')
-                ->nullable();
-
+            $table->string('email')->unique();
+            $table->string('phone', 20)->nullable();
+            $table->enum('role', ['user', 'admin'])->default('user');
+            $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-
             $table->rememberToken();
-
             $table->timestamps();
         });
 
@@ -42,9 +28,7 @@ return new class extends Migration
 
         Schema::create('sessions', function (Blueprint $table) {
             $table->string('id')->primary();
-            $table->foreignId('user_id')
-                ->nullable()
-                ->index();
+            $table->foreignId('user_id')->nullable()->index();
             $table->string('ip_address', 45)->nullable();
             $table->text('user_agent')->nullable();
             $table->text('payload');

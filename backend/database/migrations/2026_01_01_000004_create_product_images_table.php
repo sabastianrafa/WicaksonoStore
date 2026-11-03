@@ -10,20 +10,11 @@ return new class extends Migration
     {
         Schema::create('product_images', function (Blueprint $table) {
             $table->id();
-
-            $table->foreignId('product_id')
-                ->constrained('products')
-                ->cascadeOnDelete();
-
+            $table->foreignId('product_id')->constrained()->cascadeOnDelete();
             $table->string('path');
             $table->string('alt_text')->nullable();
-
-            $table->boolean('is_primary')
-                ->default(false);
-
-            $table->unsignedInteger('sort_order')
-                ->default(0);
-
+            $table->boolean('is_primary')->default(false);
+            $table->unsignedInteger('sort_order')->default(0);
             $table->timestamps();
         });
     }
