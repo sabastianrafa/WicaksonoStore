@@ -424,62 +424,6 @@ class ApiDocumentation
     public function cartClear(): void {}
 
     #[OA\Get(
-        path: '/api/wishlist',
-        summary: 'Daftar wishlist',
-        tags: ['Wishlist'],
-        responses: [
-                new OA\Response(response: 200, description: 'Wishlist berhasil diambil')
-            ],
-        security: [['sanctum' => []]]
-    )]
-    public function wishlistIndex(): void {}
-
-    #[OA\Get(
-        path: '/api/wishlist/{product}',
-        summary: 'Cek produk di wishlist',
-        tags: ['Wishlist'],
-        parameters: [
-                new OA\Parameter(name: 'product', description: 'product', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
-            ],
-        responses: [
-                new OA\Response(response: 200, description: 'Status wishlist berhasil dicek'),
-                new OA\Response(response: 404, description: 'Produk tidak ditemukan')
-            ],
-        security: [['sanctum' => []]]
-    )]
-    public function wishlistCheck(): void {}
-
-    #[OA\Post(
-        path: '/api/wishlist/{product}',
-        summary: 'Tambah produk ke wishlist',
-        tags: ['Wishlist'],
-        parameters: [
-                new OA\Parameter(name: 'product', description: 'product', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
-            ],
-        responses: [
-                new OA\Response(response: 201, description: 'Produk berhasil ditambahkan'),
-                new OA\Response(response: 404, description: 'Produk tidak ditemukan')
-            ],
-        security: [['sanctum' => []]]
-    )]
-    public function wishlistStore(): void {}
-
-    #[OA\Delete(
-        path: '/api/wishlist/{product}',
-        summary: 'Hapus produk dari wishlist',
-        tags: ['Wishlist'],
-        parameters: [
-                new OA\Parameter(name: 'product', description: 'product', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
-            ],
-        responses: [
-                new OA\Response(response: 200, description: 'Produk berhasil dihapus'),
-                new OA\Response(response: 404, description: 'Produk tidak ditemukan')
-            ],
-        security: [['sanctum' => []]]
-    )]
-    public function wishlistDestroy(): void {}
-
-    #[OA\Get(
         path: '/api/orders',
         summary: 'Daftar pesanan user',
         tags: ['Orders'],

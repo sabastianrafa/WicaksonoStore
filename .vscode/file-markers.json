@@ -38,7 +38,6 @@
     }
   ],
   "markers": {
-    "backend/app/Http/Controllers/Api/WishlistController.php": "pending",
     "backend/app/Http/Controllers/Api/ReviewController.php": "pending",
     "backend/app/Http/Controllers/Api/ShippingMethodController.php": "in-progress"
   },

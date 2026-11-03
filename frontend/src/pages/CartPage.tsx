@@ -76,16 +76,38 @@ const getProductImage = (item: CartItem): string => {
   const imageUrl =
     item.product.images?.find((image) => image.is_primary)?.url ??
     item.product.images?.[0]?.url ??
+    item.product.images?.find((image) => image.is_primary)?.path ??
+    item.product.images?.[0]?.path ??
     item.product.image ??
     ""
 
-  if (!imageUrl) return ""
-
-  return imageUrl.startsWith("http") ? imageUrl : storageUrl(imageUrl)
+  return storageUrl(imageUrl)
 }
 
 const getErrorMessage = (error: unknown, fallback: string): string =>
   error instanceof Error ? error.message : fallback
+
+function CartItemImage({ src, name }: { src: string; name: string }) {
+  const [failed, setFailed] = useState(false)
+
+  return src && !failed ? (
+    <img
+      src={src}
+      alt={name}
+      loading="lazy"
+      className="h-16 w-16 shrink-0 rounded-lg bg-gray-50 object-cover sm:h-24 sm:w-24"
+      onError={() => setFailed(true)}
+    />
+  ) : (
+    <div
+      role="img"
+      aria-label={name}
+      className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-gray-50 sm:h-24 sm:w-24"
+    >
+      <FiPackage className="h-7 w-7 text-gray-300" aria-hidden="true" />
+    </div>
+  )
+}
 
 const formatWeight = (weightInGrams: number): string => {
   if (!Number.isFinite(weightInGrams) || weightInGrams <= 0) {
@@ -314,7 +336,7 @@ export default function CartPage({
   }
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
       {/* Breadcrumb */}
       <nav
         aria-label="Breadcrumb"
@@ -441,26 +463,12 @@ export default function CartPage({
                 <article
                   key={item.id}
                   aria-busy={isUpdating}
-                  className={`relative flex gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-opacity sm:gap-4 sm:p-5 ${
+                  className={`relative grid grid-cols-[64px_minmax(0,1fr)] items-start gap-3 rounded-xl border border-gray-100 bg-white p-3 shadow-sm transition-opacity sm:flex sm:gap-4 sm:p-5 ${
                     isUpdating ? "opacity-60" : "opacity-100"
                   }`}
                 >
                   {/* Product image */}
-                  {imageUrl ? (
-                    <img
-                      src={imageUrl}
-                      alt={item.product.name}
-                      loading="lazy"
-                      className="h-20 w-20 shrink-0 rounded-lg bg-gray-50 object-cover sm:h-24 sm:w-24"
-                      onError={(event) => {
-                        event.currentTarget.style.display = "none"
-                      }}
-                    />
-                  ) : (
-                    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-gray-50 sm:h-24 sm:w-24">
-                      <FiPackage className="h-7 w-7 text-gray-300" />
-                    </div>
-                  )}
+                  <CartItemImage src={imageUrl} name={item.product.name} />
 
                   {/* Product information */}
                   <div className="min-w-0 flex-1">
@@ -493,7 +501,7 @@ export default function CartPage({
                   </div>
 
                   {/* Item actions */}
-                  <div className="flex shrink-0 flex-col items-end justify-between gap-3">
+                  <div className="col-span-2 flex w-full flex-row items-center justify-between gap-3 sm:w-auto sm:shrink-0 sm:flex-col sm:items-end">
                     <button
                       type="button"
                       onClick={() => removeItem(item.id)}

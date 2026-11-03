@@ -15,7 +15,6 @@ use Database\Seeders\ProductSeeder;
 use Database\Seeders\ReviewSeeder;
 use Database\Seeders\ShippingMethodSeeder;
 use Database\Seeders\UserSeeder;
-use Database\Seeders\WishlistSeeder;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -36,7 +35,6 @@ class DatabaseSeeder extends Seeder
             PaymentMethodSeeder::class,
             PaymentSeeder::class,
             ReviewSeeder::class,
-            WishlistSeeder::class,
         ]);
     }
 }

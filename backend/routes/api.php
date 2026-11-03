@@ -12,7 +12,6 @@ use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ReviewController;
-use App\Http\Controllers\Api\WishlistController;
 use App\Http\Controllers\Api\LocationController;
 
 use App\Http\Controllers\Api\Admin\DashboardController;
@@ -84,13 +83,6 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::post('/shipping-methods/quote', [ShippingMethodController::class, 'quote']);
-
-    Route::prefix('wishlist')->group(function () {
-        Route::get('/', [WishlistController::class, 'index']);
-        Route::get('/{product}', [WishlistController::class, 'check']);
-        Route::post('/{product}', [WishlistController::class, 'store']);
-        Route::delete('/{product}', [WishlistController::class, 'destroy']);
-    });
 
     Route::prefix('orders')->group(function () {
         Route::get('/', [OrderController::class, 'index']);

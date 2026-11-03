@@ -7,20 +7,18 @@ import ProfileMenu, {
   type ProfileFields,
   type ProfileUser,
 } from "./ProfileMenu"
-import WishlistMenu from "./WishlistMenu"
 
 interface Props {
   navigate: (page: Page) => void
 }
 interface MenuItem {
-  id: "profil" | "pesanan" | "wishlist" | "alamat"
+  id: "profil" | "pesanan" | "alamat"
   label: string
   icon: string
 }
 const menus: MenuItem[] = [
   { id: "profil", label: "Profil Saya", icon: "👤" },
   { id: "pesanan", label: "Riwayat Pesanan", icon: "📦" },
-  { id: "wishlist", label: "Wishlist", icon: "❤️" },
   { id: "alamat", label: "Alamat", icon: "📍" },
 ]
 const cachedProfile = (): ProfileFields => ({
@@ -98,7 +96,7 @@ export default function DashboardPage({ navigate }: Props) {
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-      <div className="mb-6">
+      <div className="mb-5 sm:mb-6">
         <p className="text-sm text-gray-500">Akun Saya</p>
         <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-gray-900 sm:text-3xl">
           Dashboard Pelanggan
@@ -173,7 +171,6 @@ export default function DashboardPage({ navigate }: Props) {
             />
           )}
           {activeMenu === "pesanan" && <OrdersMenu navigate={navigate} />}
-          {activeMenu === "wishlist" && <WishlistMenu navigate={navigate} />}
           {activeMenu === "alamat" && (
             <AddressesMenu navigate={navigate} profile={profile} />
           )}

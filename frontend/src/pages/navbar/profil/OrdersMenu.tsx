@@ -1,10 +1,9 @@
+import { useCallback, useEffect, useRef, useState } from "react"
+import { Link } from "react-router-dom"
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
-
-import { apiFetch, storageUrl } from "../../../api/client";
-import { formatPrice } from "../../../data";
-import type { Page } from "../../../App";
+import { apiFetch, storageUrl } from "../../../api/client"
+import { formatPrice } from "../../../data"
+import type { Page } from "../../../App"
 
 import {
   cardClass,
@@ -16,73 +15,75 @@ import {
   outlineButton,
   SectionHeader,
   SuccessNotice,
-} from "./shared";
+} from "./shared"
 
 // ─── Types ──────────────────────────────────────────────
 
 interface ProductImage {
-  path: string;
-  url?: string;
-  is_primary?: boolean;
+  path: string
+  url?: string
+  is_primary?: boolean
 }
 
 interface Product {
-  name: string;
-  image?: string | null;
-  images?: ProductImage[];
+  name: string
+  image?: string | null
+  images?: ProductImage[]
 }
 
 interface OrderItem {
-  id: number;
-  product_name: string;
-  quantity: number;
-  price: string | number;
-  product?: Product | null;
+  id: number
+  product_name: string
+  quantity: number
+  price: string | number
+  product?: Product | null
 }
 
 interface Order {
-  id: number;
-  order_number: string;
-  order_status: string | { value?: string };
-  total: string | number;
-  created_at: string;
-  items: OrderItem[];
+  id: number
+  order_number: string
+  order_status: string | { value?: string }
+  total: string | number
+  created_at: string
+  items: OrderItem[]
   payment?: {
-    status?: string;
-  } | null;
+    status?: string
+  } | null
 }
 
 interface OrdersMenuProps {
-  navigate: (page: Page) => void;
+  navigate: (page: Page) => void
 }
 
 // ─── Helpers ────────────────────────────────────────────
 
 function getOrderStatus(order: Order): string {
   if (typeof order.order_status === "string") {
-    return order.order_status;
+    return order.order_status
   }
 
-  return order.order_status?.value ?? "pending";
+  return order.order_status?.value ?? "pending"
 }
 
 function getProductImage(product?: Product | null): string {
-  const images = product?.images ?? [];
+  const images = product?.images ?? []
 
-  const primaryImage = images.find((image) => image.is_primary);
-  const imageUrl = primaryImage?.url ?? images[0]?.url;
+  const primaryImage = images.find((image) => image.is_primary)
+  const imageUrl =
+    primaryImage?.url ??
+    images[0]?.url ??
+    primaryImage?.path ??
+    images[0]?.path ??
+    product?.image ??
+    ""
 
-  if (imageUrl) {
-    return imageUrl;
-  }
-
-  return product?.image ? storageUrl(product.image) : "";
+  return storageUrl(imageUrl)
 }
 
 function formatOrderDate(date: string): string {
   return new Date(date).toLocaleDateString("id-ID", {
     dateStyle: "long",
-  });
+  })
 }
 
 // ─── Components ─────────────────────────────────────────
@@ -90,12 +91,30 @@ function formatOrderDate(date: string): string {
 function OrderItemRow({ item }: { item: OrderItem }) {
   return (
     <div className="flex items-center gap-3 py-3">
-      <img
-        className="h-12 w-12 rounded-lg bg-gray-50 object-cover"
-        src={getProductImage(item.product)}
-        alt={item.product?.name ?? item.product_name ?? "Produk"}
-        loading="lazy"
-      />
+      <span
+        role="img"
+        aria-label={item.product?.name ?? item.product_name ?? "Produk"}
+        className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-50"
+      >
+        <img
+          src="/images/logo/wicaksono_logo_1.webp"
+          alt=""
+          aria-hidden="true"
+          className="absolute h-2/3 w-2/3 object-contain opacity-40"
+        />
+        {getProductImage(item.product) && (
+          <img
+            className="absolute inset-0 h-full w-full object-cover"
+            src={getProductImage(item.product)}
+            alt=""
+            aria-hidden="true"
+            loading="lazy"
+            onError={(event) => {
+              event.currentTarget.style.display = "none"
+            }}
+          />
+        )}
+      </span>
 
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-gray-800">
@@ -107,7 +126,7 @@ function OrderItemRow({ item }: { item: OrderItem }) {
         </p>
       </div>
     </div>
-  );
+  )
 }
 
 function OrderCard({
@@ -115,14 +134,13 @@ function OrderCard({
   busy,
   onCancel,
 }: {
-  order: Order;
-  busy: boolean;
-  onCancel: (order: Order) => void;
+  order: Order
+  busy: boolean
+  onCancel: (order: Order) => void
 }) {
-  const status = getOrderStatus(order);
-  const canCancel = status === "pending";
-  const canPay =
-    order.payment?.status === "pending" && status !== "cancelled";
+  const status = getOrderStatus(order)
+  const canCancel = status === "pending"
+  const canPay = order.payment?.status === "pending" && status !== "cancelled"
 
   return (
     <article className="rounded-xl border border-gray-100 p-4 sm:p-5">
@@ -137,7 +155,7 @@ function OrderCard({
           </p>
         </div>
 
-        <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold capitalize text-[#DF3E1D]">
+        <span className="rounded-full bg-[#FFF7F5] px-3 py-1 text-xs font-bold capitalize text-[#DF3E1D]">
           {status}
         </span>
       </div>
@@ -179,81 +197,77 @@ function OrderCard({
         </div>
       </div>
     </article>
-  );
+  )
 }
 
 // ─── Main Component ─────────────────────────────────────
 
 export default function OrdersMenu({ navigate }: OrdersMenuProps) {
-  const navigateRef = useRef(navigate);
+  const navigateRef = useRef(navigate)
 
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [busyId, setBusyId] = useState<number | null>(null);
-  const [reload, setReload] = useState(0);
+  const [orders, setOrders] = useState<Order[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
+  const [busyId, setBusyId] = useState<number | null>(null)
+  const [reload, setReload] = useState(0)
 
   useEffect(() => {
-    navigateRef.current = navigate;
-  }, [navigate]);
+    navigateRef.current = navigate
+  }, [navigate])
 
   // Fetch order history from Laravel backend.
   const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
+    setLoading(true)
+    setError("")
 
     try {
-      const response = await apiFetch<{ data: Order[] }>(
-        "/orders?per_page=50",
-      );
+      const response = await apiFetch<{ data: Order[] }>("/orders?per_page=50")
 
-      setOrders(response.data ?? []);
+      setOrders(response.data ?? [])
     } catch (err) {
       if (isUnauthorized(err)) {
-        navigateRef.current("login");
-        return;
+        navigateRef.current("login")
+        return
       }
 
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err))
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, []);
+  }, [])
 
   useEffect(() => {
-    void load();
-  }, [load, reload]);
+    void load()
+  }, [load, reload])
 
   // Cancel an order through the Laravel API.
   const cancel = useCallback(async (order: Order) => {
-    const confirmed = window.confirm(
-      `Batalkan pesanan ${order.order_number}?`,
-    );
+    const confirmed = window.confirm(`Batalkan pesanan ${order.order_number}?`)
 
-    if (!confirmed) return;
+    if (!confirmed) return
 
-    setBusyId(order.id);
-    setError("");
-    setSuccess("");
+    setBusyId(order.id)
+    setError("")
+    setSuccess("")
 
     try {
       await apiFetch(`/orders/${order.id}/cancel`, {
         method: "POST",
-      });
+      })
 
-      setSuccess("Pesanan berhasil dibatalkan.");
-      setReload((value) => value + 1);
+      setSuccess("Pesanan berhasil dibatalkan.")
+      setReload((value) => value + 1)
     } catch (err) {
       if (isUnauthorized(err)) {
-        navigateRef.current("login");
+        navigateRef.current("login")
       } else {
-        setError(getErrorMessage(err));
+        setError(getErrorMessage(err))
       }
     } finally {
-      setBusyId(null);
+      setBusyId(null)
     }
-  }, []);
+  }, [])
 
   return (
     <div className={cardClass}>
@@ -282,5 +296,5 @@ export default function OrdersMenu({ navigate }: OrdersMenuProps) {
         </div>
       )}
     </div>
-  );
+  )
 }

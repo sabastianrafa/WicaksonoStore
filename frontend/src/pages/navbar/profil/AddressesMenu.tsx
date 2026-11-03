@@ -183,22 +183,22 @@ export default function AddressesMenu({
     setForm(
       address
         ? {
-          id: address.id,
-          label: address.label,
-          name: address.name,
-          phone: address.phone,
-          province_code: address.province_code ?? "",
-          regency_code: address.regency_code ?? "",
-          district_code: address.district_code ?? "",
-          village_code: address.village_code ?? "",
-          postal_code: address.postal_code ?? "",
-          rt: address.rt ?? "",
-          rw: address.rw ?? "",
-          neighborhood: address.neighborhood ?? "",
-          landmark: address.landmark ?? "",
-          address: address.address ?? "",
-          is_default: address.is_default,
-        }
+            id: address.id,
+            label: address.label,
+            name: address.name,
+            phone: address.phone,
+            province_code: address.province_code ?? "",
+            regency_code: address.regency_code ?? "",
+            district_code: address.district_code ?? "",
+            village_code: address.village_code ?? "",
+            postal_code: address.postal_code ?? "",
+            rt: address.rt ?? "",
+            rw: address.rw ?? "",
+            neighborhood: address.neighborhood ?? "",
+            landmark: address.landmark ?? "",
+            address: address.address ?? "",
+            is_default: address.is_default,
+          }
         : emptyForm(profile.name, profile.phone, items.length === 0),
     )
   }
@@ -284,31 +284,31 @@ export default function AddressesMenu({
     options: Option[]
     disabled: boolean
   }[] = [
-      {
-        key: "province_code",
-        label: "Provinsi",
-        options: provinces,
-        disabled: false,
-      },
-      {
-        key: "regency_code",
-        label: "Kabupaten/Kota",
-        options: regencies,
-        disabled: !form?.province_code,
-      },
-      {
-        key: "district_code",
-        label: "Kecamatan",
-        options: districts,
-        disabled: !form?.regency_code,
-      },
-      {
-        key: "village_code",
-        label: "Kelurahan/Desa",
-        options: villages,
-        disabled: !form?.district_code,
-      },
-    ]
+    {
+      key: "province_code",
+      label: "Provinsi",
+      options: provinces,
+      disabled: false,
+    },
+    {
+      key: "regency_code",
+      label: "Kabupaten/Kota",
+      options: regencies,
+      disabled: !form?.province_code,
+    },
+    {
+      key: "district_code",
+      label: "Kecamatan",
+      options: districts,
+      disabled: !form?.regency_code,
+    },
+    {
+      key: "village_code",
+      label: "Kelurahan/Desa",
+      options: villages,
+      disabled: !form?.district_code,
+    },
+  ]
   return (
     <div className={cardClass}>
       <SectionHeader
