@@ -2,12 +2,12 @@ import type { Page } from "../App"
 import { FaFacebookF, FaInstagram, FaTwitter, FaYoutube } from "react-icons/fa"
 import { FiArrowUp, FiMail, FiMapPin, FiPhone } from "react-icons/fi"
 
-const links: { label: string page: Page }[] = [
+const links: { label: string; page: Page }[] = [
   { label: "Beranda", page: "home" },
   { label: "Katalog produk", page: "catalog" },
   { label: "Tentang kami", page: "about" },
   { label: "Kontak", page: "contact" },
-]
+] 
 
 export default function Footer({
   navigate,
@@ -17,15 +17,14 @@ export default function Footer({
   return (
     <footer className="mt-16 border-t border-gray-200 bg-white text-gray-600">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:grid-cols-2 sm:px-6 lg:grid-cols-[1.4fr_1fr_1.2fr] lg:gap-16">
-        <section>
+        <section className="flex flex-col justify-center">
           <img
-            src="/images/logo/wicaksono_logo_2.webp"
+            src="/images/logo/wicaksono_logo_1.webp"
             alt="Wicaksono Store"
-            className="mb-4 h-10 w-auto object-contain object-left"
+            className="mb-4 h-12 w-auto object-contain object-left"
           />
-          <p className="max-w-sm text-sm leading-6">
-            Pusat oleh-oleh khas Malang. Menghadirkan cita rasa lokal untuk
-            dinikmati di mana saja.
+          <p className="max-w-sm text-sm leading-6 ">
+            Wicaksono oleh-oleh khas Malang. Kami menyediakan berbagai macam produk lokal dengan memberikan pelayanan terbaik bagi pelanggan kami.
           </p>
           <div
             className="mt-4 flex gap-3 text-gray-500"
@@ -94,22 +93,6 @@ export default function Footer({
               </a>
             </li>
           </ul>
-        </section>
-
-        <section className="sm:col-span-2 lg:col-span-3">
-          <h2 className="mb-3 text-sm font-semibold text-gray-900">
-            Metode pembayaran
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {["BCA", "Mandiri", "BRI", "GoPay", "QRIS", "OVO"].map((method) => (
-              <span
-                key={method}
-                className="border border-gray-200 px-2.5 py-1 text-xs text-gray-500"
-              >
-                {method}
-              </span>
-            ))}
-          </div>
         </section>
       </div>
 

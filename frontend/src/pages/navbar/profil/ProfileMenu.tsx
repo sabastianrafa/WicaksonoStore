@@ -1,17 +1,65 @@
 import { useState, type FormEvent } from "react"
 import { apiFetch } from "../../../api/client"
 import type { Page } from "../../../App"
-import {
-  cardClass,
-  ErrorNotice,
-  inputClass,
-  isUnauthorized,
-  LoadingState,
-  outlineButton,
-  primaryButton,
-  SuccessNotice,
-  getErrorMessage,
-} from "./shared"
+
+import type { ReactNode } from "react"
+
+const cardClass = "rounded-xl border border-gray-200 bg-white p-4 sm:p-5"
+const inputClass =
+  "mt-1.5 block w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-[#DF3E1D] focus:ring-2 focus:ring-[#DF3E1D]/15 disabled:bg-gray-50 disabled:text-gray-400"
+const primaryButton =
+  "inline-flex items-center justify-center rounded-lg bg-[#DF3E1D] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#c93418] disabled:cursor-not-allowed disabled:opacity-60"
+const outlineButton =
+  "inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-600 transition hover:border-[#DF3E1D] hover:text-[#DF3E1D] disabled:cursor-not-allowed disabled:opacity-50"
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error
+    ? error.message
+    : "Terjadi kesalahan. Silakan coba kembali."
+}
+
+function isUnauthorized(error: unknown): boolean {
+  return /\b401\b|unauthenticated|unauthorized/i.test(getErrorMessage(error))
+}
+
+function LoadingState({ label = "Memuat data…" }: { label?: string }) {
+  return (
+    <div className="flex items-center gap-3 py-8 text-sm text-gray-500">
+      <span className="h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-[#DF3E1D]" />
+      {label}
+    </div>
+  )
+}
+
+function ErrorNotice({
+  message,
+  retry,
+}: {
+  message: string
+  retry?: () => void
+}) {
+  if (!message) return null
+  return (
+    <div role="alert" className="mb-4 rounded-lg border border-red-100 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+      {message}
+      {retry && (
+        <button type="button" className="ml-2 font-semibold underline" onClick={retry}>
+          Muat ulang
+        </button>
+      )}
+    </div>
+  )
+}
+
+function SuccessNotice({ message }: { message: string }) {
+  if (!message) return null
+  return (
+    <div role="status" className="mb-4 rounded-lg border border-green-100 bg-green-50 px-3 py-2.5 text-sm text-green-700">
+      {message}
+    </div>
+  )
+}
+
 
 export interface ProfileFields {
   name: string
@@ -84,9 +132,9 @@ export default function ProfileMenu({
 
   return (
     <div className={cardClass}>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-extrabold text-gray-900">Profil Saya</h2>
+          <h2 className="text-lg font-bold text-gray-900">Profil Saya</h2>
           <p className="mt-1 text-sm text-gray-500">
             Kelola informasi akun kamu.
           </p>
@@ -111,7 +159,7 @@ export default function ProfileMenu({
         <LoadingState label="Memuat profil…" />
       ) : editing ? (
         <form onSubmit={(event) => void save(event)}>
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             <label className="text-sm font-semibold text-gray-600">
               Nama Lengkap
               <input
@@ -153,7 +201,7 @@ export default function ProfileMenu({
               />
             </label>
           </div>
-          <div className="mt-7 flex justify-end gap-3">
+          <div className="mt-6 flex justify-end gap-2">
             <button
               type="button"
               className={outlineButton}

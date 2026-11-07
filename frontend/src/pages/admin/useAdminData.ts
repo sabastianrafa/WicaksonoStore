@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react"
-import { apiFetch } from "../../api/client"
+import { useCallback, useEffect, useState } from 'react'
+import { apiFetch } from '../../api/client'
 import type {
   AdminOrder,
   AdminPayment,
@@ -21,7 +21,7 @@ import type {
   ShippingMethod,
   ShippingPromotion,
   UserFilters,
-} from "./types"
+} from './types'
 import {
   buildMonthlySales,
   buildQuery,
@@ -33,7 +33,7 @@ import {
   normalizeShippingMethod,
   normalizeTopProduct,
   normalizeUser,
-} from "./utils"
+} from './utils'
 
 const EMPTY_META: ApiMeta = {
   current_page: 1,
@@ -43,31 +43,31 @@ const EMPTY_META: ApiMeta = {
 }
 
 const DEFAULT_ORDER_FILTERS: OrderFilters = {
-  search: "",
-  status: "",
-  sort: "latest",
-  start_date: "",
-  end_date: "",
+  search: '',
+  status: '',
+  sort: 'latest',
+  start_date: '',
+  end_date: '',
   page: 1,
 }
 
 const DEFAULT_PAYMENT_FILTERS: PaymentFilters = {
-  search: "",
-  status: "",
-  method: "",
+  search: '',
+  status: '',
+  method: '',
   page: 1,
 }
 
 const DEFAULT_PRODUCT_FILTERS: ProductFilters = {
-  search: "",
-  category_id: "",
-  is_active: "",
+  search: '',
+  category_id: '',
+  is_active: '',
   page: 1,
 }
 
 const DEFAULT_USER_FILTERS: UserFilters = {
-  search: "",
-  role: "",
+  search: '',
+  role: '',
   page: 1,
 }
 
@@ -139,7 +139,7 @@ export function useAdminData() {
   const [shippingPromotion, setShippingPromotion] =
     useState<ShippingPromotion | null>(null)
   const [loadingShippingPromotion, setLoadingShippingPromotion] = useState(true)
-  const [shippingPromotionError, setShippingPromotionError] = useState("")
+  const [shippingPromotionError, setShippingPromotionError] = useState('')
 
   /* ---------- Metode pembayaran ---------- */
 
@@ -155,9 +155,9 @@ export function useAdminData() {
 
     try {
       const [dashboardRes, salesRes, productRes] = await Promise.all([
-        apiFetch<any>("/admin/dashboard"),
-        apiFetch<any>("/admin/reports/sales"),
-        apiFetch<any>("/admin/reports/products"),
+        apiFetch<any>('/admin/dashboard'),
+        apiFetch<any>('/admin/reports/sales'),
+        apiFetch<any>('/admin/reports/products'),
       ])
 
       const rawSummary = dashboardRes?.data?.summary ?? {}
@@ -188,9 +188,9 @@ export function useAdminData() {
         created_at: order.created_at,
         total: Number(order.total ?? 0),
         order_status:
-          typeof order.order_status === "string"
-            ? order.order_status
-            : (order.order_status?.value ?? ""),
+          typeof order.order_status === 'string' ?
+            order.order_status
+          : (order.order_status?.value ?? ''),
       }))
 
       setSalesData(buildMonthlySales(salesOrders))
@@ -221,7 +221,7 @@ export function useAdminData() {
         ).map(normalizeProduct),
       })
     } catch (error) {
-      console.error("Gagal memuat dashboard:", error)
+      console.error('Gagal memuat dashboard:', error)
     } finally {
       setLoadingDashboard(false)
     }
@@ -230,11 +230,11 @@ export function useAdminData() {
   const loadCategories = useCallback(async () => {
     try {
       const res = await apiFetch<any>(
-        "/admin/categories?per_page=100&sort=name_asc",
+        '/admin/categories?per_page=100&sort=name_asc',
       )
       setCategories((res?.data ?? []).map(normalizeCategory))
     } catch (error) {
-      console.error("Gagal memuat kategori:", error)
+      console.error('Gagal memuat kategori:', error)
     }
   }, [])
 
@@ -255,7 +255,7 @@ export function useAdminData() {
       setProducts((res?.data ?? []).map(normalizeProduct))
       setProductMeta(res?.meta ?? EMPTY_META)
     } catch (error) {
-      console.error("Gagal memuat produk:", error)
+      console.error('Gagal memuat produk:', error)
       setProducts([])
       setProductMeta(EMPTY_META)
     } finally {
@@ -282,7 +282,7 @@ export function useAdminData() {
       setOrders((res?.data ?? []).map(normalizeOrder))
       setOrderMeta(res?.meta ?? EMPTY_META)
     } catch (error) {
-      console.error("Gagal memuat pesanan:", error)
+      console.error('Gagal memuat pesanan:', error)
       setOrders([])
       setOrderMeta(EMPTY_META)
     } finally {
@@ -307,7 +307,7 @@ export function useAdminData() {
       setPayments((res?.data ?? []).map(normalizePayment))
       setPaymentMeta(res?.meta ?? EMPTY_META)
     } catch (error) {
-      console.error("Gagal memuat pembayaran:", error)
+      console.error('Gagal memuat pembayaran:', error)
       setPayments([])
       setPaymentMeta(EMPTY_META)
     } finally {
@@ -331,7 +331,7 @@ export function useAdminData() {
       setUsers((res?.data ?? []).map(normalizeUser))
       setUserMeta(res?.meta ?? EMPTY_META)
     } catch (error) {
-      console.error("Gagal memuat pengguna:", error)
+      console.error('Gagal memuat pengguna:', error)
       setUsers([])
       setUserMeta(EMPTY_META)
     } finally {
@@ -343,10 +343,10 @@ export function useAdminData() {
     setLoadingShipping(true)
 
     try {
-      const res = await apiFetch<any>("/admin/shipping-methods?per_page=100")
+      const res = await apiFetch<any>('/admin/shipping-methods?per_page=100')
       setShippingMethods((res?.data ?? []).map(normalizeShippingMethod))
     } catch (error) {
-      console.error("Gagal memuat metode pengiriman:", error)
+      console.error('Gagal memuat metode pengiriman:', error)
       setShippingMethods([])
     } finally {
       setLoadingShipping(false)
@@ -358,15 +358,15 @@ export function useAdminData() {
 
     try {
       const response = await apiFetch<{ data: ShippingPromotion }>(
-        "/admin/shipping-promotion",
+        '/admin/shipping-promotion',
       )
       setShippingPromotion(response.data)
-      setShippingPromotionError("")
+      setShippingPromotionError('')
     } catch (error) {
-      console.error("Gagal memuat promo ongkir:", error)
+      console.error('Gagal memuat promo ongkir:', error)
       setShippingPromotion(null)
       setShippingPromotionError(
-        errorMessage(error, "Gagal memuat pengaturan promo ongkir."),
+        errorMessage(error, 'Gagal memuat pengaturan promo ongkir.'),
       )
     } finally {
       setLoadingShippingPromotion(false)
@@ -377,10 +377,10 @@ export function useAdminData() {
     setLoadingPaymentMethods(true)
 
     try {
-      const res = await apiFetch<any>("/admin/payment-methods?per_page=100")
+      const res = await apiFetch<any>('/admin/payment-methods?per_page=100')
       setPaymentMethods((res?.data ?? []).map(normalizePaymentMethod))
     } catch (error) {
-      console.error("Gagal memuat metode pembayaran:", error)
+      console.error('Gagal memuat metode pembayaran:', error)
       setPaymentMethods([])
     } finally {
       setLoadingPaymentMethods(false)
@@ -434,7 +434,7 @@ export function useAdminData() {
       if (!window.confirm(`Hapus produk "${product.name}"?`)) return false
 
       try {
-        await apiFetch(`/admin/products/${product.id}`, { method: "DELETE" })
+        await apiFetch(`/admin/products/${product.id}`, { method: 'DELETE' })
 
         // Kalau baris terakhir di halaman ini habis, mundur satu halaman.
         if (products.length === 1 && productFilters.page > 1) {
@@ -446,7 +446,7 @@ export function useAdminData() {
 
         return true
       } catch (error) {
-        window.alert(errorMessage(error, "Gagal menghapus produk."))
+        window.alert(errorMessage(error, 'Gagal menghapus produk.'))
         return false
       }
     },
@@ -457,7 +457,7 @@ export function useAdminData() {
     async (order: AdminOrder, status: string) => {
       try {
         const res = await apiFetch<any>(`/admin/orders/${order.id}/status`, {
-          method: "PATCH",
+          method: 'PATCH',
           body: JSON.stringify({ status }),
         })
 
@@ -470,7 +470,7 @@ export function useAdminData() {
 
         return updated
       } catch (error) {
-        window.alert(errorMessage(error, "Gagal memperbarui status pesanan."))
+        window.alert(errorMessage(error, 'Gagal memperbarui status pesanan.'))
         throw error
       }
     },
@@ -483,7 +483,7 @@ export function useAdminData() {
         const res = await apiFetch<any>(
           `/admin/payments/${payment.id}/verify`,
           {
-            method: "PATCH",
+            method: 'PATCH',
             body: JSON.stringify({}),
           },
         )
@@ -499,7 +499,7 @@ export function useAdminData() {
 
         return updated
       } catch (error) {
-        window.alert(errorMessage(error, "Gagal memverifikasi pembayaran."))
+        window.alert(errorMessage(error, 'Gagal memverifikasi pembayaran.'))
         throw error
       }
     },
@@ -512,7 +512,7 @@ export function useAdminData() {
         const res = await apiFetch<any>(
           `/admin/payments/${payment.id}/reject`,
           {
-            method: "PATCH",
+            method: 'PATCH',
             body: JSON.stringify({ reason }),
           },
         )
@@ -527,7 +527,7 @@ export function useAdminData() {
 
         return updated
       } catch (error) {
-        window.alert(errorMessage(error, "Gagal menolak pembayaran."))
+        window.alert(errorMessage(error, 'Gagal menolak pembayaran.'))
         throw error
       }
     },
@@ -535,16 +535,16 @@ export function useAdminData() {
   )
 
   const saveCategory = useCallback(
-    async (payload: { id?: number name: string is_active: boolean }) => {
+    async (payload: { id?: number; name: string; is_active: boolean }) => {
       const body = JSON.stringify({
         name: payload.name,
         is_active: payload.is_active,
       })
 
       const res = await apiFetch<any>(
-        payload.id ? `/admin/categories/${payload.id}` : "/admin/categories",
+        payload.id ? `/admin/categories/${payload.id}` : '/admin/categories',
         {
-          method: payload.id ? "PUT" : "POST",
+          method: payload.id ? 'PUT' : 'POST',
           body,
         },
       )
@@ -562,7 +562,7 @@ export function useAdminData() {
       if (!window.confirm(`Hapus kategori "${category.name}"?`)) return false
 
       try {
-        await apiFetch(`/admin/categories/${category.id}`, { method: "DELETE" })
+        await apiFetch(`/admin/categories/${category.id}`, { method: 'DELETE' })
 
         await loadCategories()
         loadDashboard()
@@ -572,7 +572,7 @@ export function useAdminData() {
         window.alert(
           errorMessage(
             error,
-            "Gagal menghapus kategori. Kategori yang masih punya produk tidak bisa dihapus.",
+            'Gagal menghapus kategori. Kategori yang masih punya produk tidak bisa dihapus.',
           ),
         )
         return false
@@ -585,7 +585,7 @@ export function useAdminData() {
     async (user: AdminUser, role: string) => {
       try {
         const res = await apiFetch<any>(`/admin/users/${user.id}/role`, {
-          method: "PATCH",
+          method: 'PATCH',
           body: JSON.stringify({ role }),
         })
 
@@ -598,7 +598,7 @@ export function useAdminData() {
 
         return updated
       } catch (error) {
-        window.alert(errorMessage(error, "Gagal mengubah role pengguna."))
+        window.alert(errorMessage(error, 'Gagal mengubah role pengguna.'))
         throw error
       }
     },
@@ -610,7 +610,7 @@ export function useAdminData() {
       if (!window.confirm(`Hapus pengguna "${user.name}"?`)) return false
 
       try {
-        await apiFetch(`/admin/users/${user.id}`, { method: "DELETE" })
+        await apiFetch(`/admin/users/${user.id}`, { method: 'DELETE' })
 
         if (users.length === 1 && userFilters.page > 1) {
           setUserFilters((prev) => ({ ...prev, page: prev.page - 1 }))
@@ -621,7 +621,7 @@ export function useAdminData() {
 
         return true
       } catch (error) {
-        window.alert(errorMessage(error, "Gagal menghapus pengguna."))
+        window.alert(errorMessage(error, 'Gagal menghapus pengguna.'))
         return false
       }
     },
@@ -635,7 +635,7 @@ export function useAdminData() {
       estimated_days?: string | null
     }) => {
       const res = await apiFetch<any>(`/admin/shipping-methods/${payload.id}`, {
-        method: "PUT",
+        method: 'PUT',
         body: JSON.stringify({
           cost: payload.cost,
           estimated_days: payload.estimated_days || null,
@@ -656,14 +656,14 @@ export function useAdminData() {
       area_codes: string[]
     }) => {
       const response = await apiFetch<{ data: ShippingPromotion }>(
-        "/admin/shipping-promotion",
+        '/admin/shipping-promotion',
         {
-          method: "PUT",
+          method: 'PUT',
           body: JSON.stringify(payload),
         },
       )
       setShippingPromotion(response.data)
-      setShippingPromotionError("")
+      setShippingPromotionError('')
       return response.data
     },
     [],
@@ -681,18 +681,19 @@ export function useAdminData() {
       description: string | null
       is_active: boolean
     }) => {
-      const endpoint = payload.id
-        ? `/admin/payment-methods/${payload.id}`
-        : "/admin/payment-methods"
+      const endpoint =
+        payload.id ?
+          `/admin/payment-methods/${payload.id}`
+        : '/admin/payment-methods'
 
       const fields: Record<string, string> = {
         name: payload.name,
         code: payload.code,
         type: payload.type,
-        account_number: payload.account_number ?? "",
-        account_name: payload.account_name ?? "",
-        description: payload.description ?? "",
-        is_active: payload.is_active ? "1" : "0",
+        account_number: payload.account_number ?? '',
+        account_name: payload.account_name ?? '',
+        description: payload.description ?? '',
+        is_active: payload.is_active ? '1' : '0',
       }
 
       let res: any
@@ -710,14 +711,14 @@ export function useAdminData() {
           formData.append(key, value)
         })
 
-        formData.append("qris_image", payload.qris_image)
+        formData.append('qris_image', payload.qris_image)
 
-        if (payload.id) formData.append("_method", "PUT")
+        if (payload.id) formData.append('_method', 'PUT')
 
-        res = await apiFetch(endpoint, { method: "POST", body: formData })
+        res = await apiFetch(endpoint, { method: 'POST', body: formData })
       } else {
         res = await apiFetch(endpoint, {
-          method: payload.id ? "PUT" : "POST",
+          method: payload.id ? 'PUT' : 'POST',
           body: JSON.stringify(fields),
         })
       }
@@ -736,7 +737,7 @@ export function useAdminData() {
 
       try {
         await apiFetch(`/admin/payment-methods/${method.id}`, {
-          method: "DELETE",
+          method: 'DELETE',
         })
         await loadPaymentMethods()
         return true
@@ -744,7 +745,7 @@ export function useAdminData() {
         window.alert(
           errorMessage(
             error,
-            "Gagal menghapus metode pembayaran. Metode yang sudah dipakai transaksi tidak bisa dihapus.",
+            'Gagal menghapus metode pembayaran. Metode yang sudah dipakai transaksi tidak bisa dihapus.',
           ),
         )
         return false

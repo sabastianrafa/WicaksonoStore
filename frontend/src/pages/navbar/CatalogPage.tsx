@@ -199,6 +199,7 @@ export default function CatalogPage({
   const [productError, setProductError] = useState("")
   const [reloadKey, setReloadKey] = useState(0)
   const [showAllCategories, setShowAllCategories] = useState(false)
+  const [showMobileFilters, setShowMobileFilters] = useState(false)
 
   const updateFilters = (patch: Partial<Filters>) => {
     setFilters((previous) => ({ ...previous, ...patch }))
@@ -459,207 +460,219 @@ export default function CatalogPage({
       </div>
 
       <div className="grid grid-cols-1 items-start gap-[18px] lg:grid-cols-[250px_minmax(0,1fr)] lg:gap-6">
-        
+
         <aside
-          className="h-fit min-w-0 rounded-xl border border-gray-200 bg-white p-4 lg:sticky lg:top-[88px]"
+          className="h-fit min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white lg:sticky lg:top-[88px]"
           aria-label="Filter produk"
         >
-          {/* Header */}
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-900">
-              Filter Produk
-            </h2>
+          {/* Header Filter */}
+          <div className="flex items-center justify-between gap-3 p-3 sm:p-4">
+            <div className="flex min-w-0 items-center gap-2">
+              <h2 className="text-sm font-semibold text-gray-900">
+                Filter Produk
+              </h2>
 
-            <button
-              type="button"
-              onClick={resetFilters}
-              disabled={!hasActiveFilters}
-              className="text-xs font-medium text-primary transition hover:text-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Reset
-            </button>
-          </div>
-
-          {/* Kategori */}
-          <section className="border-b border-gray-100 pb-5">
-            <h3 className="mb-3 text-xs font-semibold text-gray-800">
-              Kategori
-            </h3>
-
-            <div
-              className="flex flex-col gap-1"
-              aria-busy={categoryLoading}
-            >
-              {visibleCategories.map(({ id, name, count }) => {
-                const active = filters.category === id
-
-                return (
-                  <label
-                    key={id ?? "all"}
-                    className="group flex cursor-pointer items-center gap-2.5 py-1.5"
-                  >
-                    <input
-                      type="radio"
-                      name="catalog-category"
-                      value={id ?? "all"}
-                      checked={active}
-                      onChange={() => changeCategory(id)}
-                      className="h-4 w-4 shrink-0 cursor-pointer accent-primary"
-                    />
-
-                    <span
-                      className={`min-w-0 flex-1 text-xs transition ${
-                        active
-                          ? "font-semibold text-primary"
-                          : "text-gray-600 group-hover:text-gray-900"
-                      }`}
-                    >
-                      {name}
-                    </span>
-
-                    <span className="text-[11px] tabular-nums text-gray-400">
-                      {count}
-                    </span>
-                  </label>
-                )
-              })}
+              {activeFilterCount > 0 && (
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                  {activeFilterCount} aktif
+                </span>
+              )}
             </div>
 
-            {!categoryLoading &&
-              categoryOptions.length > CATEGORY_PREVIEW_LIMIT && (
+            <div className="flex shrink-0 items-center gap-3">
+              <button
+                type="button"
+                onClick={resetFilters}
+                disabled={!hasActiveFilters}
+                className="!text-xs !text-primary transition hover:text-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Reset
+              </button>
+
+              {/* Toggle Mobile */}
+              <button
+                type="button"
+                onClick={() =>
+                  setShowMobileFilters((previous) => !previous)
+                }
+                aria-expanded={showMobileFilters}
+                aria-controls="catalog-filter-content"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-100 lg:hidden"
+              >
+                {showMobileFilters ? "Tutup" : "Tampilkan Filter"}
+
+                {showMobileFilters ? (
+                  <FaChevronUp size={10} />
+                ) : (
+                  <FaChevronDown size={10} />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Konten Filter */}
+          <div
+            id="catalog-filter-content"
+            className={`${
+              showMobileFilters ? "block" : "hidden"
+            } border-t border-gray-100 p-4 lg:block`}
+          >
+            {/* Kategori */}
+            <section className="border-b border-gray-100 pb-5">
+              <h3 className="mb-3 text-xs font-semibold text-gray-800">
+                Kategori
+              </h3>
+
+              <div
+                className="flex flex-col gap-1"
+                aria-busy={categoryLoading}
+              >
+                {visibleCategories.map(({ id, name, count }) => {
+                  const active = filters.category === id
+
+                  return (
+                    <label
+                      key={id ?? "all"}
+                      className="group flex cursor-pointer items-center gap-2.5 py-1.5"
+                    >
+                      <input
+                        type="radio"
+                        name="catalog-category"
+                        value={id ?? "all"}
+                        checked={active}
+                        onChange={() => changeCategory(id)}
+                        className="h-4 w-4 shrink-0 cursor-pointer accent-primary"
+                      />
+
+                      <span
+                        className={`min-w-0 flex-1 text-sm transition ${
+                          active
+                            ? "text-primary"
+                            : "text-gray-600 group-hover:text-gray-900"
+                        }`}
+                      >
+                        {name}
+                      </span>
+
+                      <span className="text-[11px] tabular-nums text-gray-400">
+                        {count}
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+
+              {!categoryLoading && categoryOptions.length > CATEGORY_PREVIEW_LIMIT && (
                 <button
                   type="button"
-                  onClick={() =>
-                    setShowAllCategories((previous) => !previous)
-                  }
+                  onClick={() => setShowAllCategories((previous) => !previous)}
                   aria-expanded={showAllCategories}
-                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-primary transition hover:text-primary-dark"
+                  className="mt-3 inline-flex items-center gap-1.5 !text-sm !font-normal text-primary transition hover:text-primary-dark"
                 >
+                  {showAllCategories ? "Show less" : "Show more"}
+
                   {showAllCategories ? (
-                    <>
-                      Show less
-                      <FaChevronUp size={10} />
-                    </>
+                    <FaChevronUp size={10} />
                   ) : (
-                    <>
-                      Show more
-                      <FaChevronDown size={10} />
-                    </>
+                    <FaChevronDown size={10} />
                   )}
                 </button>
               )}
-          </section>
+            </section>
 
-          {/* Harga */}
-          <section className="border-b border-gray-100 py-5">
-            <h3 className="mb-4 text-xs font-semibold text-gray-800">
-              Rentang Harga
-            </h3>
+            {/* Rentang Harga */}
+            <section className="border-b border-gray-100 py-5">
+              <h3 className="mb-4 text-xs font-semibold text-gray-800">
+                Rentang Harga
+              </h3>
 
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-xs text-gray-500">
-                Maksimal
-              </span>
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-xs text-gray-500">Maksimal</span>
 
-              <span className="text-xs font-semibold text-gray-900">
-                {formatPrice(filters.maxPrice)}
-              </span>
-            </div>
-
-            {priceLimitError && (
-              <div className="mb-3 text-xs text-red-500">
-                <p>{priceLimitError}</p>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setReloadKey((current) => current + 1)
-                  }
-                  className="mt-1 font-medium underline"
-                >
-                  Coba lagi
-                </button>
+                <span className="text-xs font-semibold text-gray-900">
+                  {formatPrice(filters.maxPrice)}
+                </span>
               </div>
-            )}
 
-            <input
-              id="catalog-max-price"
-              type="range"
-              min={0}
-              max={catalogMaxPrice ?? 0}
-              step={5000}
-              value={filters.maxPrice}
-              disabled={catalogMaxPrice === null || catalogMaxPrice === 0}
-              onChange={(event) =>
-                updateFilters({
-                  minPrice: 0,
-                  maxPrice: Number(event.target.value),
-                })
-              }
-              className="w-full cursor-pointer accent-primary disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="Harga maksimal"
-            />
+              <input
+                id="catalog-max-price"
+                type="range"
+                min={0}
+                max={catalogMaxPrice ?? 0}
+                step={5000}
+                value={filters.maxPrice}
+                disabled={catalogMaxPrice === null || catalogMaxPrice === 0}
+                onChange={(event) =>
+                  updateFilters({
+                    minPrice: 0,
+                    maxPrice: Number(event.target.value),
+                  })
+                }
+                className="w-full cursor-pointer accent-primary disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Harga maksimal"
+              />
 
-            <div className="mt-1 flex justify-between text-[10px] text-gray-400">
-              <span>Rp 0</span>
-              <span>{formatPrice(catalogMaxPrice ?? 0)}</span>
-            </div>
-          </section>
+              <div className="mt-1 flex justify-between text-[10px] text-gray-400">
+                <span>Rp 0</span>
+                <span>{formatPrice(catalogMaxPrice ?? 0)}</span>
+              </div>
+            </section>
 
-          {/* Rating */}
-          <section className="pt-5">
-            <h3 className="mb-3 text-xs font-semibold text-gray-800">
-              Rating Produk
-            </h3>
+            {/* Rating */}
+            <section className="pt-5">
+              <h3 className="mb-3 text-xs font-semibold text-gray-800">
+                Rating Produk
+              </h3>
 
-            <div className="flex flex-col gap-2">
-              {RATING_OPTIONS.map((rating) => {
-                const active = filters.minRating === rating
+              <div className="flex flex-col gap-2">
+                {RATING_OPTIONS.map((rating) => {
+                  const active = filters.minRating === rating
 
-                return (
-                  <button
-                    key={rating}
-                    type="button"
-                    onClick={() =>
-                      updateFilters({ minRating: rating })
-                    }
-                    aria-pressed={active}
-                    className="flex items-center gap-2 text-left"
-                  >
-                    <span className="flex items-center gap-0.5 text-yellow-400">
-                      {Array.from({ length: 5 }, (_, index) => (
-                        <FaStar
-                          key={index}
-                          size={11}
-                          className={
-                            rating === 0 || index < Math.floor(rating)
-                              ? "opacity-100"
-                              : "opacity-25"
-                          }
-                        />
-                      ))}
-                    </span>
-
-                    <span
-                      className={`text-xs ${
-                        active
-                          ? "font-semibold text-primary"
-                          : "text-gray-500"
-                      }`}
+                  return (
+                    <button
+                      key={rating}
+                      type="button"
+                      onClick={() =>
+                        updateFilters({ minRating: rating })
+                      }
+                      aria-pressed={active}
+                      className="flex items-center gap-2 text-left"
                     >
-                      {rating === 0 ? "Semua rating" : `${rating}+`}
-                    </span>
-
-                    {active && (
-                      <span className="ml-auto text-xs text-primary">
-                        <FaCheck size={11} />
+                      <span className="flex items-center gap-0.5 text-yellow-400">
+                        {Array.from({ length: 5 }, (_, index) => (
+                          <FaStar
+                            key={index}
+                            size={11}
+                            className={
+                              rating === 0 || index < Math.floor(rating)
+                                ? "opacity-100"
+                                : "opacity-25"
+                            }
+                          />
+                        ))}
                       </span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </section>
+
+                      <span
+                        className={`!text-xs ${
+                          active
+                            ? "font-normal text-primary"
+                            : "text-gray-500"
+                        }`}
+                      >
+                        {rating === 0 ? "Semua rating" : `${rating}+`}
+                      </span>
+
+                      {active && (
+                        <span className="ml-auto text-xs text-primary">
+                          <FaCheck size={11} />
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+          </div>
         </aside>
 
         <section aria-label="Daftar produk">

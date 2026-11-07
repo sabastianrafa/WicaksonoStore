@@ -472,7 +472,10 @@ export default function ProductFormModal({
       if (!saved.id) throw new Error("Produk gagal disimpan.")
 
       // Upload gambar baru setelah produk tersimpan.
-      const uploaded: Array<{ id: number previewId: string }> = []
+      const uploaded: Array<{
+        id: number
+        previewId: string
+      }> = []
 
       for (const pending of newImages) {
         const imageData = new FormData()

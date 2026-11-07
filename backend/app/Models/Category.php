@@ -13,9 +13,12 @@ class Category extends Model
     protected $fillable = [
         'name',
         'slug',
+        'is_active',
+    ];
+
+    protected $hidden = [
         'icon',
         'color',
-        'is_active',
     ];
 
     protected function casts(): array

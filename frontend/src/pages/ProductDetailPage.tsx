@@ -34,8 +34,8 @@ interface ApiProduct {
   review_count: number
   discount: number
   image?: string | null
-  category?: { id: number name: string } | null
-  images?: { path: string url?: string is_primary?: boolean }[]
+  category?: { id: number; name: string } | null
+  images?: { path: string; url?: string; is_primary?: boolean }[]
 }
 
 interface ApiReview {
@@ -120,7 +120,7 @@ const formatReviewDate = (value?: string) => {
  * sebelumnya tidak bocor ke produk berikutnya.
  */
 function useApi<T>(path: string | null) {
-  const [state, setState] = useState<{ path: string | null data: T | null }>({
+  const [state, setState] = useState<{ path: string | null; data: T | null }>({
     path: null,
     data: null,
   })
@@ -154,7 +154,7 @@ function useApi<T>(path: string | null) {
    KOMPONEN KECIL
 ========================================================= */
 
-function Stars({ value, className }: { value: number className: string }) {
+function Stars({ value, className }: { value: number; className: string }) {
   return (
     <>
       {[1, 2, 3, 4, 5].map((i) => (
@@ -195,7 +195,8 @@ export default function ProductDetailPage({
   const { id } = useParams()
   const productId = Number(id)
   const validId = Number.isInteger(productId) && productId > 0
-
+  
+  const [failedImage, setFailedImage] = useState<string | null>(null);
   const [qty, setQty] = useState(1)
   const [selectedImg, setSelectedImg] = useState(0)
   const [activeTab, setActiveTab] =
@@ -277,6 +278,7 @@ export default function ProductDetailPage({
     stock,
   } = card
   const images = collectImages(product)
+  const selectedImage = images[selectedImg] ?? images[0] ?? null
   const related = (relatedRes?.data ?? [])
     .filter((item) => item.id !== product.id)
     .map(toCardProduct)
@@ -353,20 +355,28 @@ export default function ProductDetailPage({
 
       {/* produk */}
       <div className="mb-10 grid grid-cols-1 items-start gap-8 lg:grid-cols-2 lg:gap-12">
+        
         {/* Galeri Produk */}
         <div className="space-y-3">
           <div className="flex aspect-square items-center justify-center overflow-hidden rounded-2xl bg-gray-50">
-            {images.length > 0 ? (
+            {selectedImage && failedImage !== selectedImage ? (
               <img
-                src={images[selectedImg] ?? images[0]}
+                key={selectedImage}
+                src={selectedImage}
                 alt={product.name}
+                onError={() => setFailedImage(selectedImage)}
                 className="h-full w-full object-cover"
               />
             ) : (
-              <FiShoppingBag className="text-5xl text-gray-300" />
+              <img
+                src="/images/logo/wicaksono_logo_1.webp"
+                alt="Foto Produk Tidak Tersedia"
+                className="h-90 object-contain opacity-40 p-12"
+              />
             )}
           </div>
 
+          {/* Thumbnail */}
           {images.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-1">
               {images.map((img, index) => (
@@ -392,6 +402,7 @@ export default function ProductDetailPage({
             </div>
           )}
         </div>
+
 
         {/* Informasi Produk */}
         <div className="flex flex-col">

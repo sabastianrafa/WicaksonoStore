@@ -1803,14 +1803,6 @@
                                         "type": "string",
                                         "example": "Makanan Khas Malang"
                                     },
-                                    "icon": {
-                                        "type": "string",
-                                        "example": "🍪"
-                                    },
-                                    "color": {
-                                        "type": "string",
-                                        "example": "#E24E32"
-                                    },
                                     "is_active": {
                                         "type": "boolean",
                                         "example": true
@@ -1895,14 +1887,6 @@
                                     "name": {
                                         "type": "string",
                                         "example": "Makanan Khas Malang"
-                                    },
-                                    "icon": {
-                                        "type": "string",
-                                        "example": "🍪"
-                                    },
-                                    "color": {
-                                        "type": "string",
-                                        "example": "#E24E32"
                                     },
                                     "is_active": {
                                         "type": "boolean",

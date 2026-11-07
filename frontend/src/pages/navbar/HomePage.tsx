@@ -144,9 +144,8 @@ function Stars({ rating }: { rating: number }) {
       {[1, 2, 3, 4, 5].map((star) => (
         <span
           key={star}
-          className={`flex text-base ${
-            star <= Math.round(rating) ? "text-amber-600" : "text-gray-300"
-          }`}
+          className={`flex text-base ${star <= Math.round(rating) ? "text-amber-600" : "text-gray-300"
+            }`}
         >
           <FaStar />
         </span>
@@ -317,9 +316,9 @@ export default function HomePage({ navigate, onAddToCart }: HomePageProps) {
           HERO
       ====================================================== */}
 
-      
-      <section className="relative isolate flex min-h-[100svh] items-center overflow-hidden bg-gray-900 px-5 py-20 sm:px-8 md:py-24">
-       
+
+      <section className="relative isolate flex min-h-[100svh] items-center overflow-hidden bg-gray-500 px-5 py-20 sm:px-8 md:py-24">
+
         {/* Background Desktop */}
         <img
           src="/images/bg-toko-1.webp"
@@ -691,11 +690,10 @@ export default function HomePage({ navigate, onAddToCart }: HomePageProps) {
               {testimonials.map((testimonial, index) => (
                 <div
                   key={testimonial.id}
-                  className={`card-hover rounded-lg border border-border bg-white p-6 transition-all duration-300 ${
-                    activeTestimonial === index
+                  className={`card-hover rounded-lg border border-border bg-white p-6 transition-all duration-300 ${activeTestimonial === index
                       ? "shadow-[0_12px_24px_rgba(0,0,0,0.06)]"
                       : "shadow-[0_2px_4px_rgba(0,0,0,0.02)]"
-                  }`}
+                    }`}
                   onMouseEnter={() => setActiveTestimonial(index)}
                 >
                   <div className="mb-4 flex items-start justify-between">

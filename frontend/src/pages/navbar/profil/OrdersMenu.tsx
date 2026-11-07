@@ -5,17 +5,89 @@ import { apiFetch, storageUrl } from "../../../api/client"
 import { formatPrice } from "../../../data"
 import type { Page } from "../../../App"
 
-import {
-  cardClass,
-  EmptyState,
-  ErrorNotice,
-  getErrorMessage,
-  isUnauthorized,
-  LoadingState,
-  outlineButton,
-  SectionHeader,
-  SuccessNotice,
-} from "./shared"
+import type { ReactNode } from "react"
+
+const cardClass = "rounded-xl border border-gray-200 bg-white p-4 sm:p-5"
+const outlineButton =
+  "inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-600 transition hover:border-[#DF3E1D] hover:text-[#DF3E1D] disabled:cursor-not-allowed disabled:opacity-50"
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error
+    ? error.message
+    : "Terjadi kesalahan. Silakan coba kembali."
+}
+
+function isUnauthorized(error: unknown): boolean {
+  return /\b401\b|unauthenticated|unauthorized/i.test(getErrorMessage(error))
+}
+
+function SectionHeader({
+  title,
+  description,
+  action,
+}: {
+  title: string
+  description: string
+  action?: ReactNode
+}) {
+  return (
+    <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+        <p className="mt-1 text-sm text-gray-500">{description}</p>
+      </div>
+      {action}
+    </div>
+  )
+}
+
+function LoadingState({ label = "Memuat data…" }: { label?: string }) {
+  return (
+    <div className="flex items-center gap-3 py-8 text-sm text-gray-500">
+      <span className="h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-[#DF3E1D]" />
+      {label}
+    </div>
+  )
+}
+
+function EmptyState({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-lg border border-dashed border-gray-200 px-4 py-10 text-center text-sm text-gray-500">
+      {children}
+    </div>
+  )
+}
+
+function ErrorNotice({
+  message,
+  retry,
+}: {
+  message: string
+  retry?: () => void
+}) {
+  if (!message) return null
+  return (
+    <div role="alert" className="mb-4 rounded-lg border border-red-100 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+      {message}
+      {retry && (
+        <button type="button" className="ml-2 font-semibold underline" onClick={retry}>
+          Muat ulang
+        </button>
+      )}
+    </div>
+  )
+}
+
+function SuccessNotice({ message }: { message: string }) {
+  if (!message) return null
+  return (
+    <div role="status" className="mb-4 rounded-lg border border-green-100 bg-green-50 px-3 py-2.5 text-sm text-green-700">
+      {message}
+    </div>
+  )
+}
+
+
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -143,7 +215,7 @@ function OrderCard({
   const canPay = order.payment?.status === "pending" && status !== "cancelled"
 
   return (
-    <article className="rounded-xl border border-gray-100 p-4 sm:p-5">
+    <article className="rounded-lg border border-gray-200 p-3 sm:p-4">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 pb-3">
         <div>
           <p className="text-sm font-bold text-gray-900">
@@ -155,7 +227,7 @@ function OrderCard({
           </p>
         </div>
 
-        <span className="rounded-full bg-[#FFF7F5] px-3 py-1 text-xs font-bold capitalize text-[#DF3E1D]">
+        <span className="rounded-full bg-[#FFF7F5] px-2.5 py-1 text-xs font-semibold capitalize text-[#DF3E1D]">
           {status}
         </span>
       </div>
@@ -284,7 +356,7 @@ export default function OrdersMenu({ navigate }: OrdersMenuProps) {
       ) : orders.length === 0 ? (
         <EmptyState>Belum ada pesanan.</EmptyState>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {orders.map((order) => (
             <OrderCard
               key={order.id}

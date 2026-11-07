@@ -18,8 +18,6 @@ class CategoryTest extends TestCase
         $category = Category::create([
             'name' => 'Kategori Test',
             'slug' => 'kategori-test',
-            'icon' => '🍟',
-            'color' => '#FF0000',
             'is_active' => true,
         ]);
 
@@ -50,8 +48,6 @@ class CategoryTest extends TestCase
         // 1. Create
         $createResponse = $this->actingAs($admin)->postJson('/api/admin/categories', [
             'name' => 'Kategori Baru Admin',
-            'icon' => '📦',
-            'color' => '#333333',
             'is_active' => true,
         ]);
 
@@ -61,7 +57,9 @@ class CategoryTest extends TestCase
                 'data' => [
                     'name' => 'Kategori Baru Admin',
                 ],
-            ]);
+            ])
+            ->assertJsonMissingPath('data.icon')
+            ->assertJsonMissingPath('data.color');
 
         $categoryId = $createResponse->json('data.id');
 

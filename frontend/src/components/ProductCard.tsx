@@ -53,7 +53,7 @@ export default function ProductCard({ product, navigate }: ProductCardProps) {
       <span className="relative block aspect-[4/3] w-full overflow-hidden bg-gray-50">
         <img
           src="/images/logo/wicaksono_logo_1.webp"
-          alt=""
+          alt="Foto Produk Tidak Tersedia"
           aria-hidden="true"
           className="absolute inset-0 m-auto h-2/5 w-2/5 object-contain opacity-40"
         />

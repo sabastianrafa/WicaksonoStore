@@ -116,11 +116,11 @@ export interface ShippingPromotion {
   is_active: boolean
   minimum_purchase: number
   area_codes: string[]
-  areas: { code: string name: string level: "province" | "regency" }[]
+  areas: { code: string; name: string; level: 'province' | 'regency' }[]
 }
 
 /** Tipe metode pembayaran: bank (rekening) atau qris (gambar QR). */
-export type PaymentMethodType = "bank" | "qris"
+export type PaymentMethodType = 'bank' | 'qris'
 
 export interface PaymentMethod {
   id: number

@@ -823,8 +823,6 @@ class ApiDocumentation
                 required: ['name'],
                 properties: [
                     new OA\Property(property: 'name', type: 'string', example: 'Makanan Khas Malang'),
-                    new OA\Property(property: 'icon', type: 'string', example: '🍪'),
-                    new OA\Property(property: 'color', type: 'string', example: '#E24E32'),
                     new OA\Property(property: 'is_active', type: 'boolean', example: true)
                 ]
             )
@@ -866,8 +864,6 @@ class ApiDocumentation
                 required: [],
                 properties: [
                     new OA\Property(property: 'name', type: 'string', example: 'Makanan Khas Malang'),
-                    new OA\Property(property: 'icon', type: 'string', example: '🍪'),
-                    new OA\Property(property: 'color', type: 'string', example: '#E24E32'),
                     new OA\Property(property: 'is_active', type: 'boolean', example: true)
                 ]
             )

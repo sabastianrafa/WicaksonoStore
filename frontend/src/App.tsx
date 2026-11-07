@@ -42,8 +42,8 @@ interface CartItem {
     stock: number
     weight: number
     image?: string | null
-    category?: { id: number name: string }
-    images?: { id: number path: string url?: string is_primary?: boolean }[]
+    category?: { id: number; name: string }
+    images?: { id: number; path: string; url?: string; is_primary?: boolean }[]
   }
 }
 
@@ -76,7 +76,7 @@ function getPageFromPath(pathname: string): Page {
   if (path.startsWith("/produk/")) return "product-detail"
   if (path.startsWith("/pembayaran/")) return "payment"
 
-  const keys = Object.keys(PATHS) as keyof typeof PATHS[]
+  const keys = Object.keys(PATHS) as (keyof typeof PATHS)[]
   return keys.find((key) => PATHS[key] === path) ?? "home"
 }
 
@@ -160,12 +160,11 @@ function GuestRoute() {
    TOAST
 ========================================================= */
 
-function Toast({ message, visible }: { message: string visible: boolean }) {
+function Toast({ message, visible }: { message: string; visible: boolean }) {
   return (
     <div
-      className={`pointer-events-none fixed bottom-4 left-4 right-4 z-[9999] mx-auto flex max-w-[320px] items-center gap-2.5 rounded-xl bg-gray-800 px-4 py-3 text-white shadow-[0_8px_32px_rgba(0,0,0,0.15)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] sm:bottom-6 sm:left-auto sm:right-6 sm:mx-0 sm:px-5 sm:py-3.5 ${
-        visible ? "translate-y-0 opacity-100" : "translate-y-20 opacity-0"
-      }`}
+      className={`pointer-events-none fixed bottom-4 left-4 right-4 z-[9999] mx-auto flex max-w-[320px] items-center gap-2.5 rounded-xl bg-gray-800 px-4 py-3 text-white shadow-[0_8px_32px_rgba(0,0,0,0.15)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] sm:bottom-6 sm:left-auto sm:right-6 sm:mx-0 sm:px-5 sm:py-3.5 ${visible ? "translate-y-0 opacity-100" : "translate-y-20 opacity-0"
+        }`}
     >
       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-green-600 text-sm font-bold">
         ✓
