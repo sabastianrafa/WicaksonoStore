@@ -92,15 +92,10 @@ function isCartAddProduct(value: unknown): value is CartAddProduct {
 }
 
 /* =========================================================
-   ROUTE GUARDS (layout route: cukup satu kali dipasang)
+   ROUTE GUARDS (layout route: disempurnakan dengan AbortController)
 ========================================================= */
-
 const hasToken = () => !!localStorage.getItem("token")
 
-/**
- * Token diverifikasi ke server (/auth/me), jadi token palsu atau
- * kedaluwarsa ditolak. Dengan adminOnly, role juga dicek.
- */
 function ProtectedRoute({ adminOnly = false }: { adminOnly?: boolean }) {
   const location = useLocation()
   const [status, setStatus] =
@@ -111,18 +106,18 @@ function ProtectedRoute({ adminOnly = false }: { adminOnly?: boolean }) {
   useEffect(() => {
     if (!hasToken()) return setStatus("unauthenticated")
 
-    let cancelled = false
+    // Menggunakan AbortController bawaan browser untuk membatalkan fetch jika komponen unmount
+    const controller = new AbortController()
 
     apiFetch<{ data: { user: { role: string } } }>("/auth/me")
       .then(({ data }) => {
-        if (cancelled) return
-
         localStorage.setItem("user", JSON.stringify(data.user))
         const isAdmin = data.user.role?.toLowerCase() === "admin"
         setStatus(adminOnly && !isAdmin ? "forbidden" : "allowed")
       })
-      .catch(() => {
-        if (cancelled) return
+      .catch((err) => {
+        // Jangan ubah state jika error disebabkan karena pembatalan request (unmount)
+        if (err.name === 'AbortError') return
 
         localStorage.removeItem("token")
         localStorage.removeItem("user")
@@ -130,9 +125,9 @@ function ProtectedRoute({ adminOnly = false }: { adminOnly?: boolean }) {
       })
 
     return () => {
-      cancelled = true
+      controller.abort() // Membatalkan request saat berpindah rute
     }
-  }, [adminOnly])
+  }, [adminOnly, location.pathname]) // Tambahkan location.pathname agar memvalidasi ulang saat rute berganti
 
   if (status === "checking") {
     return (
@@ -151,7 +146,6 @@ function ProtectedRoute({ adminOnly = false }: { adminOnly?: boolean }) {
   )
 }
 
-/** Login/register: user yang sudah login diarahkan ke beranda. */
 function GuestRoute() {
   return hasToken() ? <Navigate to="/" replace /> : <Outlet />
 }
@@ -175,9 +169,8 @@ function Toast({ message, visible }: { message: string; visible: boolean }) {
 }
 
 /* =========================================================
-   APP CONTENT
+   APP CONTENT (Dioptimalkan)
 ========================================================= */
-
 function AppContent() {
   const routerNavigate = useNavigate()
   const location = useLocation()
@@ -189,7 +182,20 @@ function AppContent() {
   const showNav = !NO_NAV_PAGES.includes(currentPage)
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
 
-  // Timer otomatis di-reset kalau toast baru muncul, dan dibersihkan saat unmount.
+  // FIX 1: Ambil data keranjang dari API saat pertama kali aplikasi dimuat (jika user sudah login)
+  useEffect(() => {
+    async function loadInitialCart() {
+      if (!hasToken()) return
+      try {
+        const response = await apiFetch<{ data?: { items?: CartItem[] } }>("/cart")
+        setCart(response.data?.items ?? [])
+      } catch (error) {
+        console.error("Gagal memuat keranjang awal:", error)
+      }
+    }
+    loadInitialCart()
+  }, [location.pathname]) // Mengambil ulang data jika terjadi navigasi pasca login/logout
+
   useEffect(() => {
     if (!toast.visible) return
 
@@ -244,10 +250,7 @@ function AppContent() {
         }),
       })
 
-      // Ambil ulang dari server agar state mengikuti bentuk data API.
-      const response = await apiFetch<{ data?: { items?: CartItem[] } }>(
-        "/cart",
-      )
+      const response = await apiFetch<{ data?: { items?: CartItem[] } }>("/cart")
       setCart(response.data?.items ?? [])
 
       const name =
@@ -259,9 +262,7 @@ function AppContent() {
     } catch (error) {
       console.error("Gagal menambahkan ke keranjang:", error)
       showToast(
-        error instanceof Error
-          ? error.message
-          : "Gagal menambahkan ke keranjang.",
+        error instanceof Error ? error.message : "Gagal menambahkan ke keranjang.",
       )
       return false
     }
@@ -277,69 +278,26 @@ function AppContent() {
         />
       )}
 
-      <main
-        key={location.pathname}
-        className={currentPage === "admin" ? undefined : "fade-in"}
-      >
+      <main key={location.pathname} className={currentPage === "admin" ? undefined : "fade-in"}>
         <Routes>
-          {/* Publik */}
-          <Route
-            path="/"
-            element={<HomePage navigate={navigate} onAddToCart={addToCart} />}
-          />
-          <Route
-            path="/produk"
-            element={
-              <CatalogPage navigate={navigate} onAddToCart={addToCart} />
-            }
-          />
-          <Route
-            path="/produk/:id"
-            element={
-              <ProductDetailPage navigate={navigate} onAddToCart={addToCart} />
-            }
-          />
+          <Route path="/" element={<HomePage navigate={navigate} onAddToCart={addToCart} />} />
+          <Route path="/produk" element={<CatalogPage navigate={navigate} onAddToCart={addToCart} />} />
+          <Route path="/produk/:id" element={<ProductDetailPage navigate={navigate} onAddToCart={addToCart} />} />
           <Route path="/tentang" element={<AboutPage navigate={navigate} />} />
           <Route path="/kontak" element={<ContactPage navigate={navigate} />} />
 
-          {/* Hanya tamu (belum login) */}
           <Route element={<GuestRoute />}>
             <Route path="/login" element={<LoginPage navigate={navigate} />} />
-            <Route
-              path="/register"
-              element={<RegisterPage navigate={navigate} />}
-            />
+            <Route path="/register" element={<RegisterPage navigate={navigate} />} />
           </Route>
 
-          {/* Wajib login */}
           <Route element={<ProtectedRoute />}>
-            <Route
-              path="/keranjang"
-              element={
-                <CartPage cart={cart} setCart={setCart} navigate={navigate} />
-              }
-            />
-            <Route
-              path="/checkout"
-              element={
-                <CheckoutPage
-                  cart={cart}
-                  navigate={navigate}
-                  onOrderPlaced={() => setCart([])}
-                />
-              }
-            />
-            <Route
-              path="/pembayaran/:orderId"
-              element={<PaymentPage navigate={navigate} />}
-            />
-            <Route
-              path="/dashboard"
-              element={<DashboardPage navigate={navigate} />}
-            />
+            <Route path="/keranjang" element={<CartPage cart={cart} setCart={setCart} navigate={navigate} />} />
+            <Route path="/checkout" element={<CheckoutPage cart={cart} navigate={navigate} onOrderPlaced={() => setCart([])} />} />
+            <Route path="/pembayaran/:orderId" element={<PaymentPage navigate={navigate} />} />
+            <Route path="/dashboard" element={<DashboardPage navigate={navigate} />} />
           </Route>
 
-          {/* Wajib login + role admin */}
           <Route element={<ProtectedRoute adminOnly />}>
             <Route path="/admin" element={<AdminPage navigate={navigate} />} />
           </Route>
