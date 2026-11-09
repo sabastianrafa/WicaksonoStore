@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import { apiFetch, storageUrl } from "../../api/client";
-import ProductCard from "../../components/ProductCard";
-import type { Page } from "../../App";
+import { useEffect, useRef, useState } from "react"
+import { apiFetch, storageUrl } from "../../api/client"
+import ProductCard from "../../components/ProductCard"
+import type { Page } from "../../App"
 
 import {
   FiTruck,
@@ -10,14 +10,14 @@ import {
   FiPackage,
   FiCreditCard,
   FiArrowRight,
-} from "react-icons/fi";
+} from "react-icons/fi"
 
-import { FaStar } from "react-icons/fa";
-import { FcGoogle } from "react-icons/fc";
+import { FaChevronLeft, FaChevronRight, FaStar } from "react-icons/fa"
+import { FcGoogle } from "react-icons/fc"
 
 interface HomePageProps {
-  navigate: (page: Page, data?: unknown) => void;
-  onAddToCart: (product: Product) => void;
+  navigate: (page: Page, data?: unknown) => void
+  onAddToCart: (product: Product) => void
 }
 
 /* =========================================================
@@ -25,68 +25,68 @@ interface HomePageProps {
 ========================================================= */
 
 interface ApiProductImage {
-  id: number;
-  product_id: number;
-  path: string;
-  alt_text?: string;
-  is_primary?: boolean;
-  sort_order?: number;
-  url?: string;
+  id: number
+  product_id: number
+  path: string
+  alt_text?: string
+  is_primary?: boolean
+  sort_order?: number
+  url?: string
 }
 
 interface ApiProduct {
-  id: number;
-  category_id: number;
-  name: string;
-  slug: string;
-  description: string;
-  price: string | number;
-  original_price?: string | number | null;
-  stock: number;
-  weight: number;
-  sold: number;
-  rating: string | number;
-  review_count: number;
-  discount: number;
-  image?: string | null;
+  id: number
+  category_id: number
+  name: string
+  slug: string
+  description: string
+  price: string | number
+  original_price?: string | number | null
+  stock: number
+  weight: number
+  sold: number
+  rating: string | number
+  review_count: number
+  discount: number
+  image?: string | null
 
   category?: {
-    id: number;
-    name: string;
-  };
+    id: number
+    name: string
+  }
 
-  images?: ApiProductImage[];
+  images?: ApiProductImage[]
 }
 
 interface Product {
-  id: number;
-  name: string;
-  category: string;
-  price: number;
-  originalPrice: number;
-  rating: number;
-  reviews: number;
-  sold: number;
-  stock: number;
-  weight: number;
-  discount: number;
-  image: string;
-  description: string;
-  tags: string[];
+  id: number
+  name: string
+  category: string
+  price: number
+  originalPrice: number
+  rating: number
+  reviews: number
+  sold: number
+  stock: number
+  weight: number
+  discount: number
+  image: string
+  description: string
+  tags: string[]
 }
 
 interface ProductResponse {
-  success: boolean;
-  message: string;
-  data: ApiProduct[];
+  success: boolean
+  message: string
+  data: ApiProduct[]
   meta: {
-    current_page: number;
-    last_page: number;
-    per_page: number;
-    total: number;
-    from: number | null;
-    to: number | null;
-  };
+    current_page: number
+    last_page: number
+    per_page: number
+    total: number
+    from: number | null
+    to: number | null
+  }
 }
 
 /* =========================================================
@@ -94,15 +94,15 @@ interface ProductResponse {
 ========================================================= */
 
 interface ApiCategory {
-  id: number;
-  name: string;
-  products_count?: number;
+  id: number
+  name: string
+  products_count?: number
 }
 
 interface CategoryResponse {
-  success: boolean;
-  message: string;
-  data: ApiCategory[];
+  success: boolean
+  message: string
+  data: ApiCategory[]
 }
 
 /* =========================================================
@@ -110,28 +110,28 @@ interface CategoryResponse {
 ========================================================= */
 
 interface ApiReview {
-  id: number;
-  rating: number;
-  comment: string;
+  id: number
+  rating: number
+  comment: string
 
   // User tidak menyimpan kolom avatar; nama dipakai untuk inisial.
   user?: {
-    id?: number;
-    name?: string;
-  };
+    id?: number
+    name?: string
+  }
 
   product?: {
-    id?: number;
-    name?: string;
-  };
+    id?: number
+    name?: string
+  }
 
-  created_at?: string;
+  created_at?: string
 }
 
 interface ReviewResponse {
-  success: boolean;
-  message: string;
-  data: ApiReview[];
+  success: boolean
+  message: string
+  data: ApiReview[]
 }
 
 /* =========================================================
@@ -140,31 +140,18 @@ interface ReviewResponse {
 
 function Stars({ rating }: { rating: number }) {
   return (
-    <span
-      style={{
-        display: "flex",
-        gap: 4,
-        alignItems: "center",
-      }}
-    >
+    <span className="flex items-center gap-1">
       {[1, 2, 3, 4, 5].map((star) => (
         <span
           key={star}
-          className={
-            star <= Math.round(rating)
-              ? "star-filled"
-              : "star-empty"
-          }
-          style={{
-            fontSize: 16,
-            display: "flex",
-          }}
+          className={`flex text-base ${star <= Math.round(rating) ? "text-amber-600" : "text-gray-300"
+            }`}
         >
           <FaStar />
         </span>
       ))}
     </span>
-  );
+  )
 }
 
 /* =========================================================
@@ -176,16 +163,14 @@ function normalizeProduct(product: ApiProduct): Product {
     product.images?.find((img) => img.is_primary)?.url ??
     product.images?.[0]?.url ??
     product.image ??
-    "";
+    ""
 
   return {
     id: product.id,
     name: product.name,
     category: product.category?.name ?? "",
     price: Number(product.price),
-    originalPrice: Number(
-      product.original_price ?? product.price
-    ),
+    originalPrice: Number(product.original_price ?? product.price),
     rating: Number(product.rating ?? 0),
     reviews: Number(product.review_count ?? 0),
     sold: Number(product.sold ?? 0),
@@ -194,8 +179,7 @@ function normalizeProduct(product: ApiProduct): Product {
     discount: Number(product.discount ?? 0),
 
     image:
-      image.startsWith("http://") ||
-      image.startsWith("https://")
+      image.startsWith("http://") || image.startsWith("https://")
         ? image
         : image
           ? storageUrl(image)
@@ -203,44 +187,52 @@ function normalizeProduct(product: ApiProduct): Product {
 
     description: product.description ?? "",
     tags: [],
-  };
+  }
 }
 
 /* =========================================================
    COMPONENT
 ========================================================= */
 
-export default function HomePage({
-  navigate,
-  onAddToCart,
-}: HomePageProps) {
-  const [activeTestimonial, setActiveTestimonial] =
-    useState(0);
+export default function HomePage({ navigate, onAddToCart }: HomePageProps) {
+  const [activeTestimonial, setActiveTestimonial] = useState(0)
+  const categoryCarouselRef = useRef<HTMLDivElement>(null)
+  const promoCarouselRef = useRef<HTMLDivElement>(null)
 
-  const [promoProducts, setPromoProducts] = useState<Product[]>(
-    []
-  );
+  const [promoProducts, setPromoProducts] = useState<Product[]>([])
 
-  const [recommendedProducts, setRecommendedProducts] =
-    useState<Product[]>([]);
+  const [recommendedProducts, setRecommendedProducts] = useState<Product[]>([])
 
-  const [categories, setCategories] = useState<ApiCategory[]>(
-    []
-  );
+  const [categories, setCategories] = useState<ApiCategory[]>([])
 
-  const [testimonials, setTestimonials] = useState<ApiReview[]>(
-    []
-  );
+  const [testimonials, setTestimonials] = useState<ApiReview[]>([])
 
-  const [loadingPromo, setLoadingPromo] = useState(true);
-  const [loadingRecommended, setLoadingRecommended] =
-    useState(true);
+  const [loadingPromo, setLoadingPromo] = useState(true)
+  const [loadingRecommended, setLoadingRecommended] = useState(true)
 
-  const [loadingCategories, setLoadingCategories] =
-    useState(true);
+  const [loadingCategories, setLoadingCategories] = useState(true)
 
-  const [loadingTestimonials, setLoadingTestimonials] =
-    useState(true);
+  const [loadingTestimonials, setLoadingTestimonials] = useState(true)
+
+  const scrollCategories = (direction: -1 | 1) => {
+    const carousel = categoryCarouselRef.current
+    if (!carousel) return
+
+    carousel.scrollBy({
+      left: direction * carousel.clientWidth * 0.8,
+      behavior: "smooth",
+    })
+  }
+
+  const scrollPromo = (direction: -1 | 1) => {
+    const carousel = promoCarouselRef.current
+    if (!carousel) return
+
+    carousel.scrollBy({
+      left: direction * carousel.clientWidth * 0.8,
+      behavior: "smooth",
+    })
+  }
 
   /* =========================================================
      FETCH HOMEPAGE DATA
@@ -249,10 +241,10 @@ export default function HomePage({
   useEffect(() => {
     const fetchHomepageData = async () => {
       try {
-        setLoadingPromo(true);
-        setLoadingRecommended(true);
-        setLoadingCategories(true);
-        setLoadingTestimonials(true);
+        setLoadingPromo(true)
+        setLoadingRecommended(true)
+        setLoadingCategories(true)
+        setLoadingTestimonials(true)
 
         /*
         | allSettled (bukan all): satu endpoint gagal tidak boleh
@@ -260,343 +252,159 @@ export default function HomePage({
         | /api/reviews sempat 404 sehingga produk, kategori, dan
         | testimonial ikut hilang bersamaan.
         */
-        const [
-          promoResult,
-          recommendedResult,
-          categoryResult,
-          reviewResult,
-        ] = await Promise.allSettled([
-          apiFetch<ProductResponse>(
-            "/products?discounted=1&per_page=5"
-          ),
+        const [promoResult, recommendedResult, categoryResult, reviewResult] =
+          await Promise.allSettled([
+            apiFetch<ProductResponse>("/products?discounted=1&per_page=5"),
 
-          apiFetch<ProductResponse>(
-            "/products?sort=terlaris&per_page=8"
-          ),
+            apiFetch<ProductResponse>("/products?sort=terlaris&per_page=8"),
 
-          apiFetch<CategoryResponse>(
-            "/categories"
-          ),
+            apiFetch<CategoryResponse>("/categories"),
 
-          apiFetch<ReviewResponse>(
-            "/reviews?per_page=3"
-          ),
-        ]);
+            apiFetch<ReviewResponse>("/reviews?per_page=3"),
+          ])
 
         const logFailure = (
           label: string,
-          result: PromiseSettledResult<unknown>
+          result: PromiseSettledResult<unknown>,
         ) => {
           if (result.status === "rejected") {
-            console.error(
-              `Gagal memuat ${label}:`,
-              result.reason
-            );
+            console.error(`Gagal memuat ${label}:`, result.reason)
           }
-        };
-
-        logFailure("produk promo", promoResult);
-
-        if (
-          promoResult.status === "fulfilled"
-        ) {
-          setPromoProducts(
-            promoResult.value.data.map(
-              normalizeProduct
-            )
-          );
         }
 
-        logFailure(
-          "produk rekomendasi",
-          recommendedResult
-        );
+        logFailure("produk promo", promoResult)
 
-        if (
-          recommendedResult.status ===
-          "fulfilled"
-        ) {
+        if (promoResult.status === "fulfilled") {
+          setPromoProducts(promoResult.value.data.map(normalizeProduct))
+        }
+
+        logFailure("produk rekomendasi", recommendedResult)
+
+        if (recommendedResult.status === "fulfilled") {
           setRecommendedProducts(
-            recommendedResult.value.data.map(
-              normalizeProduct
-            )
-          );
+            recommendedResult.value.data.map(normalizeProduct),
+          )
         }
 
-        logFailure("kategori", categoryResult);
+        logFailure("kategori", categoryResult)
 
-        if (
-          categoryResult.status === "fulfilled"
-        ) {
-          setCategories(categoryResult.value.data);
+        if (categoryResult.status === "fulfilled") {
+          setCategories(categoryResult.value.data)
         }
 
-        logFailure("ulasan", reviewResult);
+        logFailure("ulasan", reviewResult)
 
-        if (
-          reviewResult.status === "fulfilled"
-        ) {
-          setTestimonials(reviewResult.value.data);
+        if (reviewResult.status === "fulfilled") {
+          setTestimonials(reviewResult.value.data)
         }
       } catch (error) {
-        console.error(
-          "Gagal mengambil data homepage:",
-          error
-        );
+        console.error("Gagal mengambil data homepage:", error)
       } finally {
-        setLoadingPromo(false);
-        setLoadingRecommended(false);
-        setLoadingCategories(false);
-        setLoadingTestimonials(false);
+        setLoadingPromo(false)
+        setLoadingRecommended(false)
+        setLoadingCategories(false)
+        setLoadingTestimonials(false)
       }
-    };
+    }
 
-    fetchHomepageData();
-  }, []);
+    fetchHomepageData()
+  }, [])
 
   return (
     <div>
-      <style>{`
-        .hide-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-
-        .hide-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-
-        .hero-section {
-          background-image:
-            linear-gradient(
-              135deg,
-              rgba(17, 24, 39, 0.72),
-              rgba(17, 24, 39, 0.38)
-            ),
-            url("/images/gambar.jpg");
-          background-position: center 55%;
-          background-size: cover;
-          min-height: 480px;
-          padding: 88px 24px;
-          position: relative;
-          overflow: hidden;
-        }
-
-        .hero-container {
-          max-width: 1280px;
-          margin: 0 auto;
-          position: relative;
-          z-index: 1;
-        }
-
-        .hero-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          align-items: center;
-          text-align: center;
-        }
-
-        .hero-text-wrapper {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          max-width: 760px;
-          margin: 0 auto;
-        }
-
-        .hero-actions {
-          justify-content: center;
-        }
-
-        @media (max-width: 992px) {
-          .hero-grid {
-            grid-template-columns: 1fr;
-            text-align: center;
-          }
-
-          .hero-section {
-            min-height: 420px;
-            padding: 72px 20px 56px;
-          }
-        }
-
-        @media (max-width: 576px) {
-          .hero-actions {
-            flex-direction: column;
-            width: 100%;
-          }
-
-          .hero-actions button {
-            width: 100%;
-            justify-content: center;
-          }
-        }
-      `}</style>
-
       {/* =====================================================
           HERO
       ====================================================== */}
 
-      <section className="hero-section">
-        <div className="hero-container">
-          <div className="hero-grid">
-            {/* LEFT */}
-            <div className="hero-text-wrapper fade-in">
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  background: "rgba(255,255,255,0.14)",
-                  borderRadius: 100,
-                  padding: "8px 16px",
-                  marginBottom: 24,
-                  border:
-                    "1px solid rgba(255,255,255,0.3)",
-                }}
+
+      <section className="relative isolate flex min-h-[100svh] items-center overflow-hidden bg-gray-500 px-5 py-20 sm:px-8 md:py-24">
+
+        {/* Background Desktop */}
+        <img
+          src="/images/bg-toko-1.webp"
+          alt=""
+          aria-hidden="true"
+          fetchPriority="high"
+          decoding="async"
+          className="absolute inset-0 -z-20 hidden h-full w-full object-cover object-[center_55%] md:block"
+        />
+        {/* Background Mobile */}
+        <img
+          src="/images/bg-toko-2.webp"
+          alt=""
+          aria-hidden="true"
+          fetchPriority="high"
+          decoding="async"
+          className="absolute inset-0 -z-20 block h-full w-full object-cover object-[center_55%] md:hidden"
+        />
+
+        {/* Gradient Overlay */}
+        <div
+          className="absolute inset-0 -z-10 bg-gradient-to-r from-gray-950/80 via-gray-900/55 to-gray-900/30"
+          aria-hidden="true"
+        />
+
+        {/* Content */}
+        <div className="relative z-10 mx-auto w-full max-w-[1280px]">
+          <div className="fade-in max-w-[680px]">
+
+            <p className="mb-5 flex items-center gap-3 text-xs font-semibold tracking-[0.16em] text-white/85 uppercase sm:text-sm">
+              <span
+                className="h-px w-8 bg-[#FFD166]"
+                aria-hidden="true"
+              />
+              Terpercaya sejak 2005
+            </p>
+
+            <h1 className="mb-5 mt-0 text-[clamp(2.5rem,6vw,4.5rem)] font-bold leading-[1.08] tracking-[-0.04em] text-white">
+              Pusat Oleh-Oleh
+              <br />
+              <span className="text-[#FFD98A]">
+                Khas Malang
+              </span>
+            </h1>
+
+            <p className="mb-8 mt-0 max-w-[520px] text-base leading-7 text-white/80 sm:text-lg">
+              Temukan berbagai pilihan oleh-oleh khas Malang dengan beragam
+              produk pilihan dari Wicaksono Malang.
+            </p>
+
+            <div className="flex flex-wrap gap-3 max-[639px]:flex-col">
+
+              <button
+                type="button"
+                className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-white bg-white px-6 py-3 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white max-[639px]:w-full"
+                onClick={() => navigate("catalog")}
               >
-                <span
-                  style={{
-                    display: "inline-block",
-                    width: 8,
-                    height: 8,
-                    borderRadius: "50%",
-                    background: "white",
-                  }}
-                />
+                <FiShoppingCart size={17} />
+                Belanja Sekarang
+              </button>
 
-                <span
-                  style={{
-                    fontSize: "0.85rem",
-                    fontWeight: 700,
-                    color:
-                      "white",
-                    letterSpacing: "0.5px",
-                  }}
-                >
-                  Terpercaya sejak 2005
-                </span>
-              </div>
-
-              <h1
-                style={{
-                  fontSize:
-                    "clamp(2.4rem, 5vw, 4.2rem)",
-                  fontWeight: 900,
-                  color: "white",
-                  lineHeight: 1.1,
-                  margin: "0 0 24px",
-                  letterSpacing: "-1.5px",
-                }}
+              <button
+                type="button"
+                className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-md border border-white/50 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition-colors hover:border-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white max-[639px]:w-full"
+                onClick={() =>
+                  document.getElementById("promo-section")?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  })
+                }
               >
-                Pusat Oleh-Oleh
-                <br />
+                Lihat Promo
+              </button>
 
-                <span
-                  style={{
-                    color:
-                      "#FFD166",
-                    display: "inline-block",
-                    padding: "0 4px",
-                  }}
-                >
-                  Khas Malang
-                </span>
-              </h1>
-
-              <p
-                style={{
-                  fontSize:
-                    "clamp(1rem, 1.5vw, 1.15rem)",
-                  color: "rgba(255,255,255,0.9)",
-                  lineHeight: 1.7,
-                  margin: "0 0 36px",
-                  maxWidth: 480,
-                }}
-              >
-                Temukan berbagai pilihan
-                oleh-oleh khas Malang dengan
-                beragam produk pilihan dari
-                Wicaksono Malang.
-              </p>
-
-              <div
-                className="hero-actions"
-                style={{
-                  display: "flex",
-                  gap: 16,
-                  flexWrap: "wrap",
-                  width: "100%",
-                }}
-              >
-                <button
-                  className="btn-primary"
-                  style={{
-                    padding: "14px 28px",
-                    fontSize: "1rem",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
-                  onClick={() =>
-                    navigate("catalog")
-                  }
-                >
-                  <FiShoppingCart size={18} />
-                  Belanja Sekarang
-                </button>
-
-                <button
-                  className="btn-outline"
-                  style={{
-                    padding: "14px 28px",
-                    fontSize: "1rem",
-                    color: "white",
-                    borderColor: "rgba(255,255,255,0.8)",
-                  }}
-                  onClick={() =>
-                    document
-                      .getElementById(
-                        "promo-section"
-                      )
-                      ?.scrollIntoView({
-                        behavior: "smooth",
-                      })
-                  }
-                >
-                  Lihat Promo
-                </button>
-              </div>
             </div>
-
           </div>
         </div>
       </section>
+
 
       {/* =====================================================
           TRUST BAR
       ====================================================== */}
 
-      <div
-        style={{
-          background: "white",
-          borderBottom:
-            "1px solid rgba(0,0,0,0.06)",
-          borderTop:
-            "1px solid rgba(0,0,0,0.06)",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 1280,
-            margin: "0 auto",
-            padding: "20px 24px",
-            display: "flex",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: 24,
-          }}
-        >
+      <div className="border-y border-gray-200/60 bg-white">
+        <div className="mx-auto flex max-w-[1280px] flex-wrap justify-between gap-6 px-6 py-5">
           {[
             {
               icon: <FiTruck />,
@@ -621,43 +429,14 @@ export default function HomePage({
           ].map(({ icon, title, sub }) => (
             <div
               key={title}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 16,
-                flex: "1 1 200px",
-              }}
+              className="flex flex-[1_1_200px] items-center gap-4"
             >
-              <span
-                style={{
-                  fontSize: 28,
-                  color:
-                    "var(--color-primary)",
-                  display: "flex",
-                }}
-              >
-                {icon}
-              </span>
+              <span className="flex text-[28px] text-primary">{icon}</span>
 
               <div>
-                <div
-                  style={{
-                    fontWeight: 700,
-                    fontSize: "0.9rem",
-                    color: "var(--color-text)",
-                  }}
-                >
-                  {title}
-                </div>
+                <div className="text-sm font-bold text-gray-900">{title}</div>
 
-                <div
-                  style={{
-                    fontSize: "0.75rem",
-                    color: "#6B7280",
-                  }}
-                >
-                  {sub}
-                </div>
+                <div className="text-xs text-gray-500">{sub}</div>
               </div>
             </div>
           ))}
@@ -668,138 +447,78 @@ export default function HomePage({
           CATEGORIES - DARI BACKEND
       ====================================================== */}
 
-      <section
-        style={{
-          maxWidth: 1280,
-          margin: "0 auto",
-          padding: "64px 24px 32px",
-        }}
-      >
-        <div
-          style={{
-            textAlign: "center",
-            marginBottom: 48,
-          }}
-        >
-          <span
-            style={{
-              fontSize: "0.85rem",
-              fontWeight: 700,
-              color: "var(--color-primary)",
-              letterSpacing: "1px",
-              textTransform: "uppercase",
-            }}
-          >
+      <section className="mx-auto max-w-[1280px] px-4 pt-8 pb-8 md:px-6 md:pt-16">
+        <div className="mb-12 text-center">
+          <span className="text-[0.85rem] font-bold tracking-wider text-primary uppercase">
             Kategori Oleh-Oleh
           </span>
 
-          <h2
-            style={{
-              fontSize: "2.2rem",
-              fontWeight: 800,
-              color: "var(--color-text)",
-              margin: "8px 0 12px",
-            }}
-          >
+          <h2 className="my-2 text-[clamp(1.5rem,4vw,2.2rem)] font-extrabold text-gray-900">
             Jelajahi Pilihan Kami
           </h2>
 
-          <p
-            style={{
-              color: "#6B7280",
-              maxWidth: 500,
-              margin: "0 auto",
-              lineHeight: 1.6,
-            }}
-          >
-            Pilih kategori favorit Anda dan
-            temukan produk oleh-oleh khas
+          <p className="mx-auto max-w-[500px] leading-relaxed text-gray-500">
+            Pilih kategori favorit Anda dan temukan produk oleh-oleh khas
             Malang.
           </p>
         </div>
 
         {loadingCategories ? (
-          <div
-            style={{
-              textAlign: "center",
-              padding: 40,
-              color: "#6B7280",
-            }}
-          >
+          <div className="p-10 text-center text-gray-500">
             Memuat kategori...
           </div>
         ) : categories.length === 0 ? (
-          <div
-            style={{
-              textAlign: "center",
-              padding: 40,
-              color: "#6B7280",
-            }}
-          >
+          <div className="p-10 text-center text-gray-500">
             Belum ada kategori.
           </div>
         ) : (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns:
-                "repeat(auto-fit, minmax(160px, 1fr))",
-              gap: 20,
-            }}
-          >
-            {categories.map((category) => (
-              <button
-                key={category.id}
-                onClick={() =>
-                  navigate("catalog", {
-                    categoryId: category.id,
-                  })
-                }
-                className="card-hover"
-                style={{
-                  background: "white",
-                  border: "1px solid #F3F4F6",
-                  borderRadius:
-                    "var(--radius-card)",
-                  padding: "28px 16px",
-                  textAlign: "center",
-                  cursor: "pointer",
-                  boxShadow:
-                    "0 2px 12px rgba(0,0,0,0.02)",
-                  outline: "none",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                }}
-              >
-                <div
-                  style={{
-                    fontWeight: 700,
-                    fontSize: "1.05rem",
-                    color: "var(--color-text)",
-                    marginBottom: 14,
-                  }}
-                >
-                  {category.name}
-                </div>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => scrollCategories(-1)}
+              className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:border-primary hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:flex"
+              aria-label="Geser kategori ke kiri"
+            >
+              <FaChevronLeft aria-hidden="true" />
+            </button>
 
-                <div
-                  style={{
-                    fontSize: "0.8rem",
-                    color: "#6B7280",
-                    fontWeight: 500,
-                    background: "#F3F4F6",
-                    padding: "4px 12px",
-                    borderRadius: 100,
-                  }}
+            <div
+              ref={categoryCarouselRef}
+              className="flex min-w-0 flex-1 snap-x snap-mandatory gap-5 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              aria-label="Kategori produk"
+            >
+              {categories.map((category) => (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() =>
+                    navigate("catalog", {
+                      categoryId: category.id,
+                    })
+                  }
+                  className="card-hover flex w-[min(72vw,220px)] shrink-0 snap-start flex-col items-center rounded-lg border border-gray-100 bg-white px-4 py-7 text-center shadow-[0_2px_12px_rgba(0,0,0,0.02)] transition hover:border-gray-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 >
-                  {category.products_count !==
-                  undefined
-                    ? `${category.products_count} Produk`
-                    : "Lihat Koleksi"}
-                </div>
-              </button>
-            ))}
+                  <span className="mb-[14px] text-[1.05rem] font-bold text-gray-900">
+                    {category.name}
+                  </span>
+
+                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500">
+                    {category.products_count !== undefined
+                      ? `${category.products_count} Produk`
+                      : "Lihat Koleksi"}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => scrollCategories(1)}
+              className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:border-primary hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:flex"
+              aria-label="Geser kategori ke kanan"
+            >
+              <FaChevronRight aria-hidden="true" />
+            </button>
           </div>
         )}
       </section>
@@ -810,74 +529,47 @@ export default function HomePage({
 
       <section
         id="promo-section"
-        style={{
-          maxWidth: 1280,
-          margin: "0 auto",
-          padding: "32px 24px",
-        }}
+        className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-8"
       >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-end",
-            marginBottom: 24,
-          }}
-        >
-          <h2
-            style={{
-              fontSize: "1.8rem",
-              fontWeight: 800,
-              color: "var(--color-text)",
-              margin: 0,
-            }}
-          >
+        <div className="mb-6 flex items-end justify-between">
+          <h2 className="m-0 text-[clamp(1.3rem,3.5vw,1.8rem)] font-extrabold text-gray-900">
             🔥 Promo Spesial
           </h2>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => scrollPromo(-1)}
+              className="hidden h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:border-primary hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:flex"
+              aria-label="Geser promo ke kiri"
+            >
+              <FaChevronLeft aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollPromo(1)}
+              className="hidden h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:border-primary hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:flex"
+              aria-label="Geser promo ke kanan"
+            >
+              <FaChevronRight aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
         <div
-          className="hide-scrollbar"
-          style={{
-            display: "flex",
-            gap: 20,
-            overflowX: "auto",
-            scrollSnapType: "x mandatory",
-            paddingBottom: 16,
-          }}
+          ref={promoCarouselRef}
+          className="flex snap-x snap-mandatory gap-5 overflow-x-auto scroll-smooth pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {loadingPromo ? (
-            <div
-              style={{
-                width: "100%",
-                padding: 40,
-                textAlign: "center",
-                color: "#6B7280",
-              }}
-            >
+            <div className="w-full p-10 text-center text-gray-500">
               Memuat promo...
             </div>
           ) : promoProducts.length === 0 ? (
-            <div
-              style={{
-                width: "100%",
-                padding: 40,
-                textAlign: "center",
-                color: "#6B7280",
-              }}
-            >
+            <div className="w-full p-10 text-center text-gray-500">
               Belum ada produk promo.
             </div>
           ) : (
             promoProducts.map((product) => (
-              <div
-                key={product.id}
-                style={{
-                  minWidth: 260,
-                  flex: "0 0 auto",
-                  scrollSnapAlign: "start",
-                }}
-              >
+              <div key={product.id} className="w-[260px] shrink-0 snap-start">
                 <ProductCard
                   product={product}
                   navigate={navigate}
@@ -893,80 +585,28 @@ export default function HomePage({
           RECOMMENDED PRODUCTS - DARI BACKEND
       ====================================================== */}
 
-      <section
-        style={{
-          maxWidth: 1280,
-          margin: "0 auto",
-          padding: "32px 24px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-end",
-            marginBottom: 32,
-            flexWrap: "wrap",
-            gap: 12,
-          }}
-        >
-          <h2
-            style={{
-              fontSize: "1.8rem",
-              fontWeight: 800,
-              color: "var(--color-text)",
-              margin: 0,
-            }}
-          >
+      <section className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-8">
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
+          <h2 className="m-0 text-[clamp(1.3rem,3.5vw,1.8rem)] font-extrabold text-gray-900">
             Rekomendasi Oleh-Oleh
           </h2>
 
           <button
-            onClick={() =>
-              navigate("catalog")
-            }
-            className="btn-outline"
-            style={{
-              padding: "8px 16px",
-              fontSize: "0.9rem",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-            }}
+            onClick={() => navigate("catalog")}
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-border bg-white px-4 py-2 text-sm font-medium text-gray-900 transition hover:border-gray-300 hover:bg-gray-50"
           >
             Lihat Semua Produk
             <FiArrowRight size={16} />
           </button>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns:
-              "repeat(auto-fill, minmax(220px, 1fr))",
-            gap: 20,
-          }}
-        >
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,220px),1fr))] gap-5">
           {loadingRecommended ? (
-            <div
-              style={{
-                gridColumn: "1 / -1",
-                padding: 40,
-                textAlign: "center",
-                color: "#6B7280",
-              }}
-            >
+            <div className="col-span-full p-10 text-center text-gray-500">
               Memuat rekomendasi...
             </div>
           ) : recommendedProducts.length === 0 ? (
-            <div
-              style={{
-                gridColumn: "1 / -1",
-                padding: 40,
-                textAlign: "center",
-                color: "#6B7280",
-              }}
-            >
+            <div className="col-span-full p-10 text-center text-gray-500">
               Belum ada rekomendasi produk.
             </div>
           ) : (
@@ -986,112 +626,31 @@ export default function HomePage({
           SHIPPING PROMO
       ====================================================== */}
 
-      <section
-        style={{
-          maxWidth: 1280,
-          margin: "40px auto",
-          padding: "0 24px",
-        }}
-      >
-        <div
-          style={{
-            background:
-              "linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)",
-            borderRadius: 20,
-            padding: 48,
-            position: "relative",
-            overflow: "hidden",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: 32,
-          }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              top: -50,
-              right: "10%",
-              width: 250,
-              height: 250,
-              borderRadius: "50%",
-              background:
-                "rgba(255,255,255,0.1)",
-            }}
-          />
+      <section className="mx-auto my-10 max-w-[1280px] px-4 md:px-6">
+        <div className="relative flex flex-wrap items-center justify-between gap-8 overflow-hidden rounded-lg border border-border bg-gray-50 p-8">
+          <div className="absolute -top-[50px] right-[10%] h-[250px] w-[250px] rounded-full bg-gray-100" />
 
-          <div
-            style={{
-              position: "relative",
-              zIndex: 1,
-              color: "white",
-              maxWidth: 600,
-            }}
-          >
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                background: "white",
-                color:
-                  "var(--color-primary-dark)",
-                fontSize: "0.8rem",
-                fontWeight: 800,
-                padding: "6px 14px",
-                borderRadius: 100,
-                marginBottom: 16,
-              }}
-            >
+          <div className="relative z-10 max-w-[600px] text-gray-900">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white px-[14px] py-1.5 text-xs font-extrabold text-primary-dark">
               <FiTruck size={16} />
               <span>PROMO AREA KOTA MALANG</span>
             </div>
 
-            <h3
-              style={{
-                fontSize: "2.5rem",
-                fontWeight: 900,
-                margin: "0 0 12px",
-                lineHeight: 1.1,
-              }}
-            >
+            <h3 className="mb-3 mt-0 text-[clamp(1.5rem,3.5vw,2rem)] font-semibold leading-[1.1]">
               Gratis Ongkir
               <br />
               Tanpa Minimum Belanja!
             </h3>
 
-            <p
-              style={{
-                fontSize: "1.1rem",
-                margin: 0,
-                opacity: 0.9,
-              }}
-            >
-              Nikmati fasilitas bebas biaya
-              kirim untuk pengiriman ke
-              wilayah Kota Malang.
+            <p className="m-0 text-[1.1rem] opacity-90">
+              Nikmati fasilitas bebas biaya kirim untuk pengiriman ke wilayah
+              Kota Malang.
             </p>
           </div>
 
           <button
-            onClick={() =>
-              navigate("catalog")
-            }
-            style={{
-              background: "white",
-              color:
-                "var(--color-primary-dark)",
-              border: "none",
-              borderRadius: 12,
-              padding: "16px 32px",
-              fontSize: "1.1rem",
-              fontWeight: 800,
-              cursor: "pointer",
-              zIndex: 1,
-              boxShadow:
-                "0 8px 24px rgba(0,0,0,0.15)",
-            }}
+            onClick={() => navigate("catalog")}
+            className="relative z-10 cursor-pointer rounded-md border-0 bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-primary-dark"
           >
             Belanja Sekarang
           </button>
@@ -1102,257 +661,87 @@ export default function HomePage({
           TESTIMONIALS - DARI BACKEND
       ====================================================== */}
 
-      <section
-        style={{
-          background: "white",
-          padding: "64px 24px",
-          marginTop: 40,
-          borderTop: "1px solid #E5E7EB",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 1280,
-            margin: "0 auto",
-          }}
-        >
-          <div
-            style={{
-              textAlign: "center",
-              marginBottom: 48,
-            }}
-          >
-            <h2
-              style={{
-                fontSize: "2rem",
-                fontWeight: 800,
-                color: "var(--color-text)",
-                margin: "8px 0",
-              }}
-            >
+      <section className="mt-10 border-t border-border bg-white px-6 py-16">
+        <div className="mx-auto max-w-[1280px]">
+          <div className="mb-12 text-center">
+            <h2 className="my-2 text-[clamp(1.5rem,3.5vw,2rem)] font-extrabold text-gray-900">
               Kata Pelanggan Kami
             </h2>
 
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                marginTop: 8,
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "1.5rem",
-                  fontWeight: 700,
-                }}
-              >
-                —
-              </span>
+            <div className="mt-2 flex items-center justify-center gap-2">
+              <span className="text-2xl font-bold">—</span>
 
-              <span
-                style={{
-                  color: "#6B7280",
-                  fontSize: "0.9rem",
-                }}
-              >
+              <span className="text-sm text-gray-500">
                 Berdasarkan ulasan pelanggan
               </span>
             </div>
           </div>
 
           {loadingTestimonials ? (
-            <div
-              style={{
-                textAlign: "center",
-                padding: 40,
-                color: "#6B7280",
-              }}
-            >
+            <div className="p-10 text-center text-gray-500">
               Memuat ulasan...
             </div>
           ) : testimonials.length === 0 ? (
-            <div
-              style={{
-                textAlign: "center",
-                padding: 40,
-                color: "#6B7280",
-              }}
-            >
+            <div className="p-10 text-center text-gray-500">
               Belum ada ulasan pelanggan.
             </div>
           ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fit, minmax(300px, 1fr))",
-                gap: 24,
-              }}
-            >
-              {testimonials.map(
-                (testimonial, index) => (
-                  <div
-                    key={testimonial.id}
-                    className="card-hover"
-                    style={{
-                      background:
-                        "var(--color-bg)",
-                      borderRadius:
-                        "var(--radius-card)",
-                      padding: 24,
-                      border:
-                        "1px solid #E5E7EB",
-                      boxShadow:
-                        activeTestimonial ===
-                        index
-                          ? "0 12px 24px rgba(0,0,0,0.06)"
-                          : "0 2px 4px rgba(0,0,0,0.02)",
-                      transition: "all 0.3s",
-                    }}
-                    onMouseEnter={() =>
-                      setActiveTestimonial(
-                        index
-                      )
-                    }
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent:
-                          "space-between",
-                        alignItems:
-                          "flex-start",
-                        marginBottom: 16,
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems:
-                            "center",
-                          gap: 12,
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius:
-                              "50%",
-                            background:
-                              "#F3F4F6",
-                            display: "flex",
-                            alignItems:
-                              "center",
-                            justifyContent:
-                              "center",
-                            fontWeight: 700,
-                            color:
-                              "#6B7280",
-                            flexShrink: 0,
-                          }}
-                        >
-                          {(testimonial.user
-                            ?.name ?? "P")
-                            .charAt(0)
-                            .toUpperCase()}
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))] gap-6">
+              {testimonials.map((testimonial, index) => (
+                <div
+                  key={testimonial.id}
+                  className={`card-hover rounded-lg border border-border bg-white p-6 transition-all duration-300 ${activeTestimonial === index
+                      ? "shadow-[0_12px_24px_rgba(0,0,0,0.06)]"
+                      : "shadow-[0_2px_4px_rgba(0,0,0,0.02)]"
+                    }`}
+                  onMouseEnter={() => setActiveTestimonial(index)}
+                >
+                  <div className="mb-4 flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 font-bold text-gray-500">
+                        {(testimonial.user?.name ?? "P")
+                          .charAt(0)
+                          .toUpperCase()}
+                      </div>
+
+                      <div>
+                        <div className="text-[0.95rem] font-bold text-gray-900">
+                          {testimonial.user?.name ?? "Pelanggan"}
                         </div>
 
-                        <div>
-                          <div
-                            style={{
-                              fontWeight: 700,
-                              color:
-                                "var(--color-text)",
-                              fontSize:
-                                "0.95rem",
-                            }}
-                          >
-                            {testimonial.user
-                              ?.name ??
-                              "Pelanggan"}
+                        {testimonial.product?.name && (
+                          <div className="text-xs text-gray-500">
+                            {testimonial.product.name}
                           </div>
-
-                          {testimonial.product
-                            ?.name && (
-                            <div
-                              style={{
-                                fontSize:
-                                  "0.75rem",
-                                color:
-                                  "#6B7280",
-                              }}
-                            >
-                              {testimonial
-                                .product
-                                .name}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <FcGoogle size={22} />
-                    </div>
-
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: 4,
-                        marginBottom: 12,
-                      }}
-                    >
-                      <Stars
-                        rating={Number(
-                          testimonial.rating
                         )}
-                      />
+                      </div>
                     </div>
 
-                    <p
-                      style={{
-                        color: "#4B5563",
-                        fontSize: "0.9rem",
-                        lineHeight: 1.6,
-                        margin: 0,
-                      }}
-                    >
-                      {testimonial.comment}
-                    </p>
-
-                    {testimonial.product
-                      ?.name && (
-                      <div
-                        style={{
-                          fontSize:
-                            "0.75rem",
-                          color: "#9CA3AF",
-                          marginTop: 16,
-                          fontWeight: 500,
-                        }}
-                      >
-                        Produk:{" "}
-                        <span
-                          style={{
-                            color:
-                              "var(--color-primary)",
-                          }}
-                        >
-                          {
-                            testimonial
-                              .product.name
-                          }
-                        </span>
-                      </div>
-                    )}
+                    <FcGoogle size={22} />
                   </div>
-                )
-              )}
+
+                  <div className="mb-3 flex gap-1">
+                    <Stars rating={Number(testimonial.rating)} />
+                  </div>
+
+                  <p className="m-0 text-sm leading-relaxed text-gray-600">
+                    {testimonial.comment}
+                  </p>
+
+                  {testimonial.product?.name && (
+                    <div className="mt-4 text-xs font-medium text-gray-400">
+                      Produk:{" "}
+                      <span className="text-primary">
+                        {testimonial.product.name}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>
       </section>
     </div>
-  );
+  )
 }

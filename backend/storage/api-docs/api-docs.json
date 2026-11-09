@@ -990,120 +990,6 @@
                 ]
             }
         },
-        "/api/wishlist": {
-            "get": {
-                "tags": [
-                    "Wishlist"
-                ],
-                "summary": "Daftar wishlist",
-                "operationId": "cce3a4fcbb55791d0d5cae49023f34f8",
-                "responses": {
-                    "200": {
-                        "description": "Wishlist berhasil diambil"
-                    }
-                },
-                "security": [
-                    {
-                        "sanctum": []
-                    }
-                ]
-            }
-        },
-        "/api/wishlist/{product}": {
-            "get": {
-                "tags": [
-                    "Wishlist"
-                ],
-                "summary": "Cek produk di wishlist",
-                "operationId": "1a495c97a37aa35cf99a2c9e852faa87",
-                "parameters": [
-                    {
-                        "name": "product",
-                        "in": "path",
-                        "description": "product",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Status wishlist berhasil dicek"
-                    },
-                    "404": {
-                        "description": "Produk tidak ditemukan"
-                    }
-                },
-                "security": [
-                    {
-                        "sanctum": []
-                    }
-                ]
-            },
-            "post": {
-                "tags": [
-                    "Wishlist"
-                ],
-                "summary": "Tambah produk ke wishlist",
-                "operationId": "8b1c07a3426b92dce7bae7e43db41f2f",
-                "parameters": [
-                    {
-                        "name": "product",
-                        "in": "path",
-                        "description": "product",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Produk berhasil ditambahkan"
-                    },
-                    "404": {
-                        "description": "Produk tidak ditemukan"
-                    }
-                },
-                "security": [
-                    {
-                        "sanctum": []
-                    }
-                ]
-            },
-            "delete": {
-                "tags": [
-                    "Wishlist"
-                ],
-                "summary": "Hapus produk dari wishlist",
-                "operationId": "a03c959fb8e66220b4ddd70356c7905c",
-                "parameters": [
-                    {
-                        "name": "product",
-                        "in": "path",
-                        "description": "product",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Produk berhasil dihapus"
-                    },
-                    "404": {
-                        "description": "Produk tidak ditemukan"
-                    }
-                },
-                "security": [
-                    {
-                        "sanctum": []
-                    }
-                ]
-            }
-        },
         "/api/orders": {
             "get": {
                 "tags": [
@@ -1917,14 +1803,6 @@
                                         "type": "string",
                                         "example": "Makanan Khas Malang"
                                     },
-                                    "icon": {
-                                        "type": "string",
-                                        "example": "🍪"
-                                    },
-                                    "color": {
-                                        "type": "string",
-                                        "example": "#E24E32"
-                                    },
                                     "is_active": {
                                         "type": "boolean",
                                         "example": true
@@ -2009,14 +1887,6 @@
                                     "name": {
                                         "type": "string",
                                         "example": "Makanan Khas Malang"
-                                    },
-                                    "icon": {
-                                        "type": "string",
-                                        "example": "🍪"
-                                    },
-                                    "color": {
-                                        "type": "string",
-                                        "example": "#E24E32"
                                     },
                                     "is_active": {
                                         "type": "boolean",
@@ -2892,10 +2762,6 @@
         {
             "name": "Cart",
             "description": "Cart"
-        },
-        {
-            "name": "Wishlist",
-            "description": "Wishlist"
         },
         {
             "name": "Orders",

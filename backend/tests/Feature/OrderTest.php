@@ -12,6 +12,9 @@ use App\Models\Product;
 use App\Models\ShippingMethod;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class OrderTest extends TestCase
@@ -28,6 +31,27 @@ class OrderTest extends TestCase
     {
         parent::setUp();
 
+        foreach ([
+            'indonesia-locations:provinces',
+            'indonesia-locations:regencies/35',
+            'indonesia-locations:districts/35.73',
+            'indonesia-locations:villages/35.73.05',
+        ] as $cacheKey) {
+            Cache::forget($cacheKey);
+        }
+        Http::fake(function ($request) {
+            $path = parse_url($request->url(), PHP_URL_PATH);
+            $data = match ($path) {
+                '/api/provinces.json' => [['code' => '35', 'name' => 'Jawa Timur']],
+                '/api/regencies/35.json' => [['code' => '35.73', 'name' => 'Kota Malang']],
+                '/api/districts/35.73.json' => [['code' => '35.73.05', 'name' => 'Lowokwaru']],
+                default => [['code' => '35.73.05.1001', 'name' => 'Kelurahan Test']],
+            };
+            return Http::response(['data' => $data]);
+        });
+        Config::set('services.midtrans.server_key', 'test-server-key');
+        Config::set('services.midtrans.client_key', 'test-client-key');
+
         $this->user = User::factory()->create(['role' => UserRole::USER]);
 
         $this->address = Address::create([
@@ -36,26 +60,28 @@ class OrderTest extends TestCase
             'name' => 'Budi Pembeli',
             'phone' => '08123456789',
             'province' => 'Jawa Timur',
+            'province_code' => '35',
             'city' => 'Malang',
+            'regency_code' => '35.73',
+            'district' => 'Lowokwaru',
+            'district_code' => '35.73.05',
+            'village' => 'Kelurahan Test',
+            'village_code' => '35.73.05.1001',
             'postal_code' => '65145',
             'address' => 'Jl. Kawi No. 10',
             'is_default' => true,
         ]);
 
-        $this->shippingMethod = ShippingMethod::create([
-            'name' => 'Pengantaran Mandiri Test',
-            'code' => 'mandiri-test',
+        $this->shippingMethod = ShippingMethod::updateOrCreate(['code' => 'GOSEND'], [
+            'name' => 'GoSend Test',
+            'code' => 'GOSEND',
             'cost' => 10000,
             'is_active' => true,
         ]);
 
-        $this->paymentMethod = PaymentMethod::create([
-            'name' => 'Transfer Bank Test',
-            'code' => 'transfer_bank',
-            'type' => PaymentMethod::TYPE_BANK,
-            'account_number' => '1234567890',
-            'account_name' => 'Wicaksono Store',
-            'requires_proof' => true,
+        $this->paymentMethod = PaymentMethod::updateOrCreate(['code' => 'midtrans'], [
+            'name' => 'Midtrans Test',
+            'type' => PaymentMethod::TYPE_GATEWAY,
             'is_active' => true,
         ]);
 
@@ -88,7 +114,6 @@ class OrderTest extends TestCase
         $response = $this->actingAs($this->user)->postJson('/api/orders', [
             'address_id' => $this->address->id,
             'shipping_method_id' => $this->shippingMethod->id,
-            'payment_method' => 'transfer_bank',
             'notes' => 'Tolong packing aman',
         ]);
 
@@ -104,9 +129,7 @@ class OrderTest extends TestCase
                 ],
             ]);
 
-        $response->assertJsonPath('data.payment.payment_method_name', 'Transfer Bank Test')
-            ->assertJsonPath('data.payment.payment_account_number', '1234567890')
-            ->assertJsonPath('data.payment.payment_account_name', 'Wicaksono Store');
+        $response->assertJsonPath('data.payment.method', 'midtrans');
 
         // Stock decreased (10 - 2 = 8), sold increased (5 + 2 = 7)
         $this->assertEquals(8, $this->product->fresh()->stock);
@@ -121,7 +144,6 @@ class OrderTest extends TestCase
         $response = $this->actingAs($this->user)->postJson('/api/orders', [
             'address_id' => $this->address->id,
             'shipping_method_id' => $this->shippingMethod->id,
-            'payment_method' => 'transfer_bank',
         ]);
 
         $response->assertStatus(422)
@@ -142,9 +164,9 @@ class OrderTest extends TestCase
         $checkoutResponse = $this->actingAs($this->user)->postJson('/api/orders', [
             'address_id' => $this->address->id,
             'shipping_method_id' => $this->shippingMethod->id,
-            'payment_method' => 'transfer_bank',
         ]);
 
+        $checkoutResponse->assertCreated();
         $orderId = $checkoutResponse->json('data.id');
         $this->assertEquals(7, $this->product->fresh()->stock);
 
@@ -175,8 +197,8 @@ class OrderTest extends TestCase
         $checkout = $this->actingAs($this->user)->postJson('/api/orders', [
             'address_id' => $this->address->id,
             'shipping_method_id' => $this->shippingMethod->id,
-            'payment_method' => 'transfer_bank',
         ]);
+        $checkout->assertCreated();
         $orderId = $checkout->json('data.id');
 
         // Other user attempts to view
@@ -197,8 +219,8 @@ class OrderTest extends TestCase
         $checkout = $this->actingAs($this->user)->postJson('/api/orders', [
             'address_id' => $this->address->id,
             'shipping_method_id' => $this->shippingMethod->id,
-            'payment_method' => 'transfer_bank',
         ]);
+        $checkout->assertCreated();
         $orderId = $checkout->json('data.id');
 
         // Admin list

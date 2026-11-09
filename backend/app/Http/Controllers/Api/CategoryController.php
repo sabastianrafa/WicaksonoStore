@@ -81,48 +81,4 @@ class CategoryController extends Controller
         ]);
     }
 
-    /**
-     * Menampilkan detail kategori.
-     *
-     * GET /api/categories/{category}
-     */
-    public function show(Category $category): JsonResponse
-    {
-        /*
-        |--------------------------------------------------------------------------
-        | Kategori tidak aktif tidak dapat dilihat user.
-        |--------------------------------------------------------------------------
-        */
-
-        if (!$category->is_active) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Kategori tidak ditemukan.',
-            ], 404);
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Ambil produk aktif dalam kategori
-        |--------------------------------------------------------------------------
-        */
-
-        $category->load([
-            'products' => function ($query) {
-                $query
-                    ->where('is_active', true)
-                    ->with([
-                        'images',
-                        'category',
-                    ])
-                    ->latest();
-            }
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Detail kategori berhasil diambil.',
-            'data' => $category,
-        ]);
-    }
 }

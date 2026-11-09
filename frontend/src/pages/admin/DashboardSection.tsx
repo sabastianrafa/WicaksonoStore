@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState } from "react"
 import {
   BarChart,
   Bar,
@@ -10,15 +10,15 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
-} from 'recharts';
-import { formatPrice } from '../../data';
+} from "recharts"
+import { formatPrice } from "../../data"
 import type {
   AdminOrder,
   DashboardProduct,
   DashboardSummary,
   SalesChartItem,
-} from './types';
-import { buildYearlySalesForRange, COLORS } from './utils';
+} from "./types"
+import { buildYearlySalesForRange, COLORS } from "./utils"
 import {
   axisTick,
   axisTickSmall,
@@ -26,15 +26,15 @@ import {
   cardTitle,
   chipButton,
   tooltipStyle,
-} from './styles';
-import StatusBadge from './StatusBadge';
+} from "./styles"
+import StatusBadge from "./StatusBadge"
 
 interface Props {
-  summary: DashboardSummary | null;
-  salesData: SalesChartItem[];
-  topProducts: DashboardProduct[];
-  orders: AdminOrder[];
-  loading: boolean;
+  summary: DashboardSummary | null
+  salesData: SalesChartItem[]
+  topProducts: DashboardProduct[]
+  orders: AdminOrder[]
+  loading: boolean
 }
 
 const EMPTY_SUMMARY: DashboardSummary = {
@@ -51,16 +51,16 @@ const EMPTY_SUMMARY: DashboardSummary = {
   cancelled_orders: 0,
   pending_payments: 0,
   total_revenue: 0,
-};
+}
 
 const STATUS_SUMMARY = [
-  { key: 'pending_orders', label: 'Menunggu' },
-  { key: 'confirmed_orders', label: 'Dikonfirmasi' },
-  { key: 'processing_orders', label: 'Diproses' },
-  { key: 'shipped_orders', label: 'Dikirim' },
-  { key: 'completed_orders', label: 'Selesai' },
-  { key: 'cancelled_orders', label: 'Dibatalkan' },
-] as const;
+  { key: "pending_orders", label: "Menunggu" },
+  { key: "confirmed_orders", label: "Dikonfirmasi" },
+  { key: "processing_orders", label: "Diproses" },
+  { key: "shipped_orders", label: "Dikirim" },
+  { key: "completed_orders", label: "Selesai" },
+  { key: "cancelled_orders", label: "Dibatalkan" },
+] as const
 
 export default function DashboardSection({
   summary,
@@ -69,90 +69,114 @@ export default function DashboardSection({
   orders,
   loading,
 }: Props) {
-  const [revenuePeriod, setRevenuePeriod] = useState<'yearly' | 'all'>('yearly');
-  const [allRangeStart, setAllRangeStart] = useState(2026);
-  const data = summary ?? EMPTY_SUMMARY;
-  const allStartYear = 2026;
-  const yearlyEndYear = allStartYear + 11;
-  const allEndYear = allRangeStart + 6;
-  const rangeStartCount = Math.floor((new Date().getFullYear() + 12 - allStartYear) / 6) + 1;
+  const [revenuePeriod, setRevenuePeriod] = useState<"yearly" | "all">("yearly")
+  const [allRangeStart, setAllRangeStart] = useState(2026)
+  const data = summary ?? EMPTY_SUMMARY
+  const allStartYear = 2026
+  const yearlyEndYear = allStartYear + 11
+  const allEndYear = allRangeStart + 6
+  const rangeStartCount =
+    Math.floor((new Date().getFullYear() + 12 - allStartYear) / 6) + 1
   const allRangeStarts = Array.from(
     { length: Math.max(1, rangeStartCount) },
-    (_, index) => allStartYear + index * 6
-  );
-  const revenueStartYear = revenuePeriod === 'yearly' ? allStartYear : allRangeStart;
-  const revenueEndYear = revenuePeriod === 'yearly' ? yearlyEndYear : allEndYear;
+    (_, index) => allStartYear + index * 6,
+  )
+  const revenueStartYear =
+    revenuePeriod === "yearly" ? allStartYear : allRangeStart
+  const revenueEndYear = revenuePeriod === "yearly" ? yearlyEndYear : allEndYear
   const revenueChartData = buildYearlySalesForRange(
     salesData,
     revenueStartYear,
-    revenueEndYear
-  );
+    revenueEndYear,
+  )
   const revenueChartTitle = {
     yearly: `Pendapatan per Tahun (${allStartYear}–${yearlyEndYear})`,
     all: `Semua Tahun (${allRangeStart}–${allEndYear})`,
-  }[revenuePeriod];
+  }[revenuePeriod]
 
-  const value = (raw: number) => (loading && !summary ? '...' : raw.toLocaleString('id-ID'));
+  const value = (raw: number) =>
+    loading && !summary ? "..." : raw.toLocaleString("id-ID")
 
   const stats = [
     {
-      label: 'Total Produk',
+      label: "Total Produk",
       value: value(data.total_products),
-      hint: `${data.active_products.toLocaleString('id-ID')} aktif`,
-      icon: '📦',
-      bg: 'rgba(249,115,22,0.08)',
+      hint: `${data.active_products.toLocaleString("id-ID")} aktif`,
+      icon: "📦",
+      bg: "rgba(223,64,31,0.08)",
     },
     {
-      label: 'Total Pesanan',
+      label: "Total Pesanan",
       value: value(data.total_orders),
       hint: `${data.pending_orders} menunggu diproses`,
-      icon: '🛒',
-      bg: 'rgba(22,163,74,0.08)',
+      icon: "🛒",
+      bg: "rgba(22,163,74,0.08)",
     },
     {
-      label: 'Pendapatan',
-      value: loading && !summary ? '...' : formatPrice(data.total_revenue),
-      hint: 'Dari pembayaran terverifikasi',
-      icon: '💰',
-      bg: 'rgba(250,204,21,0.1)',
+      label: "Pendapatan",
+      value: loading && !summary ? "..." : formatPrice(data.total_revenue),
+      hint: "Dari pembayaran terverifikasi",
+      icon: "💰",
+      bg: "rgba(250,204,21,0.1)",
     },
     {
-      label: 'Pelanggan',
+      label: "Pelanggan",
       value: value(data.total_users),
       hint: `${data.total_categories} kategori terdaftar`,
-      icon: '👥',
-      bg: 'rgba(139,92,246,0.08)',
+      icon: "👥",
+      bg: "rgba(139,92,246,0.08)",
     },
-  ];
+  ]
 
   return (
     <>
       {/* Kartu statistik */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
           gap: 16,
           marginBottom: 24,
         }}
       >
         {stats.map((stat) => (
-          <div key={stat.label} style={{ ...card, padding: 20, border: '1px solid rgba(0,0,0,0.04)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+          <div
+            key={stat.label}
+            style={{
+              ...card,
+              padding: 20,
+              border: "1px solid rgba(0,0,0,0.04)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: 12,
+              }}
+            >
               <div>
                 <p
                   style={{
-                    margin: '0 0 8px',
-                    fontSize: '0.78rem',
-                    color: '#6B7280',
+                    margin: "0 0 8px",
+                    fontSize: "0.78rem",
+                    color: "#6B7280",
                     fontWeight: 600,
-                    textTransform: 'uppercase',
+                    textTransform: "uppercase",
                     letterSpacing: 0.5,
                   }}
                 >
                   {stat.label}
                 </p>
-                <p style={{ margin: 0, fontSize: '1.6rem', fontWeight: 900, color: '#1F2937' }}>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "1.6rem",
+                    fontWeight: 900,
+                    color: "#1F2937",
+                  }}
+                >
                   {stat.value}
                 </p>
               </div>
@@ -163,9 +187,9 @@ export default function DashboardSection({
                   height: 44,
                   borderRadius: 12,
                   background: stat.bg,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   fontSize: 20,
                   flexShrink: 0,
                 }}
@@ -175,7 +199,9 @@ export default function DashboardSection({
             </div>
 
             <div style={{ marginTop: 12 }}>
-              <span style={{ color: '#6B7280', fontSize: '0.78rem' }}>{stat.hint}</span>
+              <span style={{ color: "#6B7280", fontSize: "0.78rem" }}>
+                {stat.hint}
+              </span>
             </div>
           </div>
         ))}
@@ -184,8 +210,8 @@ export default function DashboardSection({
       {/* Status pesanan + pembayaran tertunda */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
           gap: 12,
           marginBottom: 24,
         }}
@@ -198,10 +224,26 @@ export default function DashboardSection({
               padding: 20,
             }}
           >
-            <p style={{ margin: '0 0 8px', fontSize: '0.78rem', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            <p
+              style={{
+                margin: "0 0 8px",
+                fontSize: "0.78rem",
+                color: "#6B7280",
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+              }}
+            >
               {item.label}
             </p>
-            <p style={{ margin: 0, fontSize: '1.6rem', fontWeight: 900, color: '#1F2937' }}>
+            <p
+              style={{
+                margin: 0,
+                fontSize: "1.6rem",
+                fontWeight: 900,
+                color: "#1F2937",
+              }}
+            >
               {value(data[item.key])}
             </p>
           </div>
@@ -213,10 +255,26 @@ export default function DashboardSection({
             padding: 20,
           }}
         >
-          <p style={{ margin: '0 0 8px', fontSize: '0.78rem', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          <p
+            style={{
+              margin: "0 0 8px",
+              fontSize: "0.78rem",
+              color: "#6B7280",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+            }}
+          >
             Pembayaran menunggu
           </p>
-          <p style={{ margin: 0, fontSize: '1.6rem', fontWeight: 900, color: '#1F2937' }}>
+          <p
+            style={{
+              margin: 0,
+              fontSize: "1.6rem",
+              fontWeight: 900,
+              color: "#1F2937",
+            }}
+          >
             {value(data.pending_payments)}
           </p>
         </div>
@@ -225,8 +283,8 @@ export default function DashboardSection({
       {/* Grafik pendapatan + produk terlaris */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
           gap: 16,
           marginBottom: 24,
         }}
@@ -234,23 +292,36 @@ export default function DashboardSection({
         <div style={card}>
           <div
             style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
               gap: 12,
-              flexWrap: 'wrap',
+              flexWrap: "wrap",
               marginBottom: 20,
             }}
           >
             <h3 style={cardTitle(0)}>{revenueChartTitle}</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              {revenuePeriod === 'all' && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                flexWrap: "wrap",
+              }}
+            >
+              {revenuePeriod === "all" && (
                 <select
                   className="input-field"
                   aria-label="Pilih rentang tahun pendapatan"
                   value={allRangeStart}
-                  onChange={(event) => setAllRangeStart(Number(event.target.value))}
-                  style={{ width: 'auto', padding: '6px 10px', fontSize: '0.8rem' }}
+                  onChange={(event) =>
+                    setAllRangeStart(Number(event.target.value))
+                  }
+                  style={{
+                    width: "auto",
+                    padding: "6px 10px",
+                    fontSize: "0.8rem",
+                  }}
                 >
                   {allRangeStarts.map((startYear) => (
                     <option key={startYear} value={startYear}>
@@ -259,17 +330,24 @@ export default function DashboardSection({
                   ))}
                 </select>
               )}
-              <div role="group" aria-label="Periode pendapatan" style={{ display: 'flex', gap: 6 }}>
+              <div
+                role="group"
+                aria-label="Periode pendapatan"
+                style={{ display: "flex", gap: 6 }}
+              >
                 {([
-                  ['yearly', 'Per Tahun'],
-                  ['all', 'Semua'],
+                  ["yearly", "Per Tahun"],
+                  ["all", "Semua"],
                 ] as const).map(([period, label]) => (
                   <button
                     key={period}
                     type="button"
                     aria-pressed={revenuePeriod === period}
                     onClick={() => setRevenuePeriod(period)}
-                    style={{ ...chipButton(revenuePeriod === period), borderRadius: 6 }}
+                    style={{
+                      ...chipButton(revenuePeriod === period),
+                      borderRadius: 6,
+                    }}
                   >
                     {label}
                   </button>
@@ -279,24 +357,39 @@ export default function DashboardSection({
           </div>
 
           {revenueChartData.length === 0 ? (
-            <div style={{ padding: '60px 0', textAlign: 'center', color: '#9CA3AF' }}>
+            <div
+              style={{
+                padding: "60px 0",
+                textAlign: "center",
+                color: "#9CA3AF",
+              }}
+            >
               Belum ada data penjualan.
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={revenueChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
-                <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} minTickGap={24} />
+                <XAxis
+                  dataKey="label"
+                  tick={axisTick}
+                  axisLine={false}
+                  tickLine={false}
+                  minTickGap={24}
+                />
                 <Tooltip
                   contentStyle={tooltipStyle}
-                  formatter={(v: unknown) => [formatPrice(Number(v)), 'Pendapatan']}
+                  formatter={(v: unknown) => [
+                    formatPrice(Number(v)),
+                    "Pendapatan",
+                  ]}
                 />
                 <Line
                   type="monotone"
                   dataKey="revenue"
-                  stroke="#F97316"
+                  stroke="#DF401F"
                   strokeWidth={2.5}
-                  dot={{ fill: '#F97316', r: 4 }}
+                  dot={{ fill: "#DF401F", r: 4 }}
                   activeDot={{ r: 6 }}
                 />
               </LineChart>
@@ -305,10 +398,18 @@ export default function DashboardSection({
         </div>
 
         <div style={card}>
-          <h3 style={cardTitle()}>Produk dengan Persentase Pembeli Tertinggi</h3>
+          <h3 style={cardTitle()}>
+            Produk dengan Persentase Pembeli Tertinggi
+          </h3>
 
           {topProducts.length === 0 ? (
-            <div style={{ padding: '60px 0', textAlign: 'center', color: '#9CA3AF' }}>
+            <div
+              style={{
+                padding: "60px 0",
+                textAlign: "center",
+                color: "#9CA3AF",
+              }}
+            >
               Belum ada produk.
             </div>
           ) : (
@@ -319,7 +420,11 @@ export default function DashboardSection({
                   layout="vertical"
                   margin={{ top: 0, right: 12, bottom: 0, left: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" horizontal={false} />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#F3F4F6"
+                    horizontal={false}
+                  />
                   <XAxis
                     type="number"
                     domain={[0, 100]}
@@ -337,23 +442,44 @@ export default function DashboardSection({
                     tickLine={false}
                   />
                   <Tooltip
-                    contentStyle={{ fontFamily: 'Poppins', fontSize: 12, borderRadius: 8 }}
+                    contentStyle={{
+                      fontFamily: "Poppins",
+                      fontSize: 12,
+                      borderRadius: 8,
+                    }}
                     formatter={(percent: unknown) => [
-                      `${Number(percent).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%`,
-                      'Customer pembeli',
+                      `${Number(percent).toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`,
+                      "Customer pembeli",
                     ]}
                   />
-                  <Bar dataKey="purchase_percentage" fill="#F97316" radius={[0, 4, 4, 0]}>
+                  <Bar
+                    dataKey="purchase_percentage"
+                    fill="#DF401F"
+                    radius={[0, 4, 4, 0]}
+                  >
                     {topProducts.map((product, index) => (
-                      <Cell key={product.id} fill={COLORS[index % COLORS.length]} />
+                      <Cell
+                        key={product.id}
+                        fill={COLORS[index % COLORS.length]}
+                      />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                  marginTop: 8,
+                }}
+              >
                 {topProducts.map((product, index) => (
-                  <div key={product.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div
+                    key={product.id}
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                  >
                     <div
                       style={{
                         width: 10,
@@ -363,11 +489,23 @@ export default function DashboardSection({
                         flexShrink: 0,
                       }}
                     />
-                    <span style={{ fontSize: '0.78rem', color: '#6B7280', flex: 1 }}>
-                      {product.name} · {product.buyers_count.toLocaleString('id-ID')} customer
+                    <span
+                      style={{ fontSize: "0.78rem", color: "#6B7280", flex: 1 }}
+                    >
+                      {product.name} ·{" "}
+                      {product.buyers_count.toLocaleString("id-ID")} customer
                     </span>
-                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#1F2937' }}>
-                      {product.purchase_percentage.toLocaleString('id-ID', { maximumFractionDigits: 1 })}%
+                    <span
+                      style={{
+                        fontSize: "0.78rem",
+                        fontWeight: 700,
+                        color: "#1F2937",
+                      }}
+                    >
+                      {product.purchase_percentage.toLocaleString("id-ID", {
+                        maximumFractionDigits: 1,
+                      })}
+                      %
                     </span>
                   </div>
                 ))}
@@ -380,8 +518,8 @@ export default function DashboardSection({
       {/* Jumlah pesanan + pesanan terbaru */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
           gap: 16,
         }}
       >
@@ -389,15 +527,31 @@ export default function DashboardSection({
           <h3 style={cardTitle(16)}>Jumlah Pesanan per Bulan</h3>
 
           {salesData.length === 0 ? (
-            <div style={{ padding: '60px 0', textAlign: 'center', color: '#9CA3AF' }}>
+            <div
+              style={{
+                padding: "60px 0",
+                textAlign: "center",
+                color: "#9CA3AF",
+              }}
+            >
               Belum ada pesanan.
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={salesData.slice(-6)}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
-                <XAxis dataKey="month" tick={axisTick} axisLine={false} tickLine={false} />
-                <YAxis tick={axisTickSmall} axisLine={false} tickLine={false} allowDecimals={false} />
+                <XAxis
+                  dataKey="month"
+                  tick={axisTick}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={axisTickSmall}
+                  axisLine={false}
+                  tickLine={false}
+                  allowDecimals={false}
+                />
                 <Tooltip contentStyle={tooltipStyle} />
                 <Bar dataKey="orders" fill="#16A34A" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -409,34 +563,59 @@ export default function DashboardSection({
           <h3 style={cardTitle(16)}>Pesanan Terbaru</h3>
 
           {orders.length === 0 ? (
-            <div style={{ padding: '60px 0', textAlign: 'center', color: '#9CA3AF' }}>
+            <div
+              style={{
+                padding: "60px 0",
+                textAlign: "center",
+                color: "#9CA3AF",
+              }}
+            >
               Belum ada pesanan masuk.
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {orders.slice(0, 5).map((order) => (
                 <div
                   key={order.id}
                   style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
                     gap: 12,
-                    padding: '10px 0',
-                    borderBottom: '1px solid #F9FAFB',
+                    padding: "10px 0",
+                    borderBottom: "1px solid #F9FAFB",
                   }}
                 >
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: '0.82rem', color: '#1F2937' }}>
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        fontSize: "0.82rem",
+                        color: "#1F2937",
+                      }}
+                    >
                       {order.order_number}
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: '#9CA3AF' }}>
+                    <div style={{ fontSize: "0.72rem", color: "#9CA3AF" }}>
                       {order.customer} · {order.date}
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-                    <span style={{ fontWeight: 700, color: '#1F2937', fontSize: '0.82rem' }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        color: "#1F2937",
+                        fontSize: "0.82rem",
+                      }}
+                    >
                       {formatPrice(order.total)}
                     </span>
                     <StatusBadge status={order.status} size="sm" />
@@ -448,5 +627,5 @@ export default function DashboardSection({
         </div>
       </div>
     </>
-  );
+  )
 }

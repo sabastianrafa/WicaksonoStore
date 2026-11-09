@@ -18,8 +18,6 @@ class CategoryTest extends TestCase
         $category = Category::create([
             'name' => 'Kategori Test',
             'slug' => 'kategori-test',
-            'icon' => '🍟',
-            'color' => '#FF0000',
             'is_active' => true,
         ]);
 
@@ -41,26 +39,6 @@ class CategoryTest extends TestCase
         $this->assertFalse($names->contains('Kategori Inactive'));
     }
 
-    public function test_can_show_single_category(): void
-    {
-        $category = Category::create([
-            'name' => 'Kategori Detail',
-            'slug' => 'kategori-detail',
-            'is_active' => true,
-        ]);
-
-        $response = $this->getJson("/api/categories/{$category->id}");
-
-        $response->assertStatus(200)
-            ->assertJson([
-                'success' => true,
-                'data' => [
-                    'id' => $category->id,
-                    'name' => 'Kategori Detail',
-                ],
-            ]);
-    }
-
     public function test_admin_can_crud_categories(): void
     {
         $admin = User::factory()->create([
@@ -70,8 +48,6 @@ class CategoryTest extends TestCase
         // 1. Create
         $createResponse = $this->actingAs($admin)->postJson('/api/admin/categories', [
             'name' => 'Kategori Baru Admin',
-            'icon' => '📦',
-            'color' => '#333333',
             'is_active' => true,
         ]);
 
@@ -81,7 +57,9 @@ class CategoryTest extends TestCase
                 'data' => [
                     'name' => 'Kategori Baru Admin',
                 ],
-            ]);
+            ])
+            ->assertJsonMissingPath('data.icon')
+            ->assertJsonMissingPath('data.color');
 
         $categoryId = $createResponse->json('data.id');
 

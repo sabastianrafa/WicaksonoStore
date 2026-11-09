@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Order;
 use App\Models\Payment;
-use App\Models\User;
 use Illuminate\Database\Seeder;
 
 class PaymentSeeder extends Seeder
@@ -12,19 +11,8 @@ class PaymentSeeder extends Seeder
     public function run(): void
     {
         $orders = Order::all();
-
-        $admin = User::where('role', 'admin')->first();
-
         foreach ($orders as $order) {
-            $method = collect([
-                'transfer_bank',
-                'gopay',
-                'ovo',
-                'dana',
-                'cod',
-            ])->random();
-
-            // Status payment disesuaikan dengan status order.
+            // Status contoh mengikuti status order; transaksi nyata diproses Midtrans.
             if ($order->order_status === 'pending') {
                 $status = 'pending';
             } elseif ($order->order_status === 'cancelled') {
@@ -33,31 +21,23 @@ class PaymentSeeder extends Seeder
                 $status = 'paid';
             }
 
-            Payment::create([
-                'order_id' => $order->id,
-
-                'method' => $method,
-
-                'amount' => $order->total,
-
-                'status' => $status,
-
-                'proof' => $status === 'paid' && $method !== 'cod'
-                    ? 'payments/payment-' . $order->id . '.jpg'
-                    : null,
-
-                'notes' => $status === 'rejected'
-                    ? 'Pembayaran ditolak.'
-                    : null,
-
-                'verified_by' => $status === 'paid' && $method !== 'cod'
-                    ? $admin?->id
-                    : null,
-
-                'verified_at' => $status === 'paid' && $method !== 'cod'
-                    ? $order->created_at->copy()->addHours(3)
-                    : null,
-            ]);
+            Payment::firstOrCreate(
+                ['order_id' => $order->id],
+                [
+                    'method' => 'midtrans',
+                    'payment_method_name' => 'Midtrans',
+                    'payment_method_type' => 'gateway',
+                    'payment_method_description' => 'Pembayaran melalui Midtrans.',
+                    'amount' => $order->total,
+                    'status' => $status,
+                    'proof' => null,
+                    'notes' => $status === 'rejected' ? 'Pesanan dibatalkan.' : null,
+                    'verified_by' => null,
+                    'verified_at' => $status === 'paid'
+                        ? $order->created_at->copy()->addHours(3)
+                        : null,
+                ]
+            );
         }
     }
 }

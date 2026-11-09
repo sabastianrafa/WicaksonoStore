@@ -1,855 +1,1151 @@
-import { useEffect, useRef, useState } from 'react';
-import { formatPrice } from '../data';
-import { apiFetch, storageUrl } from '../api/client';
-import type { Page } from '../App';
+import { useEffect, useMemo, useRef, useState } from "react"
+import { formatPrice } from "../data"
+import { apiFetch, storageUrl } from "../api/client"
+import type { Page } from "../App"
+import AddressFormModal, {
+  type AddressFormValues,
+} from "../components/AddressFormModal"
 
-/*
-| Bentuk item keranjang mengikuti API /api/cart, sama dengan CartPage
-| dan App. Sebelumnya bentuk datar sendiri sehingga tidak cocok dengan
-| data yang dikirim keranjang.
-*/
 interface CartItem {
-  id: number;
-  product_id: number;
-  quantity: number;
-  subtotal: number;
+  id: number
+  product_id: number
+  quantity: number
+  subtotal: number
   product: {
-    id: number;
-    name: string;
-    price: string | number;
-    stock: number;
-    weight: number;
-    image?: string | null;
-    images?: { id: number; path: string; url?: string; is_primary?: boolean }[];
-  };
+    id: number
+    name: string
+    price: string | number
+    stock: number
+    weight: number
+    image?: string | null
+    images?: {
+      id: number
+      path: string
+      url?: string
+      is_primary?: boolean
+    }[]
+  }
 }
 
-/** Item tanpa `product` dilewati agar tidak error saat render. */
-const validItems = (cart: CartItem[]) =>
-  cart.filter((item) => Boolean(item?.product));
-
-/** Gambar produk, dengan fallback ke path gambar pertama. */
-const productImage = (item: CartItem): string => {
-  const p = item.product;
-
-  const url =
-    p.images?.find((i) => i.is_primary)?.url ??
-    p.images?.[0]?.url ??
-    p.image ??
-    '';
-
-  if (!url) return '';
-
-  return url.startsWith('http://') || url.startsWith('https://')
-    ? url
-    : storageUrl(url);
-}
 interface CheckoutPageProps {
-  cart: CartItem[];
-  navigate: (page: Page, data?: unknown) => void;
-  onOrderPlaced?: () => void;
-}
-
-interface LocationOption {
-  code: string;
-  name: string;
+  cart: CartItem[]
+  navigate: (page: Page, data?: unknown) => void
+  onOrderPlaced?: () => void
 }
 
 interface ShippingQuote {
-  region: string;
+  region: string
   location: {
-    province: string;
-    city: string;
-  };
+    province: string
+    city: string
+  }
   courier: {
-    id: number;
-    code: string;
-    name: string;
-    estimated_days: string | null;
-  };
-  cost: number;
-  original_cost: number;
-  shipping_discount: number;
-  promotion_applied: boolean;
+    id: number
+    code: string
+    name: string
+    estimated_days: string | null
+  }
+  cost: number
+  original_cost: number
+  shipping_discount: number
+  promotion_applied: boolean
 }
 
 interface ShippingQuoteResponse {
-  success: boolean;
-  data: ShippingQuote;
-}
-
-interface PaymentMethod {
-  id: number;
-  name: string;
-  code: string;
-  type: 'bank' | 'qris';
-  description: string | null;
-  icon: string | null;
+  success: boolean
+  data: ShippingQuote
 }
 
 interface SavedAddress {
-  id: number;
-  label: string;
-  name: string;
-  phone: string;
-  province: string;
-  province_code: string | null;
-  city: string;
-  regency_code: string | null;
-  district: string | null;
-  district_code: string | null;
-  village: string | null;
-  village_code: string | null;
-  postal_code: string;
-  rt: string | null;
-  rw: string | null;
-  neighborhood: string | null;
-  landmark: string | null;
-  address: string;
-  is_default: boolean;
+  id: number
+  label: string
+  name: string
+  phone: string
+  province: string
+  province_code: string | null
+  city: string
+  regency_code: string | null
+  district: string | null
+  district_code: string | null
+  village: string | null
+  village_code: string | null
+  postal_code: string
+  rt: string | null
+  rw: string | null
+  neighborhood: string | null
+  landmark: string | null
+  address: string
+  is_default: boolean
 }
 
 interface AddressesResponse {
-  success: boolean;
-  data: SavedAddress[];
+  success: boolean
+  data: SavedAddress[]
 }
 
 interface AddressResponse {
-  success: boolean;
-  data: SavedAddress;
+  success: boolean
+  data: SavedAddress
 }
 
 interface OrderResponse {
-  success: boolean;
-  data: { id: number; order_number: string };
+  success: boolean
+  data: {
+    id: number
+    order_number: string
+  }
 }
 
-export default function CheckoutPage({ cart, navigate, onOrderPlaced }: CheckoutPageProps) {
-  const [step, setStep] = useState(1);
-  const [payment, setPayment] = useState('');
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
-  const [paymentMethodsError, setPaymentMethodsError] = useState('');
-  const [provinces, setProvinces] = useState<LocationOption[]>([]);
-  const [regencies, setRegencies] = useState<LocationOption[]>([]);
-  const [districts, setDistricts] = useState<LocationOption[]>([]);
-  const [villages, setVillages] = useState<LocationOption[]>([]);
-  const [locationError, setLocationError] = useState('');
-  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
-  const [addressesLoading, setAddressesLoading] = useState(true);
-  const [addressesError, setAddressesError] = useState('');
-  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
-  const [addingAddress, setAddingAddress] = useState(false);
-  const [makeDefaultAddress, setMakeDefaultAddress] = useState(false);
+const CHECKOUT_STEPS = [
+  "Alamat & Pengiriman",
+  "Konfirmasi Pesanan",
+  "Pembayaran",
+]
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback
+
+const validItems = (cart: CartItem[]) =>
+  cart.filter((item): item is CartItem => Boolean(item?.product))
+
+const productImage = (item: CartItem): string => {
+  const product = item.product
+  const image =
+    product.images?.find((entry) => entry.is_primary)?.url ??
+    product.images?.[0]?.url ??
+    product.images?.find((entry) => entry.is_primary)?.path ??
+    product.images?.[0]?.path ??
+    product.image ??
+    ""
+
+  if (!image) return ""
+
+  return image.startsWith("http://") || image.startsWith("https://")
+    ? image
+    : storageUrl(image)
+}
+
+function Spinner({ size = 16 }: { size?: number }) {
+  return (
+    <span
+      className="inline-block animate-spin rounded-full border-2 border-current/25 border-t-current"
+      style={{ width: size, height: size }}
+      aria-hidden="true"
+    />
+  )
+}
+
+function CheckoutStepper({ currentStep }: { currentStep: 1 | 2 }) {
+  return (
+    <ol
+      className="flex w-full items-start"
+      aria-label="Langkah checkout"
+    >
+      {CHECKOUT_STEPS.map((label, index) => {
+        const number = index + 1
+        const completed = number < currentStep
+        const active = number === currentStep
+
+        return (
+          <li
+            key={label}
+            className={`flex min-w-0 items-start ${
+              index === CHECKOUT_STEPS.length - 1 ? "flex-none" : "flex-1"
+            }`}
+            aria-current={active ? "step" : undefined}
+          >
+            <div className="flex w-[76px] shrink-0 flex-col items-center gap-2 sm:w-32">
+              <span
+                className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold ${
+                  completed
+                    ? "bg-green-600 text-white"
+                    : active
+                      ? "bg-[#DF401F] text-white"
+                      : "bg-gray-100 text-gray-400"
+                }`}
+              >
+                {completed ? "✓" : number}
+              </span>
+              <span
+                className={`text-center text-[10px] leading-tight sm:text-xs ${
+                  active
+                    ? "font-semibold text-[#DF401F]"
+                    : completed
+                      ? "font-medium text-green-700"
+                      : "text-gray-400"
+                }`}
+              >
+                {label}
+              </span>
+            </div>
+
+            {index < CHECKOUT_STEPS.length - 1 && (
+              <div
+                className={`mx-1.5 mt-[17px] h-0.5 flex-1 rounded-full sm:mx-3 ${
+                  completed ? "bg-green-600" : "bg-gray-100"
+                }`}
+                aria-hidden="true"
+              />
+            )}
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+function EmptyCart({
+  navigate,
+}: {
+  navigate: CheckoutPageProps["navigate"]
+}) {
+  return (
+    <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
+      <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
+        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-orange-50 text-xl text-[#DF401F]">
+          🛒
+        </div>
+        <h1 className="text-xl font-bold text-gray-900">
+          Keranjang masih kosong
+        </h1>
+        <p className="mt-2 max-w-md text-sm leading-relaxed text-gray-500">
+          Tambahkan produk terlebih dahulu sebelum melanjutkan checkout.
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate("catalog")}
+          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-[#DF401F] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#C73818]"
+        >
+          Cari Produk
+        </button>
+      </div>
+    </main>
+  )
+}
+
+export default function CheckoutPage({
+  cart,
+  navigate,
+  onOrderPlaced,
+}: CheckoutPageProps) {
+  const [step, setStep] = useState<1 | 2>(1)
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([])
+  const [addressesLoading, setAddressesLoading] = useState(true)
+  const [addressesError, setAddressesError] = useState("")
+  const [addressesRetry, setAddressesRetry] = useState(0)
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(
+    null,
+  )
+  const [addingAddress, setAddingAddress] = useState(false)
+  const [addressModalOpen, setAddressModalOpen] = useState(false)
+  const [makeDefaultAddress, setMakeDefaultAddress] = useState(false)
   const [form, setForm] = useState(() => ({
-    label: 'Rumah',
-    name: localStorage.getItem('userName') ?? '',
-    phone: localStorage.getItem('userPhone') ?? '',
-    province_code: '',
-    regency_code: '',
-    district_code: '',
-    village_code: '',
-    zip: '',
-    rt: '',
-    rw: '',
-    neighborhood: '',
-    landmark: '',
-    address: '',
-  }));
-  const [shippingQuote, setShippingQuote] = useState<ShippingQuote | null>(null);
-  const [quoteLoading, setQuoteLoading] = useState(false);
-  const [shippingError, setShippingError] = useState('');
-  const [submittingOrder, setSubmittingOrder] = useState(false);
-  const [orderError, setOrderError] = useState('');
-  const shippingQuoteRequestId = useRef(0);
+    label: "Rumah",
+    name: localStorage.getItem("userName") ?? "",
+    phone: localStorage.getItem("userPhone") ?? "",
+    province_code: "",
+    regency_code: "",
+    district_code: "",
+    village_code: "",
+    zip: "",
+    rt: "",
+    rw: "",
+    neighborhood: "",
+    landmark: "",
+    address: "",
+  }))
+
+  const [shippingQuote, setShippingQuote] = useState<ShippingQuote | null>(null)
+  const [quoteLoading, setQuoteLoading] = useState(false)
+  const [shippingError, setShippingError] = useState("")
+  const [submittingOrder, setSubmittingOrder] = useState(false)
+  const [orderError, setOrderError] = useState("")
+
+  const shippingQuoteRequestId = useRef(0)
+  const activeQuoteRequestId = useRef<number | null>(null)
+  const orderSubmissionInFlight = useRef(false)
+
+  const items = useMemo(() => validItems(cart), [cart])
+
+  const subtotal = useMemo(
+    () =>
+      items.reduce(
+        (sum, item) =>
+          sum + Number(item.product.price) * item.quantity,
+        0,
+      ),
+    [items],
+  )
+
+  const totalWeight = useMemo(
+    () =>
+      items.reduce(
+        (sum, item) =>
+          sum + Math.max(0, Number(item.product.weight) || 0) * item.quantity,
+        0,
+      ),
+    [items],
+  )
+
+  const itemCount = useMemo(
+    () => items.reduce((sum, item) => sum + item.quantity, 0),
+    [items],
+  )
+
+  const shippingFee = shippingQuote?.cost ?? 0
+  const total = subtotal + shippingFee
+
+  const usableAddresses = useMemo(
+    () =>
+      savedAddresses.filter(
+        (address) =>
+          Boolean(address.province_code) &&
+          Boolean(address.regency_code) &&
+          Boolean(address.district_code) &&
+          Boolean(address.village_code),
+      ),
+    [savedAddresses],
+  )
+
+  const incompleteAddresses = useMemo(
+    () =>
+      savedAddresses.filter(
+        (address) =>
+          !address.province_code ||
+          !address.regency_code ||
+          !address.district_code ||
+          !address.village_code,
+      ),
+    [savedAddresses],
+  )
+
+  const selectedAddress = useMemo(
+    () => savedAddresses.find((address) => address.id === selectedAddressId),
+    [savedAddresses, selectedAddressId],
+  )
 
   useEffect(() => {
-    let active = true;
+    let active = true
 
-    apiFetch<AddressesResponse>('/addresses')
+    setAddressesLoading(true)
+    setAddressesError("")
+
+    apiFetch<AddressesResponse>("/addresses")
       .then((response) => {
-        if (!active) return;
-        const addresses = response.data;
-        setSavedAddresses(addresses);
-        const usableAddresses = addresses.filter((address) =>
-          address.province_code && address.regency_code && address.district_code && address.village_code
-        );
-        const defaultAddress = usableAddresses.find((address) => address.is_default);
-        if (defaultAddress) {
-          setSelectedAddressId(defaultAddress.id);
-        } else if (usableAddresses[0]) {
-          setSelectedAddressId(usableAddresses[0].id);
+        if (!active) return
+
+        const addresses = response.data ?? []
+        setSavedAddresses(addresses)
+
+        const usable = addresses.filter(
+          (address) =>
+            address.province_code &&
+            address.regency_code &&
+            address.district_code &&
+            address.village_code,
+        )
+
+        const defaultAddress = usable.find((address) => address.is_default)
+        const initialAddress = defaultAddress ?? usable[0]
+
+        if (initialAddress) {
+          setSelectedAddressId(initialAddress.id)
+          setAddingAddress(false)
         } else {
-          setAddingAddress(true);
+          setAddingAddress(true)
+          setAddressModalOpen(true)
         }
       })
       .catch((error) => {
         if (active) {
-          setAddressesError(error instanceof Error ? error.message : 'Gagal memuat alamat tersimpan.');
+          setAddressesError(
+            getErrorMessage(error, "Gagal memuat alamat tersimpan."),
+          )
         }
       })
       .finally(() => {
-        if (active) setAddressesLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-
-    apiFetch<{ data: LocationOption[] }>('/locations/provinces')
-      .then((response) => {
-        if (active) setProvinces(response.data);
+        if (active) setAddressesLoading(false)
       })
-      .catch((error) => {
-        if (active) {
-          setLocationError(error instanceof Error ? error.message : 'Gagal memuat daftar provinsi.');
-        }
-      });
 
     return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!form.province_code) {
-      setRegencies([]);
-      return;
+      active = false
     }
+  }, [addressesRetry])
 
-    let active = true;
-    apiFetch<{ data: LocationOption[] }>(`/locations/provinces/${encodeURIComponent(form.province_code)}/regencies`)
-      .then((response) => {
-        if (active) setRegencies(response.data);
-      })
-      .catch((error) => {
-        if (active) setLocationError(error instanceof Error ? error.message : 'Gagal memuat daftar kabupaten/kota.');
-      });
-    return () => {
-      active = false;
-    };
-  }, [form.province_code]);
-
-  useEffect(() => {
-    if (!form.regency_code) {
-      setDistricts([]);
-      return;
-    }
-
-    let active = true;
-    apiFetch<{ data: LocationOption[] }>(`/locations/regencies/${encodeURIComponent(form.regency_code)}/districts`)
-      .then((response) => {
-        if (active) setDistricts(response.data);
-      })
-      .catch((error) => {
-        if (active) setLocationError(error instanceof Error ? error.message : 'Gagal memuat daftar kecamatan.');
-      });
-    return () => {
-      active = false;
-    };
-  }, [form.regency_code]);
-
-  useEffect(() => {
-    if (!form.district_code) {
-      setVillages([]);
-      return;
-    }
-
-    let active = true;
-    apiFetch<{ data: LocationOption[] }>(`/locations/districts/${encodeURIComponent(form.district_code)}/villages`)
-      .then((response) => {
-        if (active) setVillages(response.data);
-      })
-      .catch((error) => {
-        if (active) setLocationError(error instanceof Error ? error.message : 'Gagal memuat daftar kelurahan/desa.');
-      });
-    return () => {
-      active = false;
-    };
-  }, [form.district_code]);
-
-  useEffect(() => {
-    let active = true;
-
-    apiFetch<{ data: PaymentMethod[] }>('/payment-methods')
-      .then((response) => {
-        if (!active) return;
-        setPaymentMethods(response.data);
-        setPayment((current) =>
-          response.data.some((method) => method.code === current)
-            ? current
-            : response.data[0]?.code ?? ''
-        );
-      })
-      .catch((error) => {
-        if (!active) return;
-        setPaymentMethodsError(
-          error instanceof Error
-            ? error.message
-            : 'Gagal memuat metode pembayaran.'
-        );
-      })
-      .finally(() => {
-        if (active) setPaymentMethodsLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const items = validItems(cart);
-
-  const subtotal = items.reduce(
-    (sum, i) => sum + Number(i.product.price) * i.quantity,
-    0
-  );
-  const shippingFee = shippingQuote?.cost ?? 0;
-  const total = subtotal + shippingFee;
-  const usableAddresses = savedAddresses.filter((address) =>
-    address.province_code && address.regency_code && address.district_code && address.village_code
-  );
-  const incompleteAddresses = savedAddresses.filter((address) =>
-    !address.province_code || !address.regency_code || !address.district_code || !address.village_code
-  );
-
-  const updateAddressField = (field: keyof typeof form, value: string) => {
-    setForm((current) => {
-      if (field === 'province_code') {
-        return { ...current, province_code: value, regency_code: '', district_code: '', village_code: '' };
-      }
-      if (field === 'regency_code') {
-        return { ...current, regency_code: value, district_code: '', village_code: '' };
-      }
-      if (field === 'district_code') {
-        return { ...current, district_code: value, village_code: '' };
-      }
-      return { ...current, [field]: value };
-    });
-    if (field === 'province_code') {
-      setRegencies([]);
-      setDistricts([]);
-      setVillages([]);
-    } else if (field === 'regency_code') {
-      setDistricts([]);
-      setVillages([]);
-    } else if (field === 'district_code') {
-      setVillages([]);
-    }
-    if (['province_code', 'regency_code', 'district_code', 'village_code'].includes(field)) {
-      shippingQuoteRequestId.current += 1;
-      setShippingQuote(null);
-      setShippingError('');
-      setQuoteLoading(false);
-      setLocationError('');
-    }
-  };
+  const invalidateShippingQuote = () => {
+    shippingQuoteRequestId.current += 1
+    activeQuoteRequestId.current = null
+    setShippingQuote(null)
+    setShippingError("")
+    setOrderError("")
+    setQuoteLoading(false)
+  }
 
   const selectAddress = (addressId: number) => {
-    setSelectedAddressId(addressId);
-    setAddingAddress(false);
-    shippingQuoteRequestId.current += 1;
-    setShippingQuote(null);
-    setShippingError('');
-    setOrderError('');
-    setQuoteLoading(false);
-  };
+    setSelectedAddressId(addressId)
+    setAddingAddress(false)
+    invalidateShippingQuote()
+  }
 
   const startAddingAddress = () => {
-    setSelectedAddressId(null);
-    setAddingAddress(true);
-    setMakeDefaultAddress(savedAddresses.length === 0);
+    setSelectedAddressId(null)
+    setAddingAddress(true)
+    setAddressModalOpen(true)
+    setMakeDefaultAddress(savedAddresses.length === 0)
+
     setForm((current) => ({
       ...current,
-      label: 'Rumah',
-      province_code: '',
-      regency_code: '',
-      district_code: '',
-      village_code: '',
-      zip: '',
-      rt: '',
-      rw: '',
-      neighborhood: '',
-      landmark: '',
-      address: '',
-    }));
-    shippingQuoteRequestId.current += 1;
-    setShippingQuote(null);
-    setShippingError('');
-    setOrderError('');
-    setQuoteLoading(false);
-  };
+      label: "Rumah",
+      name: localStorage.getItem("userName") ?? current.name,
+      phone: localStorage.getItem("userPhone") ?? current.phone,
+      province_code: "",
+      regency_code: "",
+      district_code: "",
+      village_code: "",
+      zip: "",
+      rt: "",
+      rw: "",
+      neighborhood: "",
+      landmark: "",
+      address: "",
+    }))
 
-  const continueToPayment = async () => {
-    const selectedAddress = savedAddresses.find((address) => address.id === selectedAddressId);
-    if (!addingAddress && !selectedAddress) {
-      setShippingError('Pilih alamat pengiriman atau tambahkan alamat baru.');
-      return;
+    invalidateShippingQuote()
+  }
+
+  const handleAddressModalSubmit = (values: AddressFormValues) => {
+    setForm((current) => ({
+      ...current,
+      label: values.label,
+      name: values.name,
+      phone: values.phone,
+      province_code: values.province_code ?? "",
+      regency_code: values.regency_code ?? "",
+      district_code: values.district_code ?? "",
+      village_code: values.village_code ?? "",
+      zip: values.postal_code,
+      rt: values.rt ?? "",
+      rw: values.rw ?? "",
+      neighborhood: values.neighborhood ?? "",
+      landmark: values.landmark ?? "",
+      address: values.address,
+    }))
+
+    setMakeDefaultAddress(values.is_default)
+    setAddingAddress(true)
+    setAddressModalOpen(false)
+    invalidateShippingQuote()
+  }
+
+  const saveNewAddress = async (): Promise<number> => {
+    const response = await apiFetch<AddressResponse>("/addresses", {
+      method: "POST",
+      body: JSON.stringify({
+        label: form.label.trim(),
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        province_code: form.province_code,
+        regency_code: form.regency_code,
+        district_code: form.district_code,
+        village_code: form.village_code,
+        postal_code: form.zip.trim(),
+        rt: form.rt.trim() || null,
+        rw: form.rw.trim() || null,
+        neighborhood: form.neighborhood.trim() || null,
+        landmark: form.landmark.trim() || null,
+        address: form.address.trim(),
+        is_default: makeDefaultAddress,
+      }),
+    })
+
+    const newAddress = response.data
+    setSavedAddresses((current) => [newAddress, ...current])
+    setSelectedAddressId(newAddress.id)
+    setAddingAddress(false)
+
+    return newAddress.id
+  }
+
+  const continueToConfirmation = async () => {
+    if (activeQuoteRequestId.current !== null || quoteLoading) return
+
+    setShippingError("")
+    setOrderError("")
+
+    const currentAddress = selectedAddress
+
+    if (!addingAddress && !currentAddress) {
+      setShippingError("Pilih alamat pengiriman atau tambahkan alamat baru.")
+      return
     }
 
-    if (addingAddress && (
-      !form.label.trim() ||
-      !form.name.trim() ||
-      !form.phone.trim() ||
-      !form.province_code ||
-      !form.regency_code ||
-      !form.district_code ||
-      !form.village_code ||
-      !/^\d{5}$/.test(form.zip.trim()) ||
-      !form.address.trim()
-    )) {
-      setShippingError('Lengkapi label, data penerima, seluruh wilayah, kode pos 5 digit, dan alamat jalan.');
-      return;
+    if (
+      addingAddress &&
+      (!form.label.trim() ||
+        !form.name.trim() ||
+        !form.phone.trim() ||
+        !form.province_code ||
+        !form.regency_code ||
+        !form.district_code ||
+        !form.village_code ||
+        !/^\d{5}$/.test(form.zip.trim()) ||
+        !form.address.trim())
+    ) {
+      setShippingError(
+        "Lengkapi data penerima, wilayah, kode pos 5 digit, dan alamat jalan.",
+      )
+      return
     }
 
-    const location = addingAddress ? form : selectedAddress!;
-    const requestId = ++shippingQuoteRequestId.current;
-    setQuoteLoading(true);
-    setShippingError('');
+    const location = addingAddress ? form : currentAddress!
+    const requestId = ++shippingQuoteRequestId.current
+    activeQuoteRequestId.current = requestId
+    setQuoteLoading(true)
 
     try {
-      const response = await apiFetch<ShippingQuoteResponse>('/shipping-methods/quote', {
-        method: 'POST',
-        body: JSON.stringify({
-          province_code: location.province_code,
-          regency_code: location.regency_code,
-          district_code: location.district_code,
-          village_code: location.village_code,
-        }),
-      });
-
-      if (requestId !== shippingQuoteRequestId.current) return;
-
-      let addressId = selectedAddressId;
-      if (addingAddress) {
-        const addressResponse = await apiFetch<AddressResponse>('/addresses', {
-          method: 'POST',
+      const quoteResponse = await apiFetch<ShippingQuoteResponse>(
+        "/shipping-methods/quote",
+        {
+          method: "POST",
           body: JSON.stringify({
-            label: form.label.trim(),
-            name: form.name.trim(),
-            phone: form.phone.trim(),
+            province_code: location.province_code,
+            regency_code: location.regency_code,
+            district_code: location.district_code,
+            village_code: location.village_code,
+          }),
+        },
+      )
+
+      if (requestId !== shippingQuoteRequestId.current) return
+
+      if (addingAddress) {
+        await saveNewAddress()
+      }
+
+      if (requestId !== shippingQuoteRequestId.current) return
+
+      setShippingQuote(quoteResponse.data)
+      setStep(2)
+    } catch (error) {
+      if (requestId === shippingQuoteRequestId.current) {
+        setShippingError(
+          getErrorMessage(error, "Gagal memproses alamat atau ongkir."),
+        )
+      }
+    } finally {
+      if (requestId === shippingQuoteRequestId.current) {
+        activeQuoteRequestId.current = null
+        setQuoteLoading(false)
+      }
+    }
+  }
+
+  const handleOrder = async () => {
+    if (orderSubmissionInFlight.current) return
+
+    setOrderError("")
+
+    if (!shippingQuote) {
+      setOrderError(
+        "Ongkos kirim belum tersedia. Kembali ke alamat untuk menghitung ulang.",
+      )
+      setStep(1)
+      return
+    }
+
+    if (items.length === 0) {
+      setOrderError("Keranjang kosong. Tambahkan produk sebelum checkout.")
+      return
+    }
+
+    if (!selectedAddressId) {
+      setOrderError("Alamat pengiriman belum dipilih.")
+      setStep(1)
+      return
+    }
+
+    orderSubmissionInFlight.current = true
+    setSubmittingOrder(true)
+
+    try {
+      const response = await apiFetch<OrderResponse>("/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          address_id: selectedAddressId,
+          shipping_method_id: shippingQuote.courier.id,
+        }),
+      })
+
+      onOrderPlaced?.()
+      navigate("payment", { orderId: response.data.id })
+    } catch (error) {
+      setOrderError(
+        getErrorMessage(error, "Gagal membuat pesanan. Silakan coba lagi."),
+      )
+    } finally {
+      orderSubmissionInFlight.current = false
+      setSubmittingOrder(false)
+    }
+  }
+
+  const addressText = (address: SavedAddress) =>
+    [
+      address.address,
+      address.rt || address.rw
+        ? `RT ${address.rt || "-"} / RW ${address.rw || "-"}`
+        : null,
+      address.neighborhood,
+      address.landmark ? `Patokan: ${address.landmark}` : null,
+      address.village,
+      address.district,
+      address.city,
+      address.province,
+      address.postal_code,
+    ]
+      .filter(Boolean)
+      .join(", ")
+
+  if (items.length === 0) {
+    return <EmptyCart navigate={navigate} />
+  }
+
+  return (
+    <>
+      <main className="min-h-screen bg-gray-50">
+        <div className="mx-auto w-full max-w-7xl px-4 py-6 font-sans text-gray-800 sm:px-6 sm:py-8">
+          <nav
+            aria-label="Breadcrumb"
+            className="mb-6 flex flex-wrap items-center gap-2 text-xs text-gray-400"
+          >
+            <button
+              type="button"
+              onClick={() => navigate("home")}
+              className="rounded px-1 py-1 text-[#DF401F] transition hover:bg-orange-50"
+            >
+              Beranda
+            </button>
+            <span aria-hidden="true">/</span>
+            <button
+              type="button"
+              onClick={() => navigate("cart")}
+              className="rounded px-1 py-1 text-[#DF401F] transition hover:bg-orange-50"
+            >
+              Keranjang
+            </button>
+            <span aria-hidden="true">/</span>
+            <span className="font-semibold text-gray-800" aria-current="page">
+              Checkout
+            </span>
+          </nav>
+
+          <div className="mb-7">
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+              Checkout
+            </h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Lengkapi alamat dan periksa pesanan sebelum melakukan pembayaran.
+            </p>
+          </div>
+
+          <div className="mb-8 rounded-xl border border-gray-100 bg-white px-3 py-5 shadow-sm sm:px-6">
+            <CheckoutStepper currentStep={step} />
+          </div>
+
+          <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-6">
+            <div className="min-w-0">
+              {step === 1 && (
+                <section className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6 lg:p-7">
+                  <div className="mb-5">
+                    <h2 className="text-lg font-bold text-gray-900">
+                      Alamat Pengiriman
+                    </h2>
+                    <p className="mt-1 text-sm leading-relaxed text-gray-500">
+                      Pilih alamat tersimpan atau tambahkan alamat baru.
+                    </p>
+                  </div>
+
+                  {addressesLoading && (
+                    <div
+                      className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600"
+                      role="status"
+                    >
+                      <Spinner size={14} />
+                      Memuat alamat tersimpan...
+                    </div>
+                  )}
+
+                  {addressesError && (
+                    <div
+                      className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+                      role="alert"
+                    >
+                      <p>{addressesError}</p>
+                      <button
+                        type="button"
+                        disabled={addressesLoading}
+                        onClick={() =>
+                          setAddressesRetry((attempt) => attempt + 1)
+                        }
+                        className="mt-2 font-semibold text-[#DF401F] disabled:opacity-50"
+                      >
+                        Coba muat ulang
+                      </button>
+                    </div>
+                  )}
+
+                  {!addressesLoading && usableAddresses.length > 0 && (
+                    <div
+                      className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+                      role="group"
+                      aria-label="Pilih alamat tersimpan"
+                    >
+                      {usableAddresses.map((address) => {
+                        const selected =
+                          selectedAddressId === address.id && !addingAddress
+
+                        return (
+                          <button
+                            key={address.id}
+                            type="button"
+                            onClick={() => selectAddress(address.id)}
+                            disabled={quoteLoading}
+                            aria-pressed={selected}
+                            className={`w-full rounded-xl border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#DF401F]/30 disabled:cursor-not-allowed disabled:opacity-60 ${
+                              selected
+                                ? "border-[#DF401F] bg-orange-50/70 shadow-[0_0_0_2px_rgba(223,64,31,0.08)]"
+                                : "border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50/30"
+                            }`}
+                          >
+                            <span className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-bold text-gray-900">
+                                {address.label}
+                              </span>
+                              {address.is_default && (
+                                <span className="rounded-full bg-green-50 px-2 py-1 text-[10px] font-bold text-green-700">
+                                  UTAMA
+                                </span>
+                              )}
+                            </span>
+
+                            <span className="mt-2 block text-sm font-semibold text-gray-700">
+                              {address.name}
+                            </span>
+                            <span className="mt-0.5 block text-xs text-gray-500">
+                              {address.phone}
+                            </span>
+                            <span className="mt-2 block text-xs leading-relaxed text-gray-500">
+                              {addressText(address)}
+                            </span>
+
+                            <span
+                              className={`mt-3 block text-xs font-semibold ${
+                                selected ? "text-[#DF401F]" : "text-gray-400"
+                              }`}
+                            >
+                              {selected ? "✓ Alamat dipilih" : "Pilih alamat"}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {!addressesLoading && incompleteAddresses.length > 0 && (
+                    <div
+                      className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-800"
+                      role="status"
+                    >
+                      Ada alamat lama yang belum memiliki data wilayah lengkap.
+                      Tambahkan ulang alamat tersebut agar dapat digunakan.
+                    </div>
+                  )}
+
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={startAddingAddress}
+                      disabled={quoteLoading}
+                      aria-pressed={addingAddress}
+                      className={`inline-flex min-h-10 items-center justify-center rounded-lg border px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 ${
+                        addingAddress
+                          ? "border-[#DF401F] bg-orange-50 text-[#DF401F]"
+                          : "border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50"
+                      }`}
+                    >
+                      + Tambah alamat baru
+                    </button>
+                  </div>
+
+                  {addingAddress && !addressModalOpen && (
+                    <div className="mt-4 flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900">
+                          {form.label} · {form.name || "Nama penerima"}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {form.phone || "Nomor telepon belum diisi"}
+                        </p>
+                        <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                          {form.address || "Alamat jalan belum diisi"}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Kode pos: {form.zip || "-"}
+                        </p>
+                        {makeDefaultAddress && (
+                          <span className="mt-2 inline-flex rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
+                            Alamat utama
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setAddressModalOpen(true)}
+                        className="shrink-0 text-sm font-semibold text-[#DF401F] hover:underline"
+                      >
+                        Ubah
+                      </button>
+                    </div>
+                  )}
+
+                  {shippingError && (
+                    <div
+                      className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                      role="alert"
+                    >
+                      {shippingError}
+                    </div>
+                  )}
+
+                  <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => navigate("cart")}
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                    >
+                      Kembali ke keranjang
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void continueToConfirmation()}
+                      disabled={quoteLoading || addressesLoading}
+                      aria-busy={quoteLoading}
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#DF401F] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#C73818] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {quoteLoading ? (
+                        <>
+                          <Spinner size={14} />
+                          Menghitung ongkir...
+                        </>
+                      ) : (
+                        "Lanjut konfirmasi"
+                      )}
+                    </button>
+                  </div>
+                </section>
+              )}
+
+              {step === 2 && (
+                <section className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6 lg:p-7">
+                  <div className="mb-5">
+                    <h2 className="text-lg font-bold text-gray-900">
+                      Konfirmasi Pesanan
+                    </h2>
+                    <p className="mt-1 text-sm leading-relaxed text-gray-500">
+                      Pastikan alamat, ongkos kirim, dan produk sudah benar.
+                      Setelah pesanan dibuat, kamu akan diarahkan ke Midtrans.
+                    </p>
+                  </div>
+
+                  {selectedAddress && (
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-gray-400">
+                            ALAMAT PENERIMA
+                          </p>
+                          <p className="mt-1 text-sm font-bold text-gray-900">
+                            {selectedAddress.name}
+                          </p>
+                          <p className="mt-0.5 text-xs text-gray-500">
+                            {selectedAddress.phone}
+                          </p>
+                          <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                            {addressText(selectedAddress)}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setStep(1)}
+                          disabled={submittingOrder}
+                          className="shrink-0 text-sm font-semibold text-[#DF401F] hover:underline disabled:opacity-50"
+                        >
+                          Ubah
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {shippingQuote && (
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-orange-200 bg-orange-50/70 p-4">
+                      <div>
+                        <p className="text-xs font-medium text-gray-400">
+                          PENGIRIMAN
+                        </p>
+                        <p className="mt-1 font-bold text-gray-900">
+                          {shippingQuote.courier.name}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Ke {shippingQuote.location.city},{" "}
+                          {shippingQuote.location.province}
+                          {shippingQuote.courier.estimated_days
+                            ? ` · Estimasi ${shippingQuote.courier.estimated_days}`
+                            : ""}
+                        </p>
+                        {shippingQuote.promotion_applied && (
+                          <p className="mt-1.5 text-xs font-semibold text-green-700">
+                            Gratis ongkir · Hemat{" "}
+                            {formatPrice(shippingQuote.shipping_discount)}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="text-right">
+                        {shippingQuote.promotion_applied && (
+                          <p className="text-xs text-gray-400 line-through">
+                            {formatPrice(shippingQuote.original_cost)}
+                          </p>
+                        )}
+                        <p
+                          className={`font-bold ${
+                            shippingQuote.promotion_applied
+                              ? "text-green-700"
+                              : "text-[#DF401F]"
+                          }`}
+                        >
+                          {shippingQuote.promotion_applied
+                            ? "GRATIS"
+                            : formatPrice(shippingQuote.cost)}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-4 rounded-xl border border-gray-200 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-gray-800">
+                        Detail pesanan
+                      </p>
+                      <span className="text-xs text-gray-400">
+                        {itemCount} barang
+                      </span>
+                    </div>
+                    <div className="mt-3 space-y-3">
+                      {items.map((item) => {
+                        const image = productImage(item)
+
+                        return (
+                          <div
+                            key={item.id}
+                            className="flex items-center gap-3"
+                          >
+                            {image ? (
+                              <img
+                                src={image}
+                                alt={item.product.name}
+                                loading="lazy"
+                                className="h-12 w-12 shrink-0 rounded-lg bg-gray-50 object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
+                                <span aria-hidden="true">□</span>
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-gray-800">
+                                {item.product.name}
+                              </p>
+                              <p className="mt-0.5 text-xs text-gray-400">
+                                {item.quantity} ×{" "}
+                                {formatPrice(Number(item.product.price))}
+                              </p>
+                            </div>
+                            <p className="shrink-0 text-sm font-semibold text-gray-800">
+                              {formatPrice(
+                                Number(item.product.price) * item.quantity,
+                              )}
+                            </p>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {orderError && (
+                    <div
+                      className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm leading-relaxed text-red-700"
+                      role="alert"
+                    >
+                      {orderError}
+                    </div>
+                  )}
+
+                  <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setStep(1)}
+                      disabled={submittingOrder}
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Kembali
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleOrder()}
+                      disabled={submittingOrder || !shippingQuote}
+                      aria-busy={submittingOrder}
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#DF401F] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#C73818] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {submittingOrder ? (
+                        <>
+                          <Spinner size={14} />
+                          Membuat pesanan...
+                        </>
+                      ) : (
+                        "Buat pesanan & lanjut pembayaran"
+                      )}
+                    </button>
+                  </div>
+                </section>
+              )}
+            </div>
+
+            <aside
+              className="lg:sticky lg:top-24"
+              aria-label="Ringkasan pesanan"
+            >
+              <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-base font-bold text-gray-900">
+                    Ringkasan Pesanan
+                  </h2>
+                  <span className="text-xs text-gray-400">
+                    {itemCount} barang
+                  </span>
+                </div>
+
+                <div className="mb-4 flex max-h-72 flex-col gap-3 overflow-y-auto pr-1">
+                  {items.map((item) => {
+                    const image = productImage(item)
+
+                    return (
+                      <div key={item.id} className="flex items-center gap-3">
+                        {image ? (
+                          <img
+                            src={image}
+                            alt={item.product.name}
+                            loading="lazy"
+                            className="h-12 w-12 shrink-0 rounded-lg bg-gray-50 object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
+                            <span aria-hidden="true">□</span>
+                          </div>
+                        )}
+
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-semibold text-gray-900">
+                            {item.product.name}
+                          </p>
+                          <p className="mt-0.5 text-xs text-gray-400">
+                            ×{item.quantity}
+                          </p>
+                        </div>
+
+                        <span className="shrink-0 text-xs font-semibold text-gray-800">
+                          {formatPrice(
+                            Number(item.product.price) * item.quantity,
+                          )}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <div className="space-y-2 border-t border-gray-100 pt-3">
+                  <div className="flex justify-between gap-3 text-sm">
+                    <span className="text-gray-500">Subtotal</span>
+                    <span className="font-medium text-gray-800">
+                      {formatPrice(subtotal)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-3 text-sm">
+                    <span className="text-gray-500">Ongkos kirim</span>
+                    <span className="text-right font-medium text-gray-800">
+                      {shippingQuote
+                        ? shippingQuote.promotion_applied
+                          ? "GRATIS"
+                          : formatPrice(shippingFee)
+                        : "Dihitung setelah alamat dipilih"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-3 text-sm">
+                    <span className="text-gray-500">Total berat</span>
+                    <span className="font-medium text-gray-800">
+                      {totalWeight.toLocaleString("id-ID")} g
+                      {totalWeight >= 1000
+                        ? ` (${(totalWeight / 1000).toLocaleString("id-ID", {
+                            maximumFractionDigits: 2,
+                          })} kg)`
+                        : ""}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex justify-between gap-3 border-t border-gray-100 pt-3">
+                    <span className="text-sm font-bold text-gray-900">
+                      Total pembayaran
+                    </span>
+                    <span className="text-base font-bold text-[#DF401F]">
+                      {formatPrice(total)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-lg bg-gray-50 px-3 py-2.5 text-xs leading-relaxed text-gray-500">
+                  Metode pembayaran tersedia melalui Midtrans setelah pesanan
+                  berhasil dibuat.
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </main>
+
+      {addressModalOpen && (
+        <AddressFormModal
+          initialData={{
+            label: form.label,
+            name: form.name,
+            phone: form.phone,
             province_code: form.province_code,
             regency_code: form.regency_code,
             district_code: form.district_code,
             village_code: form.village_code,
-            postal_code: form.zip.trim(),
-            rt: form.rt.trim() || null,
-            rw: form.rw.trim() || null,
-            neighborhood: form.neighborhood.trim() || null,
-            landmark: form.landmark.trim() || null,
-            address: form.address.trim(),
+            postal_code: form.zip,
+            rt: form.rt || null,
+            rw: form.rw || null,
+            neighborhood: form.neighborhood || null,
+            landmark: form.landmark || null,
+            address: form.address,
             is_default: makeDefaultAddress,
-          }),
-        });
-        if (requestId !== shippingQuoteRequestId.current) return;
-        addressId = addressResponse.data.id;
-        setSavedAddresses((current) => [addressResponse.data, ...current]);
-        setSelectedAddressId(addressId);
-        setAddingAddress(false);
-      }
-
-      if (addressId) {
-        setShippingQuote(response.data);
-        setOrderError('');
-        setStep(2);
-      }
-    } catch (error) {
-      if (requestId === shippingQuoteRequestId.current) {
-        setShippingError(error instanceof Error ? error.message : 'Gagal menghitung ongkos kirim.');
-      }
-    } finally {
-      if (requestId === shippingQuoteRequestId.current) {
-        setQuoteLoading(false);
-      }
-    }
-  };
-
-  const handleOrder = async () => {
-    setOrderError('');
-
-    if (!shippingQuote) {
-      setOrderError('Ongkir belum dihitung. Kembali ke alamat untuk menghitung ongkir.');
-      setStep(1);
-      return;
-    }
-
-    if (!payment) {
-      setOrderError('Pilih metode pembayaran terlebih dahulu.');
-      return;
-    }
-
-    if (items.length === 0) {
-      setOrderError('Keranjang kosong. Tambahkan produk sebelum checkout.');
-      return;
-    }
-
-    if (!selectedAddressId) {
-      setOrderError('Pilih alamat pengiriman terlebih dahulu.');
-      setStep(1);
-      return;
-    }
-
-    setSubmittingOrder(true);
-
-    try {
-      const orderResponse = await apiFetch<OrderResponse>('/orders', {
-        method: 'POST',
-        body: JSON.stringify({
-          address_id: selectedAddressId,
-          shipping_method_id: shippingQuote.courier.id,
-          payment_method: payment,
-        }),
-      });
-
-      if (typeof onOrderPlaced === 'function') {
-        onOrderPlaced();
-      }
-      navigate('payment', { orderId: orderResponse.data.id });
-    } catch (error) {
-      setOrderError(
-        error instanceof Error ? error.message : 'Gagal membuat pesanan.'
-      );
-    } finally {
-      setSubmittingOrder(false);
-    }
-  };
-
-  return (
-    <div style={{ maxWidth: 1280, margin: '0 auto', padding: '32px 24px' }}>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 24, fontSize: '0.8rem', color: '#9CA3AF' }}>
-        <button onClick={() => navigate('home')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F97316', fontFamily: 'Poppins', fontSize: '0.8rem' }}>Beranda</button>
-        <span>/</span>
-        <button onClick={() => navigate('cart')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F97316', fontFamily: 'Poppins', fontSize: '0.8rem' }}>Keranjang</button>
-        <span>/</span>
-        <span style={{ color: '#1F2937', fontWeight: 600 }}>Checkout</span>
-      </div>
-
-      {/* Steps */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 40, maxWidth: 500 }}>
-        {[{ n: 1, label: 'Alamat' }, { n: 2, label: 'Pembayaran' }].map(({ n, label }, idx) => (
-          <div key={n} style={{ display: 'flex', alignItems: 'center', flex: idx < 2 ? 1 : 'none' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: '50%',
-                background: step >= n ? '#F97316' : '#F3F4F6',
-                color: step >= n ? 'white' : '#9CA3AF',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontWeight: 700, fontSize: '0.9rem', transition: 'all 0.3s',
-              }}>{step > n ? '✓' : n}</div>
-              <span style={{ fontSize: '0.72rem', fontWeight: 600, color: step >= n ? '#F97316' : '#9CA3AF' }}>{label}</span>
-            </div>
-            {idx < 1 && <div style={{ flex: 1, height: 2, background: step > n ? '#F97316' : '#F3F4F6', margin: '0 4px', marginBottom: 20, transition: 'background 0.3s' }} />}
-          </div>
-        ))}
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 24, alignItems: 'start' }}>
-        <div>
-          {step === 1 && (
-            <div style={{ background: 'white', borderRadius: 14, padding: '28px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-              <h3 style={{ margin: '0 0 6px', fontWeight: 700, color: '#1F2937' }}>Alamat Pengiriman</h3>
-              <p style={{ margin: '0 0 20px', color: '#6B7280', fontSize: '0.85rem' }}>
-                Pilih alamat yang sudah tersimpan atau tambahkan alamat baru ke akun Anda.
-              </p>
-              {addressesLoading && (
-                <p style={{ color: '#6B7280', fontSize: '0.85rem' }}>Memuat alamat tersimpan...</p>
-              )}
-              {addressesError && (
-                <p role="alert" style={{ color: '#DC2626', fontSize: '0.85rem' }}>{addressesError}</p>
-              )}
-              {!addressesLoading && usableAddresses.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-                  {usableAddresses.map((address) => {
-                    const selected = selectedAddressId === address.id && !addingAddress;
-                    return (
-                      <button
-                        key={address.id}
-                        type="button"
-                        onClick={() => selectAddress(address.id)}
-                        aria-pressed={selected}
-                        style={{
-                          textAlign: 'left',
-                          padding: 16,
-                          borderRadius: 10,
-                          border: `1px solid ${selected ? '#F97316' : '#E5E7EB'}`,
-                          background: selected ? '#FFF7ED' : 'white',
-                          cursor: 'pointer',
-                          fontFamily: 'Poppins',
-                        }}
-                      >
-                        <span style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
-                          <strong style={{ color: '#1F2937', fontSize: '0.9rem' }}>{address.label}</strong>
-                          {address.is_default && (
-                            <span style={{ color: '#15803D', fontSize: '0.7rem', fontWeight: 700 }}>UTAMA</span>
-                          )}
-                        </span>
-                        <span style={{ display: 'block', marginTop: 8, color: '#374151', fontSize: '0.82rem', fontWeight: 600 }}>
-                          {address.name} · {address.phone}
-                        </span>
-                        <span style={{ display: 'block', marginTop: 5, color: '#6B7280', fontSize: '0.78rem', lineHeight: 1.6 }}>
-                          {address.address}
-                          {address.rt || address.rw ? `, RT ${address.rt || '-'} / RW ${address.rw || '-'}` : ''}
-                          {address.neighborhood ? `, ${address.neighborhood}` : ''}
-                          {address.landmark ? `, patokan ${address.landmark}` : ''}
-                          {`, ${address.village}, ${address.district}, ${address.city}, ${address.province} ${address.postal_code}`}
-                        </span>
-                        <span style={{ display: 'block', marginTop: 8, color: selected ? '#C2410C' : '#9CA3AF', fontSize: '0.75rem', fontWeight: 600 }}>
-                          {selected ? 'Alamat dipilih' : 'Pilih alamat'}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {!addressesLoading && incompleteAddresses.length > 0 && (
-                <p style={{ margin: '12px 0 0', padding: '10px 12px', borderRadius: 8, background: '#FFFBEB', color: '#92400E', fontSize: '0.78rem' }}>
-                  Ada alamat lama yang belum memiliki wilayah lengkap. Tambahkan ulang alamat tersebut agar bisa dipakai untuk pengiriman.
-                </p>
-              )}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 16 }}>
-                <button
-                  type="button"
-                  onClick={startAddingAddress}
-                  aria-pressed={addingAddress}
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: 8,
-                    border: `1px solid ${addingAddress ? '#F97316' : '#D1D5DB'}`,
-                    background: addingAddress ? '#FFF7ED' : 'white',
-                    color: addingAddress ? '#C2410C' : '#374151',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    fontFamily: 'Poppins',
-                    fontSize: '0.82rem',
-                  }}
-                >
-                  + Tambah alamat baru
-                </button>
-              </div>
-              {addingAddress && (
-                <>
-                  <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #E5E7EB' }}>
-                    <h4 style={{ margin: '0 0 16px', color: '#1F2937', fontWeight: 700 }}>Detail alamat baru</h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                      <div>
-                        <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', color: '#374151', marginBottom: 6 }}>Label alamat</label>
-                        <input className="input-field" placeholder="Contoh: Rumah, Kantor" maxLength={255} value={form.label} onChange={event => updateAddressField('label', event.target.value)} />
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'end', paddingBottom: 9 }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#374151', fontSize: '0.82rem', cursor: 'pointer' }}>
-                          <input type="checkbox" checked={makeDefaultAddress} onChange={event => setMakeDefaultAddress(event.target.checked)} />
-                          Jadikan alamat utama
-                        </label>
-                      </div>
-                    </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                {[
-                  { field: 'name', label: 'Nama Lengkap', placeholder: 'Masukkan nama lengkap' },
-                  { field: 'phone', label: 'Nomor HP', placeholder: '08xx-xxxx-xxxx' },
-                ].map(({ field, label, placeholder }) => (
-                  <div key={field}>
-                    <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', color: '#374151', marginBottom: 6 }}>{label}</label>
-                    <input
-                      className="input-field"
-                      placeholder={placeholder}
-                      value={form[field as keyof typeof form]}
-                      onChange={e => updateAddressField(field as keyof typeof form, e.target.value)}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
-                {[
-                  { field: 'province_code', label: 'Provinsi', options: provinces, disabled: false, placeholder: 'Pilih provinsi' },
-                  { field: 'regency_code', label: 'Kota/Kabupaten', options: regencies, disabled: !form.province_code, placeholder: 'Pilih kota/kabupaten' },
-                ].map(({ field, label, options, disabled, placeholder }) => (
-                  <div key={field}>
-                    <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', color: '#374151', marginBottom: 6 }}>{label}</label>
-                    <select
-                      className="input-field"
-                      value={form[field as keyof typeof form]}
-                      disabled={disabled}
-                      onChange={(event) => updateAddressField(field as keyof typeof form, event.target.value)}
-                    >
-                      <option value="">{placeholder}</option>
-                      {options.map((option) => <option key={option.code} value={option.code}>{option.name}</option>)}
-                    </select>
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginTop: 16 }}>
-                {[
-                  { field: 'district_code', label: 'Kecamatan', options: districts, disabled: !form.regency_code, placeholder: 'Pilih kecamatan' },
-                  { field: 'village_code', label: 'Kelurahan/Desa', options: villages, disabled: !form.district_code, placeholder: 'Pilih kelurahan/desa' },
-                ].map(({ field, label, options, disabled, placeholder }) => (
-                  <div key={field}>
-                    <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', color: '#374151', marginBottom: 6 }}>{label}</label>
-                    <select
-                      className="input-field"
-                      value={form[field as keyof typeof form]}
-                      disabled={disabled}
-                      onChange={(event) => updateAddressField(field as keyof typeof form, event.target.value)}
-                    >
-                      <option value="">{placeholder}</option>
-                      {options.map((option) => <option key={option.code} value={option.code}>{option.name}</option>)}
-                    </select>
-                  </div>
-                ))}
-                <div>
-                  <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', color: '#374151', marginBottom: 6 }}>Kode Pos</label>
-                  <input className="input-field" inputMode="numeric" maxLength={5} placeholder="00000" value={form.zip} onChange={event => updateAddressField('zip', event.target.value.replace(/\D/g, '').slice(0, 5))} />
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
-                {[
-                  { field: 'rt', label: 'RT', placeholder: 'Contoh: 001' },
-                  { field: 'rw', label: 'RW', placeholder: 'Contoh: 002' },
-                  { field: 'neighborhood', label: 'Perumahan / Lingkungan (opsional)', placeholder: 'Nama perumahan atau lingkungan' },
-                  { field: 'landmark', label: 'Patokan (opsional)', placeholder: 'Patokan lokasi terdekat' },
-                ].map(({ field, label, placeholder }) => (
-                  <div key={field}>
-                    <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', color: '#374151', marginBottom: 6 }}>{label}</label>
-                    <input className="input-field" maxLength={field === 'rt' || field === 'rw' ? 3 : undefined} placeholder={placeholder} value={form[field as keyof typeof form]} onChange={event => updateAddressField(field as keyof typeof form, event.target.value)} />
-                  </div>
-                ))}
-              </div>
-              <div style={{ marginTop: 16 }}>
-                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', color: '#374151', marginBottom: 6 }}>Nama Jalan, Nomor Rumah, dan Detail Alamat</label>
-                <textarea className="input-field" placeholder="Contoh: Jl. Mawar No. 10, Gang 2, rumah pagar hijau" rows={3} value={form.address} onChange={e => updateAddressField('address', e.target.value)} style={{ resize: 'vertical' }} />
-              </div>
-                  </div>
-                </>
-              )}
-              {locationError && <p role="alert" style={{ color: '#DC2626', fontSize: '0.85rem', margin: '16px 0 0' }}>{locationError}</p>}
-              {shippingError && (
-                <p style={{ color: '#DC2626', fontSize: '0.85rem', margin: '16px 0 0' }}>{shippingError}</p>
-              )}
-              <button className="btn-primary" onClick={continueToPayment} disabled={quoteLoading || addressesLoading} style={{ marginTop: 24, padding: '12px 28px', opacity: quoteLoading || addressesLoading ? 0.65 : 1 }}>
-                {quoteLoading ? 'Menghitung ongkir...' : 'Lanjut ke Pembayaran →'}
-              </button>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div style={{ background: 'white', borderRadius: 14, padding: '28px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-              <h3 style={{ margin: '0 0 24px', fontWeight: 700, color: '#1F2937' }}>Metode Pembayaran</h3>
-              {shippingQuote && (
-                <div style={{ padding: '16px 18px', borderRadius: 10, border: '1px solid #FED7AA', background: '#FFF7ED', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
-                  <div>
-                    <div style={{ fontWeight: 700, color: '#1F2937' }}>{shippingQuote.courier.name}</div>
-                    <div style={{ marginTop: 4, fontSize: '0.8rem', color: '#6B7280' }}>
-                      Ongkir ke {shippingQuote.location.city}, {shippingQuote.location.province}
-                      {shippingQuote.courier.estimated_days ? ` · Estimasi ${shippingQuote.courier.estimated_days}` : ''}
-                    </div>
-                    {shippingQuote.promotion_applied && (
-                      <div style={{ marginTop: 5, fontSize: '0.8rem', color: '#15803D', fontWeight: 600 }}>
-                        Gratis ongkir · Hemat {formatPrice(shippingQuote.shipping_discount)}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    {shippingQuote.promotion_applied && (
-                      <div style={{ color: '#9CA3AF', fontSize: '0.78rem', textDecoration: 'line-through' }}>
-                        {formatPrice(shippingQuote.original_cost)}
-                      </div>
-                    )}
-                    <span style={{ fontWeight: 800, color: shippingQuote.promotion_applied ? '#15803D' : '#F97316' }}>
-                      {shippingQuote.promotion_applied ? 'GRATIS' : formatPrice(shippingQuote.cost)}
-                    </span>
-                  </div>
-                </div>
-              )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 20 }}>
-                {paymentMethodsLoading && (
-                  <p style={{ color: '#6B7280', fontSize: '0.85rem' }}>Memuat metode pembayaran...</p>
-                )}
-                {paymentMethodsError && (
-                  <p role="alert" style={{ color: '#DC2626', fontSize: '0.85rem' }}>{paymentMethodsError}</p>
-                )}
-                {!paymentMethodsLoading && !paymentMethodsError && paymentMethods.length === 0 && (
-                  <p style={{ color: '#DC2626', fontSize: '0.85rem' }}>Belum ada metode pembayaran yang tersedia.</p>
-                )}
-                {paymentMethods.map((method) => (
-                  <label key={method.id} style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '14px 16px', borderRadius: 10, border: `2px solid ${payment === method.code ? '#F97316' : '#E5E7EB'}`,
-                    background: payment === method.code ? 'rgba(249,115,22,0.04)' : 'white',
-                    cursor: 'pointer', transition: 'all 0.2s',
-                  }}>
-                    <input type="radio" checked={payment === method.code} onChange={() => setPayment(method.code)} style={{ accentColor: '#F97316', width: 16, height: 16 }} />
-                    <span style={{ fontSize: 20 }}>{method.icon ?? '💳'}</span>
-                    <div>
-                      <div style={{ fontWeight: 600, color: '#1F2937', fontSize: '0.9rem' }}>{method.name}</div>
-                      <div style={{ fontSize: '0.72rem', color: '#6B7280' }}>
-                        {method.type === 'bank' ? 'Transfer bank · perlu unggah bukti' : 'QRIS · scan dan unggah bukti'}
-                      </div>
-                      {method.description && (
-                        <div style={{ fontSize: '0.78rem', color: '#9CA3AF' }}>{method.description}</div>
-                      )}
-                    </div>
-                  </label>
-                ))}
-              </div>
-              {orderError && (
-                <p role="alert" style={{ color: '#DC2626', fontSize: '0.85rem', margin: '16px 0 0' }}>{orderError}</p>
-              )}
-              <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
-                <button className="btn-outline" onClick={() => setStep(1)} style={{ padding: '12px 24px' }}>← Kembali</button>
-                <button
-                  className="btn-primary"
-                  onClick={handleOrder}
-                  disabled={submittingOrder || paymentMethodsLoading || paymentMethods.length === 0}
-                  style={{ padding: '12px 28px', flex: 1, opacity: submittingOrder || paymentMethodsLoading || paymentMethods.length === 0 ? 0.65 : 1 }}
-                >
-                  {submittingOrder ? 'Menyimpan Pesanan...' : 'Buat Pesanan & Lanjut Bayar'}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Order summary */}
-        <div style={{ position: 'sticky', top: 88 }}>
-          <div style={{ background: 'white', borderRadius: 14, padding: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
-            <h3 style={{ margin: '0 0 16px', fontWeight: 700, color: '#1F2937' }}>Ringkasan Pesanan</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-              {items.map(item => (
-                <div key={item.id} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <img src={productImage(item)} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', background: '#FFF8F0' }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 600, color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.product.name}</p>
-                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#9CA3AF' }}>
-                      ×{item.quantity}
-                      {item.product.weight > 0
-                        ? ` · ${item.product.weight.toLocaleString('id-ID')} g`
-                        : ''}
-                    </p>
-                  </div>
-                  <span style={{ fontWeight: 600, color: '#1F2937', fontSize: '0.85rem', flexShrink: 0 }}>{formatPrice(Number(item.product.price) * item.quantity)}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
-                <span style={{ color: '#6B7280' }}>Subtotal</span>
-                <span style={{ fontWeight: 600, color: '#1F2937' }}>{formatPrice(subtotal)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
-                <span style={{ color: '#6B7280' }}>Ongkir</span>
-                <span style={{ fontWeight: 600, color: '#1F2937' }}>{shippingQuote ? formatPrice(shippingFee) : 'Dihitung dari alamat'}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #F3F4F6', paddingTop: 8 }}>
-                <span style={{ fontWeight: 700, color: '#1F2937' }}>Total</span>
-                <span style={{ fontWeight: 800, color: '#F97316', fontSize: '1.1rem' }}>{formatPrice(total)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+          }}
+          onClose={() => {
+            setAddressModalOpen(false)
+            if (!form.address) {
+              setAddingAddress(false)
+            }
+          }}
+          onSubmit={handleAddressModalSubmit}
+        />
+      )}
+    </>
+  )
 }

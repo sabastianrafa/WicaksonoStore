@@ -163,20 +163,6 @@ class ApiDocumentation
     public function categoriesIndex(): void {}
 
     #[OA\Get(
-        path: '/api/categories/{category}',
-        summary: 'Detail kategori',
-        tags: ['Categories'],
-        parameters: [
-                new OA\Parameter(name: 'category', description: 'category', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
-            ],
-        responses: [
-                new OA\Response(response: 200, description: 'Detail kategori berhasil diambil'),
-                new OA\Response(response: 404, description: 'Kategori tidak ditemukan')
-            ]
-    )]
-    public function categoriesShow(): void {}
-
-    #[OA\Get(
         path: '/api/shipping-methods',
         summary: 'Daftar metode pengiriman aktif',
         tags: ['Shipping Methods'],
@@ -438,62 +424,6 @@ class ApiDocumentation
     public function cartClear(): void {}
 
     #[OA\Get(
-        path: '/api/wishlist',
-        summary: 'Daftar wishlist',
-        tags: ['Wishlist'],
-        responses: [
-                new OA\Response(response: 200, description: 'Wishlist berhasil diambil')
-            ],
-        security: [['sanctum' => []]]
-    )]
-    public function wishlistIndex(): void {}
-
-    #[OA\Get(
-        path: '/api/wishlist/{product}',
-        summary: 'Cek produk di wishlist',
-        tags: ['Wishlist'],
-        parameters: [
-                new OA\Parameter(name: 'product', description: 'product', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
-            ],
-        responses: [
-                new OA\Response(response: 200, description: 'Status wishlist berhasil dicek'),
-                new OA\Response(response: 404, description: 'Produk tidak ditemukan')
-            ],
-        security: [['sanctum' => []]]
-    )]
-    public function wishlistCheck(): void {}
-
-    #[OA\Post(
-        path: '/api/wishlist/{product}',
-        summary: 'Tambah produk ke wishlist',
-        tags: ['Wishlist'],
-        parameters: [
-                new OA\Parameter(name: 'product', description: 'product', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
-            ],
-        responses: [
-                new OA\Response(response: 201, description: 'Produk berhasil ditambahkan'),
-                new OA\Response(response: 404, description: 'Produk tidak ditemukan')
-            ],
-        security: [['sanctum' => []]]
-    )]
-    public function wishlistStore(): void {}
-
-    #[OA\Delete(
-        path: '/api/wishlist/{product}',
-        summary: 'Hapus produk dari wishlist',
-        tags: ['Wishlist'],
-        parameters: [
-                new OA\Parameter(name: 'product', description: 'product', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
-            ],
-        responses: [
-                new OA\Response(response: 200, description: 'Produk berhasil dihapus'),
-                new OA\Response(response: 404, description: 'Produk tidak ditemukan')
-            ],
-        security: [['sanctum' => []]]
-    )]
-    public function wishlistDestroy(): void {}
-
-    #[OA\Get(
         path: '/api/orders',
         summary: 'Daftar pesanan user',
         tags: ['Orders'],
@@ -608,6 +538,22 @@ class ApiDocumentation
         security: [['sanctum' => []]]
     )]
     public function paymentStore(): void {}
+
+    #[OA\Post(
+        path: '/api/orders/{order}/payment/change-method',
+        summary: 'Batalkan pembayaran pending untuk mengganti kanal Midtrans',
+        tags: ['Payments'],
+        parameters: [
+            new OA\Parameter(name: 'order', description: 'ID pesanan', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Transaksi pending dibatalkan dan kanal baru dapat dipilih'),
+            new OA\Response(response: 409, description: 'Transaksi tidak dapat dibatalkan karena sudah selesai atau kedaluwarsa'),
+            new OA\Response(response: 422, description: 'Tidak ada transaksi Midtrans pending untuk dibatalkan')
+        ],
+        security: [['sanctum' => []]]
+    )]
+    public function paymentChangeMethod(): void {}
 
     #[OA\Post(
         path: '/api/products/{product}/reviews',
@@ -877,8 +823,6 @@ class ApiDocumentation
                 required: ['name'],
                 properties: [
                     new OA\Property(property: 'name', type: 'string', example: 'Makanan Khas Malang'),
-                    new OA\Property(property: 'icon', type: 'string', example: '🍪'),
-                    new OA\Property(property: 'color', type: 'string', example: '#E24E32'),
                     new OA\Property(property: 'is_active', type: 'boolean', example: true)
                 ]
             )
@@ -920,8 +864,6 @@ class ApiDocumentation
                 required: [],
                 properties: [
                     new OA\Property(property: 'name', type: 'string', example: 'Makanan Khas Malang'),
-                    new OA\Property(property: 'icon', type: 'string', example: '🍪'),
-                    new OA\Property(property: 'color', type: 'string', example: '#E24E32'),
                     new OA\Property(property: 'is_active', type: 'boolean', example: true)
                 ]
             )

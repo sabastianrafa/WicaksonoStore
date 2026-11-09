@@ -3,18 +3,32 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\OrderStatus;
-use App\Models\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
+use App\Models\MidtransTransaction;
 use App\Models\Order;
 use App\Models\Payment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Midtrans\Config;
+use Midtrans\Snap;
 
 class PaymentController extends Controller
 {
+    /**
+     * Konfigurasi Midtrans.
+     */
+    private function configureMidtrans(): void
+    {
+        Config::$serverKey = config('services.midtrans.server_key');
+        Config::$isProduction = (bool) config('services.midtrans.is_production');
+        Config::$isSanitized = true;
+        Config::$is3ds = true;
+    }
+
     /**
      * Menampilkan informasi pembayaran pesanan.
      *
@@ -22,51 +36,38 @@ class PaymentController extends Controller
      */
     public function show(Request $request, Order $order): JsonResponse
     {
-        if ($order->user_id !== $request->user()->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Pesanan tidak ditemukan.',
-            ], 404);
-        }
+        abort_unless($order->user_id === $request->user()->id, 404);
 
         $payment = $order->payment;
 
-        if (! $payment) {
-            $method = PaymentMethod::query()
-                ->where('is_active', true)
-                ->configured()
-                ->orderBy('sort_order')
-                ->first();
-
-            if (! $method) {
+        // Membuat payment Midtrans jika belum tersedia.
+        if (!$payment) {
+            if ($order->order_status === OrderStatus::CANCELLED) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Metode pembayaran belum tersedia. Silakan hubungi admin.',
+                    'message' => 'Pesanan telah dibatalkan.',
                 ], 422);
             }
 
             $payment = Payment::create([
                 'order_id' => $order->id,
-                'method' => $method->code,
-                'payment_method_name' => $method->name,
-                'payment_method_type' => $method->type,
-                'payment_account_number' => $method->account_number,
-                'payment_account_name' => $method->account_name,
-                'payment_qris_image' => $method->qris_image,
-                'payment_method_description' => $method->description,
+                'method' => 'midtrans',
                 'amount' => $order->total,
                 'status' => PaymentStatus::PENDING,
             ]);
         }
 
-        $paymentMethod = $this->paymentMethodDetails($payment);
-
         return response()->json([
             'success' => true,
-            'message' => 'Data pembayaran berhasil diambil.',
+            'message' => 'Informasi pembayaran berhasil diambil.',
             'data' => [
                 'payment' => $payment,
-                'payment_method' => $paymentMethod,
+
+                'midtrans_attempt_status' => $payment
+                    ->midtransTransactions()
+                    ->latest('id')
+                    ->value('status'),
+
                 'order' => [
                     'id' => $order->id,
                     'order_number' => $order->order_number,
@@ -78,174 +79,386 @@ class PaymentController extends Controller
     }
 
     /**
-     * Upload bukti pembayaran manual / perbarui metode pembayaran.
+     * Membuat atau menggunakan kembali Snap Token.
      *
-     * POST /api/orders/{order}/payment
+     * POST /api/orders/{order}/payment/snap-token
      */
-    public function store(Request $request, Order $order): JsonResponse
-    {
-        if ($order->user_id !== $request->user()->id) {
+    public function createSnapToken(
+        Request $request,
+        Order $order
+    ): JsonResponse {
+        abort_unless($order->user_id === $request->user()->id, 404);
+
+        $payment = $order->payment;
+
+        if (
+            !$payment ||
+            !in_array(
+                $payment->status,
+                [PaymentStatus::PENDING, PaymentStatus::REJECTED],
+                true
+            )
+        ) {
             return response()->json([
                 'success' => false,
-                'message' => 'Pesanan tidak ditemukan.',
-            ], 404);
+                'message' => 'Pembayaran tidak tersedia.',
+            ], 422);
         }
 
         if ($order->order_status === OrderStatus::CANCELLED) {
             return response()->json([
                 'success' => false,
-                'message' => 'Tidak dapat melakukan pembayaran untuk pesanan yang telah dibatalkan.',
+                'message' => 'Pesanan telah dibatalkan.',
             ], 422);
         }
 
-        $payment = $order->payment;
-        if ($payment?->status === PaymentStatus::PAID) {
+        if ($payment->method !== 'midtrans') {
             return response()->json([
                 'success' => false,
-                'message' => 'Pembayaran pesanan ini sudah diverifikasi.',
+                'message' => 'Metode pembayaran tidak valid.',
             ], 422);
         }
 
-        if ($payment?->status === PaymentStatus::PENDING && $payment->proof) {
+        $serverKey = config('services.midtrans.server_key');
+        $clientKey = config('services.midtrans.client_key');
+
+        if (!filled($serverKey) || !filled($clientKey)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bukti pembayaran sedang menunggu verifikasi admin.',
-            ], 422);
+                'message' => 'Konfigurasi Midtrans belum lengkap.',
+            ], 503);
         }
 
-        $validated = $request->validate([
-            'proof' => [
-                'required_without:method',
-                'nullable',
-                'image',
-                'mimes:jpg,jpeg,png,webp',
-                'max:1800',
-            ],
-            'method' => [
-                'nullable',
-                Rule::exists('payment_methods', 'code')->where('is_active', true),
-            ],
-            'notes' => ['nullable', 'string', 'max:500'],
-        ]);
+        $this->configureMidtrans();
 
-        $selectedMethod = isset($validated['method'])
-            ? PaymentMethod::query()
-                ->where('code', $validated['method'])
-                ->where('is_active', true)
-                ->configured()
-                ->first()
-            : null;
+        try {
+            $result = DB::transaction(function () use ($payment, $order) {
+                $lockedPayment = Payment::query()
+                    ->lockForUpdate()
+                    ->findOrFail($payment->id);
 
-        if (isset($validated['method']) && ! $selectedMethod) {
+                if (
+                    !in_array(
+                        $lockedPayment->status,
+                        [PaymentStatus::PENDING, PaymentStatus::REJECTED],
+                        true
+                    )
+                ) {
+                    throw new \RuntimeException(
+                        'Pembayaran sudah selesai diproses.'
+                    );
+                }
+
+                // Gunakan kembali transaksi aktif jika masih tersedia.
+                $latestAttempt = $lockedPayment
+                    ->midtransTransactions()
+                    ->latest('id')
+                    ->lockForUpdate()
+                    ->first();
+
+                if (
+                    $latestAttempt &&
+                    in_array($latestAttempt->status, ['created', 'pending'], true) &&
+                    filled($latestAttempt->snap_token)
+                ) {
+                    return [
+                        'snap_token' => $latestAttempt->snap_token,
+                        'midtrans_order_id' => $latestAttempt->midtrans_order_id,
+                    ];
+                }
+
+                // Membuat ID transaksi baru untuk percobaan pembayaran.
+                $midtransOrderId = $order->order_number
+                    . '-R'
+                    . Str::upper(Str::random(8));
+
+                $attempt = $lockedPayment->midtransTransactions()->create([
+                    'midtrans_order_id' => $midtransOrderId,
+                    'status' => 'created',
+                    'gross_amount' => round((float) $order->total),
+                ]);
+
+                // Meminta Snap Token dari Midtrans.
+                $snapToken = Snap::getSnapToken([
+                    'transaction_details' => [
+                        'order_id' => $midtransOrderId,
+                        'gross_amount' => (int) round((float) $order->total),
+                    ],
+
+                    'customer_details' => [
+                        'first_name' => $order->shipping_name,
+                        'phone' => $order->shipping_phone,
+                        'email' => $order->user?->email,
+                    ],
+                ]);
+
+                $attempt->update([
+                    'snap_token' => $snapToken,
+                ]);
+
+                if ($lockedPayment->status === PaymentStatus::REJECTED) {
+                    $lockedPayment->update([
+                        'status' => PaymentStatus::PENDING,
+                        'verified_at' => null,
+                        'verified_by' => null,
+                    ]);
+                }
+
+                return [
+                    'snap_token' => $snapToken,
+                    'midtrans_order_id' => $midtransOrderId,
+                ];
+            });
+
+        } catch (\Throwable $exception) {
+            report($exception);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Metode pembayaran belum dikonfigurasi.',
-            ], 422);
-        }
-
-        if (!$payment) {
-            $method = $selectedMethod ?? PaymentMethod::query()
-                ->where('is_active', true)
-                ->configured()
-                ->orderBy('sort_order')
-                ->first();
-
-            if (! $method) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Metode pembayaran belum tersedia. Silakan hubungi admin.',
-                ], 422);
-            }
-
-            $payment = new Payment([
-                'order_id' => $order->id,
-                'amount' => $order->total,
-                'method' => $method->code,
-                'payment_method_name' => $method->name,
-                'payment_method_type' => $method->type,
-                'payment_account_number' => $method->account_number,
-                'payment_account_name' => $method->account_name,
-                'payment_qris_image' => $method->qris_image,
-                'payment_method_description' => $method->description,
-                'status' => PaymentStatus::PENDING,
-            ]);
-        }
-
-        if ($selectedMethod && $payment->proof && ! $request->hasFile('proof')) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unggah bukti pembayaran baru saat mengganti metode pembayaran.',
-            ], 422);
-        }
-
-        if ($selectedMethod) {
-            $payment->method = $selectedMethod->code;
-            $payment->payment_method_name = $selectedMethod->name;
-            $payment->payment_method_type = $selectedMethod->type;
-            $payment->payment_account_number = $selectedMethod->account_number;
-            $payment->payment_account_name = $selectedMethod->account_name;
-            $payment->payment_qris_image = $selectedMethod->qris_image;
-            $payment->payment_method_description = $selectedMethod->description;
-        }
-
-        if (isset($validated['notes'])) {
-            $payment->notes = $validated['notes'];
-        }
-
-        $previousProof = $payment->proof;
-        if ($request->hasFile('proof')) {
-            $path = $request->file('proof')->store('payments', 'public');
-            if (! $path) {
-                throw new \RuntimeException('Bukti pembayaran gagal disimpan.');
-            }
-
-            $payment->proof = $path;
-            $payment->status = PaymentStatus::PENDING;
-            $payment->verified_by = null;
-            $payment->verified_at = null;
-            $payment->notes = $validated['notes'] ?? null;
-        }
-
-        $payment->save();
-
-        if ($request->hasFile('proof') && $previousProof && $previousProof !== $payment->proof) {
-            Storage::disk('public')->delete($previousProof);
+                'message' => 'Gagal menyiapkan pembayaran Midtrans.',
+            ], 502);
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Bukti pembayaran berhasil diunggah.',
-            'data' => $payment->fresh(),
+            'message' => 'Snap Token berhasil dibuat.',
+            'data' => [
+                'snap_token' => $result['snap_token'],
+                'midtrans_order_id' => $result['midtrans_order_id'],
+                'client_key' => $clientKey,
+                'is_production' => (bool) config('services.midtrans.is_production'),
+            ],
         ]);
     }
 
-    private function paymentMethodDetails(Payment $payment): ?array
-    {
-        $currentMethod = $payment->paymentMethod;
+    /**
+     * Menerima notifikasi pembayaran dari Midtrans.
+     *
+     * POST /api/payments/midtrans/notification
+     */
+    public function handleMidtransNotification(
+        Request $request
+    ): JsonResponse {
+        $notification = $request->validate([
+            'order_id' => ['required', 'string'],
+            'status_code' => ['required', 'string'],
+            'gross_amount' => [
+                'required',
+                'string',
+                'regex:/^\d+(?:\.\d{1,2})?$/',
+            ],
+            'signature_key' => ['required', 'string'],
+            'transaction_status' => ['required', 'string'],
+            'transaction_id' => ['nullable', 'string'],
+            'payment_type' => ['nullable', 'string'],
+            'fraud_status' => ['nullable', 'string'],
+            'refund_amount' => ['nullable', 'numeric', 'min:0'],
+        ]);
 
-        if ($payment->payment_method_name === null && ! $currentMethod) {
-            return null;
+        // Validasi signature Midtrans.
+        $serverKey = (string) config('services.midtrans.server_key');
+
+        if ($serverKey === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Konfigurasi Midtrans belum tersedia.',
+            ], 503);
         }
 
-        $qrisPath = $payment->payment_qris_image ?? $currentMethod?->qris_image;
-        $qrisImageUrl = $qrisPath
-            ? (str_starts_with($qrisPath, 'http://') || str_starts_with($qrisPath, 'https://')
-                ? $qrisPath
-                : (str_starts_with($qrisPath, '/storage/')
-                    ? $qrisPath
-                    : '/storage/' . ltrim($qrisPath, '/')))
-            : null;
+        $expectedSignature = hash(
+            'sha512',
+            $notification['order_id']
+            . $notification['status_code']
+            . $notification['gross_amount']
+            . $serverKey
+        );
 
-        return [
-            'name' => $payment->payment_method_name ?? $currentMethod?->name,
-            'code' => $payment->method,
-            'type' => $payment->payment_method_type ?? $currentMethod?->type,
-            'account_number' => $payment->payment_account_number ?? $currentMethod?->account_number,
-            'account_name' => $payment->payment_account_name ?? $currentMethod?->account_name,
-            'qris_image_url' => $payment->payment_qris_image !== null
-                ? $qrisImageUrl
-                : ($currentMethod?->qris_image_url ?? $qrisImageUrl),
-            'description' => $payment->payment_method_description ?? $currentMethod?->description,
-        ];
+        if (!hash_equals(
+            $expectedSignature,
+            $notification['signature_key']
+        )) {
+            Log::warning('Signature Midtrans tidak valid.', [
+                'order_id' => $notification['order_id'],
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Signature tidak valid.',
+            ], 403);
+        }
+
+        // Mencari transaksi berdasarkan ID Midtrans.
+        $attempt = MidtransTransaction::query()
+            ->where('midtrans_order_id', $notification['order_id'])
+            ->with('payment.order')
+            ->first();
+
+        if (!$attempt?->payment?->order) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Transaksi tidak ditemukan.',
+            ], 404);
+        }
+
+        $payment = $attempt->payment;
+        $order = $payment->order;
+
+        if ($payment->method !== 'midtrans') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Metode pembayaran tidak valid.',
+            ], 404);
+        }
+
+        // Memastikan nominal transaksi sesuai.
+        $expectedAmount = number_format(
+            round((float) $order->total),
+            2,
+            '.',
+            ''
+        );
+
+        $receivedAmount = number_format(
+            (float) $notification['gross_amount'],
+            2,
+            '.',
+            ''
+        );
+
+        $paymentAmount = number_format(
+            round((float) $payment->amount),
+            2,
+            '.',
+            ''
+        );
+
+        $attemptAmount = number_format(
+            (float) $attempt->gross_amount,
+            2,
+            '.',
+            ''
+        );
+
+        if (
+            $expectedAmount !== $receivedAmount ||
+            $paymentAmount !== $receivedAmount ||
+            $attemptAmount !== $receivedAmount
+        ) {
+            Log::warning('Nominal pembayaran Midtrans tidak cocok.', [
+                'order_id' => $order->order_number,
+                'expected' => $expectedAmount,
+                'received' => $receivedAmount,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Nominal pembayaran tidak cocok.',
+            ], 422);
+        }
+
+        // Memperbarui status transaksi secara atomik.
+        DB::transaction(function () use ($attempt, $notification) {
+            $lockedAttempt = MidtransTransaction::query()
+                ->lockForUpdate()
+                ->findOrFail($attempt->id);
+
+            $payment = Payment::query()
+                ->lockForUpdate()
+                ->findOrFail($lockedAttempt->payment_id);
+
+            $order = Order::query()
+                ->lockForUpdate()
+                ->findOrFail($payment->order_id);
+
+            if ($payment->method !== 'midtrans') {
+                return;
+            }
+
+            $status = strtolower(
+                $notification['transaction_status']
+            );
+
+            $fraudStatus = strtolower(
+                (string) ($notification['fraud_status'] ?? '')
+            );
+
+            // Simpan informasi transaksi Midtrans.
+            $lockedAttempt->update([
+                'status' => $status,
+                'transaction_id' =>
+                    $notification['transaction_id']
+                    ?? $lockedAttempt->transaction_id,
+                'payment_type' =>
+                    $notification['payment_type']
+                    ?? $lockedAttempt->payment_type,
+            ]);
+
+            $payment->midtrans_transaction_id =
+                $notification['transaction_id']
+                ?? $payment->midtrans_transaction_id;
+
+            $payment->midtrans_transaction_status = $status;
+
+            $payment->midtrans_payment_type =
+                $notification['payment_type']
+                ?? $payment->midtrans_payment_type;
+
+            // Pembayaran berhasil.
+            if (
+                $status === 'settlement' ||
+                ($status === 'capture' && $fraudStatus === 'accept')
+            ) {
+                if (
+                    $order->order_status !== OrderStatus::CANCELLED &&
+                    !in_array(
+                        $payment->status,
+                        [
+                            PaymentStatus::REFUNDED,
+                            PaymentStatus::PARTIALLY_REFUNDED,
+                        ],
+                        true
+                    )
+                ) {
+                    $payment->status = PaymentStatus::PAID;
+                    $payment->verified_at = now();
+                    $payment->verified_by = null;
+
+                    if ($order->order_status === OrderStatus::PENDING) {
+                        $order->update([
+                            'order_status' => OrderStatus::CONFIRMED,
+                            'confirmed_at' => now(),
+                        ]);
+                    }
+                } else {
+                    Log::warning(
+                        'Pembayaran diterima setelah pesanan dibatalkan.',
+                        ['order_id' => $order->order_number]
+                    );
+                }
+            }
+
+            // Transaksi gagal atau kedaluwarsa.
+            elseif (in_array($status, ['expire', 'deny', 'cancel'], true)) {
+                // Status payment tetap pending agar pelanggan dapat mencoba lagi.
+            }
+
+            // Refund.
+            elseif ($status === 'refund') {
+                $payment->status = PaymentStatus::REFUNDED;
+            }
+
+            elseif ($status === 'partial_refund') {
+                if ($payment->status !== PaymentStatus::REFUNDED) {
+                    $payment->status = PaymentStatus::PARTIALLY_REFUNDED;
+                }
+            }
+
+            $payment->save();
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Notifikasi Midtrans berhasil diproses.',
+        ]);
     }
 }

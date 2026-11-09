@@ -20,6 +20,7 @@ class PaymentMethodController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = PaymentMethod::query()
+            ->where('code', 'midtrans')
             ->withCount('payments');
 
         if ($request->filled('search')) {
@@ -138,6 +139,8 @@ class PaymentMethodController extends Controller
     public function show(
         PaymentMethod $paymentMethod
     ): JsonResponse {
+        abort_unless($paymentMethod->code === 'midtrans', 404);
+
         $paymentMethod->loadCount('payments');
 
         return response()->json([

@@ -1,190 +1,183 @@
-import type { Page } from '../../App';
-import { FiTarget, FiStar, FiHeart, FiShoppingBag } from 'react-icons/fi';
+
+import type { Page } from "../../App"
+import {
+  FiTarget,
+  FiStar,
+  FiHeart,
+  FiShoppingBag,
+  FiArrowRight,
+} from "react-icons/fi"
 
 interface AboutPageProps {
-  navigate: (page: Page, data?: unknown) => void;
+  navigate: (page: Page, data?: unknown) => void
 }
+
+const values = [
+  {
+    icon: FiTarget,
+    title: "Visi Kami",
+    description:
+      "Menjadi pelopor pelestarian kuliner khas Malang yang dikenal di seluruh penjuru Nusantara.",
+  },
+  {
+    icon: FiStar,
+    title: "Kualitas Premium",
+    description:
+      "Mengkurasi produk terbaik dengan standar kebersihan tinggi dan harga yang tetap terjangkau.",
+  },
+  {
+    icon: FiHeart,
+    title: "Dukungan Lokal",
+    description:
+      "Tumbuh bersama mitra UMKM lokal untuk menggerakkan roda perekonomian daerah.",
+  },
+]
 
 export default function AboutPage({ navigate }: AboutPageProps) {
   return (
-    <div className="mobile-page fade-in">
-      {/* CSS Lokal untuk Responsivitas Grid */}
-      <style>{`
-        .about-layout {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 48px;
-          align-items: center;
-          margin-top: 40px;
-        }
-        .about-values {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 24px;
-          margin-top: 80px;
-        }
-        @media (max-width: 768px) {
-          .about-layout {
-            grid-template-columns: 1fr;
-            gap: 32px;
-            text-align: center;
-          }
-          .about-values {
-            grid-template-columns: 1fr;
-            margin-top: 60px;
-          }
-        }
-      `}</style>
+    <main className="fade-in bg-white text-gray-800">
+      {/* Header */}
+      <section className="border-b border-gray-100 px-5 py-14 text-center md:py-20">
+        <div className="mx-auto max-w-3xl">
+          <span className="mb-4 inline-block text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+            Tentang Kami
+          </span>
 
-      {/* Header Section */}
-      <div style={{ 
-        background: 'linear-gradient(135deg, var(--color-bg) 0%, #FFF3E8 100%)', 
-        padding: '60px 24px 40px',
-        textAlign: 'center',
-        borderBottom: '1px solid #F3F4F6'
-      }}>
-        <h1 style={{ 
-          fontSize: 'clamp(2rem, 4vw, 3rem)', 
-          fontWeight: 900, 
-          color: 'var(--color-text)',
-          marginBottom: 16,
-          letterSpacing: '-0.5px'
-        }}>
-          Cerita <span style={{ color: 'var(--color-primary)' }}>Wicaksono</span>
-        </h1>
-        <p style={{ color: '#6B7280', maxWidth: 600, margin: '0 auto', fontSize: '1.1rem', lineHeight: 1.6 }}>
-          Berawal dari kecintaan pada resep leluhur, kami hadir untuk melestarikan dan membagikan kekayaan rasa Kota Malang kepada Nusantara.
-        </p>
-      </div>
+          <h1 className="mb-5 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl md:text-5xl">
+            Cerita{" "}
+            <span className="text-primary">Wicaksono</span>
+          </h1>
 
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '40px 24px 80px' }}>
-        
-        {/* Kisah Kami */}
-        <div className="about-layout">
-          <div style={{ position: 'relative' }}>
-            {/* Dekorasi Background di belakang gambar */}
-            <div style={{ 
-              position: 'absolute', 
-              top: -2, 
-              left: -2, 
-              right: 2, 
-              bottom: 16, 
-              background: 'var(--color-primary)', 
-              borderRadius: 24, 
-              opacity: 0.1,
-              zIndex: 0 
-            }} />
-            <img 
-                  src="/images/gambar.jpg" 
-              alt="Toko Pusat Wicaksono Oleh-Oleh" 
-              style={{ 
-                width: '100%', 
-                height: '450px', 
-                objectFit: 'cover', 
-                borderRadius: 24,
-                boxShadow: '0 20px 40px rgba(0,0,0,0.08)',
-                position: 'relative',
-                zIndex: 1
-              }} 
+          <p className="mx-auto max-w-2xl text-sm leading-7 text-gray-500 sm:text-base">
+            Berawal dari kecintaan pada resep leluhur, kami hadir
+            untuk melestarikan dan membagikan kekayaan rasa Kota
+            Malang kepada Nusantara.
+          </p>
+        </div>
+      </section>
+
+      {/* Content */}
+      <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8 md:py-20">
+
+        {/* Our Story */}
+        <section className="grid items-center gap-10 md:grid-cols-2 md:gap-14">
+          <div className="overflow-hidden rounded-xl bg-gray-100">
+            <img
+              src="/images/bg-toko-1.webp"
+              alt="Toko Pusat Wicaksono Oleh-Oleh"
+              loading="lazy"
+              decoding="async"
+              className="aspect-[4/3] w-full object-cover transition duration-500 hover:scale-[1.02]"
             />
           </div>
-          <div>
-            <div style={{ 
-              display: 'inline-block', 
-              padding: '6px 16px', 
-              background: 'rgba(22,163,74,0.1)', 
-              color: '#16A34A', 
-              borderRadius: 100,
-              fontSize: '0.85rem',
-              fontWeight: 700,
-              marginBottom: 16
-            }}>
-              Sejak 2005
-            </div>
-            <h2 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--color-text)', marginBottom: 20, lineHeight: 1.2 }}>
-              Lebih dari Sekadar <br/> Oleh-Oleh Biasa
-            </h2>
-            <p style={{ fontSize: '1.05rem', color: '#4B5563', lineHeight: 1.8, marginBottom: 16 }}>
-              Wicaksono adalah pusat oleh-oleh khas Malang yang lahir dari semangat memberdayakan UMKM lokal. Selama hampir dua dekade, kami telah menjadi jembatan antara tangan-tangan terampil produsen lokal dengan keluarga di seluruh Indonesia.
-            </p>
-            <p style={{ fontSize: '1.05rem', color: '#4B5563', lineHeight: 1.8 }}>
-              Dari renyahnya keripik tempe Sanan hingga manisnya sari apel Batu, setiap produk yang terpajang di etalase kami telah melewati kurasi ketat demi memastikan kualitas, kebersihan, dan cita rasa autentik yang tidak pernah berubah.
-            </p>
-          </div>
-        </div>
 
-        {/* Visi, Misi, Nilai */}
-        <div className="about-values">
-          {[
-            { icon: <FiTarget size={32} color="var(--color-primary)" />, title: 'Visi Kami', desc: 'Menjadi pelopor pelestarian kuliner khas Malang yang dikenal di seluruh penjuru Nusantara.' },
-            { icon: <FiStar size={32} color="var(--color-primary)" />, title: 'Kualitas Premium', desc: 'Mengkurasi produk terbaik dengan standar kebersihan tinggi dan harga yang tetap terjangkau.' },
-            { icon: <FiHeart size={32} color="var(--color-primary)" />, title: 'Dukungan Lokal', desc: 'Tumbuh bersama mitra UMKM lokal untuk menggerakkan roda perekonomian daerah.' }
-          ].map((item, index) => (
-            <div key={index} className="card-hover" style={{ 
-              padding: '32px 24px', 
-              background: 'white', 
-              borderRadius: 20,
-              border: '1px solid #F3F4F6',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              textAlign: 'center'
-            }}>
-              <div style={{ 
-                width: 64, 
-                height: 64, 
-                borderRadius: '50%', 
-                background: 'rgba(249,115,22,0.1)', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                marginBottom: 20
-              }}>
-                {item.icon}
-              </div>
-              <h3 style={{ fontWeight: 800, color: 'var(--color-text)', marginBottom: 12, fontSize: '1.2rem' }}>
-                {item.title}
-              </h3>
-              <p style={{ fontSize: '0.95rem', color: '#6B7280', lineHeight: 1.6, margin: 0 }}>
-                {item.desc}
+          <div>
+            <span className="mb-4 inline-block rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
+              Sejak 2005
+            </span>
+
+            <h2 className="mb-6 text-2xl font-bold leading-tight tracking-tight text-gray-900 sm:text-3xl">
+              Lebih dari Sekadar
+              <br />
+              Oleh-Oleh Biasa
+            </h2>
+
+            <div className="space-y-4 text-sm leading-7 text-gray-500 sm:text-base">
+              <p>
+                Wicaksono adalah pusat oleh-oleh khas Malang
+                yang lahir dari semangat memberdayakan UMKM lokal.
+                Selama hampir dua dekade, kami telah menjadi
+                jembatan antara tangan-tangan terampil produsen
+                lokal dengan keluarga di seluruh Indonesia.
+              </p>
+
+              <p>
+                Dari renyahnya keripik tempe Sanan hingga
+                manisnya sari apel Batu, setiap produk yang
+                terpajang di etalase kami telah melewati kurasi
+                ketat demi memastikan kualitas, kebersihan,
+                dan cita rasa autentik yang tidak pernah berubah.
               </p>
             </div>
-          ))}
-        </div>
 
-        {/* Call to Action Section */}
-        <div style={{ 
-          marginTop: 80, 
-          padding: '48px 24px', 
-          background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)',
-          borderRadius: 24,
-          textAlign: 'center',
-          color: 'white'
-        }}>
-          <h2 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: 16 }}>Siap Mencicipi Kelezatannya?</h2>
-          <p style={{ fontSize: '1.1rem', opacity: 0.9, maxWidth: 500, margin: '0 auto 32px' }}>
-            Jangan biarkan kerabat Anda menunggu. Bawa pulang cita rasa terbaik khas Malang hari ini.
-          </p>
-          <button 
-            className="btn-outline"
-            onClick={() => navigate('catalog')}
-            style={{ 
-              background: 'white', 
-              color: 'var(--color-primary-dark)', 
-              border: 'none',
-              padding: '16px 32px', 
-              fontSize: '1.1rem',
-              fontWeight: 700,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8
-            }}>
-            <FiShoppingBag size={20} /> Lihat Katalog Produk
-          </button>
-        </div>
+            <div className="mt-7 h-1 w-14 rounded-full bg-primary" />
+          </div>
+        </section>
+
+        {/* Vision and Values */}
+        <section className="mt-20 border-t border-gray-100 pt-14 md:mt-28 md:pt-20">
+          <div className="mb-10 max-w-xl">
+            <span className="mb-3 block text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+              Nilai Kami
+            </span>
+
+            <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+              Apa yang Kami Percayai
+            </h2>
+
+            <p className="mt-3 text-sm leading-7 text-gray-500">
+              Prinsip yang menjadi dasar kami dalam memberikan
+              pengalaman terbaik kepada pelanggan.
+            </p>
+          </div>
+
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            {values.map((item, index) => {
+              const Icon = item.icon
+
+              return (
+                <article
+                  key={item.title}
+                  className="group border-t border-gray-200 pt-6 transition-colors hover:border-primary"
+                >
+                  <div className="mb-6 flex h-11 w-11 items-center justify-center rounded-lg bg-orange-50 text-primary">
+                    <Icon size={21} strokeWidth={1.7} />
+                  </div>
+
+                  <span className="mb-3 block text-xs font-medium text-gray-400">
+                    0{index + 1}
+                  </span>
+
+                  <h3 className="mb-3 text-lg font-semibold text-gray-900">
+                    {item.title}
+                  </h3>
+
+                  <p className="text-sm leading-7 text-gray-500">
+                    {item.description}
+                  </p>
+                </article>
+              )
+            })}
+          </div>
+        </section>
+
+        {/* Call to Action */}
+        <section className="mt-20 border-t border-gray-100 pt-14 md:mt-28 md:pt-20">
+          <div className="flex flex-col justify-between gap-7 rounded-xl bg-gray-50 p-7 sm:p-10 md:flex-row md:items-center">
+            <div className="max-w-xl">
+              <h2 className="text-2xl font-bold tracking-tight text-gray-900">
+                Siap Mencicipi Kelezatannya?
+              </h2>
+
+              <p className="mt-3 text-sm leading-7 text-gray-500">
+                Jangan biarkan kerabat Anda menunggu.
+                Bawa pulang cita rasa terbaik khas Malang hari ini.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate("catalog")}
+              className="inline-flex shrink-0 items-center justify-center gap-3 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-white transition hover:bg-primary-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              <FiShoppingBag size={17} />
+              Lihat Katalog
+              <FiArrowRight size={16} />
+            </button>
+          </div>
+        </section>
 
       </div>
-    </div>
-  );
+    </main>
+  )
 }

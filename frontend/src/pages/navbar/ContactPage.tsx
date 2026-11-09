@@ -1,305 +1,334 @@
-import type { Page } from '../../App';
-import { useState } from 'react';
-import { FiMapPin, FiPhoneCall, FiMail, FiClock } from 'react-icons/fi';
+
+import { useState, type ChangeEvent, type FormEvent } from "react"
+import type { Page } from "../../App"
+import {
+  FiMapPin,
+  FiPhoneCall,
+  FiMail,
+  FiClock,
+  FiSend,
+  FiCheckCircle,
+  FiArrowRight,
+} from "react-icons/fi"
 
 interface ContactPageProps {
-  navigate: (page: Page, data?: unknown) => void;
+  navigate: (page: Page, data?: unknown) => void
 }
+
+const contactInfo = [
+  {
+    icon: FiMapPin,
+    title: "Alamat Toko",
+    description:
+      "Jl. Candi Agung II No.1, Purwantoro, Kec. Blimbing, Kota Malang, Jawa Timur 65142",
+  },
+  {
+    icon: FiPhoneCall,
+    title: "Telepon / WhatsApp",
+    description: "+62 822 6477 4945",
+  },
+  {
+    icon: FiMail,
+    title: "Email",
+    description: "info@wicaksono.com",
+  },
+  {
+    icon: FiClock,
+    title: "Jam Operasional",
+    description: "Senin - Minggu: 07.00 - 21.00 WIB",
+  },
+]
 
 export default function ContactPage({ navigate }: ContactPageProps) {
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    subject: '',
-    message: ''
-  });
+    name: "",
+    email: "",
+    subject: "",
+    message: "",
+  })
 
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false)
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = event.target
+
+    setFormData((previous) => ({
+      ...previous,
+      [name]: value,
+    }))
+  }
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    console.log("Form data:", formData)
+
+    setIsSubmitted(true)
+
+    window.setTimeout(() => {
+      setIsSubmitted(false)
+    }, 3000)
+
     setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
+      name: "",
+      email: "",
+      subject: "",
+      message: "",
+    })
+  }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Form data:', formData);
-    setIsSubmitted(true);
-    setTimeout(() => setIsSubmitted(false), 3000);
-    setFormData({ name: '', email: '', subject: '', message: '' });
-  };
+  const inputClass =
+    "w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10"
+
+  const labelClass =
+    "mb-2 block text-sm font-medium text-gray-700"
 
   return (
-    <div className="mobile-page fade-in">
-      <style>{`
-        .contact-layout {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 48px;
-          align-items: start;
-        }
-        @media (max-width: 768px) {
-          .contact-layout {
-            grid-template-columns: 1fr;
-            gap: 40px;
-          }
-          .contact-map {
-            height: 300px !important;
-          }
-        }
-      `}</style>
+    <main className="fade-in bg-white text-gray-800">
+      {/* Header */}
+      <section className="border-b border-gray-100 px-5 py-14 text-center md:py-20">
+        <div className="mx-auto max-w-3xl">
+          <span className="mb-4 block text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+            Kontak
+          </span>
 
-      {/* Header Section */}
-      <div style={{ 
-        background: 'linear-gradient(135deg, var(--color-bg) 0%, #FFF3E8 100%)', 
-        padding: '60px 24px 40px',
-        textAlign: 'center',
-        borderBottom: '1px solid #F3F4F6'
-      }}>
-        <h1 style={{
-          fontSize: 'clamp(2rem, 4vw, 3rem)',
-          fontWeight: 900,
-          color: 'var(--color-text)',
-          marginBottom: 16,
-          letterSpacing: '-0.5px'
-        }}>
-          Hubungi Kami
-        </h1>
-        <p style={{
-          textAlign: 'center',
-          color: '#6B7280',
-          fontSize: '1.1rem',
-          maxWidth: 600,
-          margin: '0 auto',
-          lineHeight: 1.6
-        }}>
-          Ada pertanyaan seputar produk, pemesanan jumlah besar, atau kemitraan? Tim kami siap membantu Anda dengan sepenuh hati.
-        </p>
-      </div>
+          <h1 className="mb-5 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl md:text-5xl">
+            Hubungi Kami
+          </h1>
 
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '60px 24px' }}>
-        
-        <div className="contact-layout">
-          
-          {/* Bagian Kiri: Informasi Kontak */}
+          <p className="mx-auto max-w-2xl text-sm leading-7 text-gray-500 sm:text-base">
+            Ada pertanyaan seputar produk, pemesanan jumlah besar,
+            atau kemitraan? Tim kami siap membantu Anda.
+          </p>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8 md:py-20">
+        {/* Contact Information + Form */}
+        <section className="grid items-start gap-12 lg:grid-cols-2 lg:gap-16">
+
+          {/* Contact Information */}
           <div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text)', marginBottom: 24 }}>
-              Informasi Toko
-            </h2>
+            <div className="mb-8">
+              <span className="mb-3 block text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+                Informasi
+              </span>
 
-            {[
-              { icon: <FiMapPin size={24} color="var(--color-primary)" />, title: 'Alamat Toko', desc: 'Jl. Candi Agung II No.1, Purwantoro, Kec. Blimbing, Kota Malang, Jawa Timur 65142' },
-              { icon: <FiPhoneCall size={24} color="var(--color-primary)" />, title: 'Telepon / WhatsApp', desc: '+62 822 6477 4945' },
-              { icon: <FiMail size={24} color="var(--color-primary)" />, title: 'Email', desc: 'info@wicaksono.com' },
-              { icon: <FiClock size={24} color="var(--color-primary)" />, title: 'Jam Operasional', desc: 'Senin - Minggu: 07.00 - 21.00 WIB' }
-            ].map((info, idx) => (
-              <div key={idx} className="card-hover" style={{
-                display: 'flex',
-                gap: 16,
-                marginBottom: 20,
-                padding: 24,
-                background: 'white',
-                borderRadius: 16,
-                border: '1px solid #F3F4F6',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.02)'
-              }}>
-                <div style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: 12,
-                  background: 'rgba(249,115,22,0.08)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
-                  {info.icon}
-                </div>
-                <div>
-                  <div style={{ fontWeight: 700, color: 'var(--color-text)', marginBottom: 6, fontSize: '1.05rem' }}>
-                    {info.title}
+              <h2 className="text-2xl font-bold tracking-tight text-gray-900">
+                Informasi Toko
+              </h2>
+
+              <p className="mt-3 text-sm leading-7 text-gray-500">
+                Temukan informasi dan hubungi kami melalui
+                saluran komunikasi berikut.
+              </p>
+            </div>
+
+            <div className="divide-y divide-gray-100">
+              {contactInfo.map((info) => {
+                const Icon = info.icon
+
+                return (
+                  <div
+                    key={info.title}
+                    className="flex gap-4 py-5 first:pt-0"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-primary">
+                      <Icon size={19} strokeWidth={1.7} />
+                    </div>
+
+                    <div className="min-w-0">
+                      <h3 className="mb-1 text-sm font-semibold text-gray-900">
+                        {info.title}
+                      </h3>
+
+                      <p className="break-words text-sm leading-6 text-gray-500">
+                        {info.description}
+                      </p>
+                    </div>
                   </div>
-                  <div style={{ color: '#6B7280', fontSize: '0.95rem', lineHeight: 1.5 }}>
-                    {info.desc}
-                  </div>
-                </div>
-              </div>
-            ))}
+                )
+              })}
+            </div>
           </div>
 
-          {/* Bagian Kanan: Form Kontak */}
-          <div style={{ 
-            background: 'white', 
-            padding: 32, 
-            borderRadius: 24, 
-            border: '1px solid #F3F4F6',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.04)' 
-          }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text)', marginBottom: 24 }}>
-              Kirim Pesan
-            </h2>
+          {/* Contact Form */}
+          <div className="border-t border-gray-200 pt-8 lg:border-t-0 lg:pt-0">
+            <div className="mb-7">
+              <span className="mb-3 block text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+                Pesan
+              </span>
+
+              <h2 className="text-2xl font-bold tracking-tight text-gray-900">
+                Kirim Pesan
+              </h2>
+
+              <p className="mt-3 text-sm leading-7 text-gray-500">
+                Isi formulir berikut untuk menyampaikan
+                pertanyaan atau kebutuhan Anda.
+              </p>
+            </div>
 
             {isSubmitted && (
-              <div style={{
-                background: '#DCFCE7',
-                color: '#16A34A',
-                padding: '16px',
-                borderRadius: 12,
-                marginBottom: 24,
-                fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12
-              }}>
-                <span style={{ fontSize: 20 }}>✅</span> Pesan Anda berhasil dikirim! Tim kami akan segera merespons.
+              <div
+                className="mb-6 flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700"
+                role="status"
+              >
+                <FiCheckCircle className="mt-0.5 shrink-0" size={18} />
+
+                <p>
+                  Pesan Anda berhasil diproses oleh formulir.
+                  Namun, pengiriman ke email belum terintegrasi.
+                </p>
               </div>
             )}
 
-            <form onSubmit={handleSubmit}>
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', color: '#374151', marginBottom: 8 }}>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Name */}
+              <div>
+                <label htmlFor="contact-name" className={labelClass}>
                   Nama Lengkap
                 </label>
+
                 <input
+                  id="contact-name"
                   type="text"
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
                   required
-                  style={{
-                    width: '100%', padding: '14px 16px', borderRadius: 12,
-                    border: '1.5px solid #E5E7EB', fontFamily: 'Poppins, sans-serif',
-                    fontSize: '0.95rem', transition: 'border-color 0.2s', outline: 'none', background: '#F9FAFB'
-                  }}
-                  onFocus={(e) => { e.target.style.borderColor = 'var(--color-primary)'; e.target.style.background = 'white'; }}
-                  onBlur={(e) => { e.target.style.borderColor = '#E5E7EB'; e.target.style.background = '#F9FAFB'; }}
+                  autoComplete="name"
+                  className={inputClass}
                   placeholder="Masukkan nama Anda"
                 />
               </div>
 
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', color: '#374151', marginBottom: 8 }}>
+              {/* Email */}
+              <div>
+                <label htmlFor="contact-email" className={labelClass}>
                   Alamat Email
                 </label>
+
                 <input
+                  id="contact-email"
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
                   required
-                  style={{
-                    width: '100%', padding: '14px 16px', borderRadius: 12,
-                    border: '1.5px solid #E5E7EB', fontFamily: 'Poppins, sans-serif',
-                    fontSize: '0.95rem', transition: 'border-color 0.2s', outline: 'none', background: '#F9FAFB'
-                  }}
-                  onFocus={(e) => { e.target.style.borderColor = 'var(--color-primary)'; e.target.style.background = 'white'; }}
-                  onBlur={(e) => { e.target.style.borderColor = '#E5E7EB'; e.target.style.background = '#F9FAFB'; }}
+                  autoComplete="email"
+                  className={inputClass}
                   placeholder="email@anda.com"
                 />
               </div>
 
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', color: '#374151', marginBottom: 8 }}>
+              {/* Subject */}
+              <div>
+                <label htmlFor="contact-subject" className={labelClass}>
                   Subjek Pesan
                 </label>
+
                 <input
+                  id="contact-subject"
                   type="text"
                   name="subject"
                   value={formData.subject}
                   onChange={handleChange}
                   required
-                  style={{
-                    width: '100%', padding: '14px 16px', borderRadius: 12,
-                    border: '1.5px solid #E5E7EB', fontFamily: 'Poppins, sans-serif',
-                    fontSize: '0.95rem', transition: 'border-color 0.2s', outline: 'none', background: '#F9FAFB'
-                  }}
-                  onFocus={(e) => { e.target.style.borderColor = 'var(--color-primary)'; e.target.style.background = 'white'; }}
-                  onBlur={(e) => { e.target.style.borderColor = '#E5E7EB'; e.target.style.background = '#F9FAFB'; }}
+                  className={inputClass}
                   placeholder="Misal: Pesanan Partai Besar"
                 />
               </div>
 
-              <div style={{ marginBottom: 24 }}>
-                <label style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', color: '#374151', marginBottom: 8 }}>
+              {/* Message */}
+              <div>
+                <label htmlFor="contact-message" className={labelClass}>
                   Pesan Anda
                 </label>
+
                 <textarea
+                  id="contact-message"
                   name="message"
                   value={formData.message}
                   onChange={handleChange}
                   required
                   rows={5}
-                  style={{
-                    width: '100%', padding: '14px 16px', borderRadius: 12,
-                    border: '1.5px solid #E5E7EB', fontFamily: 'Poppins, sans-serif',
-                    fontSize: '0.95rem', transition: 'border-color 0.2s', outline: 'none', 
-                    background: '#F9FAFB', resize: 'vertical'
-                  }}
-                  onFocus={(e) => { e.target.style.borderColor = 'var(--color-primary)'; e.target.style.background = 'white'; }}
-                  onBlur={(e) => { e.target.style.borderColor = '#E5E7EB'; e.target.style.background = '#F9FAFB'; }}
-                  placeholder="Tuliskan detail pertanyaan atau kebutuhan Anda di sini..."
+                  className={`${inputClass} resize-y`}
+                  placeholder="Tuliskan pertanyaan atau kebutuhan Anda..."
                 />
               </div>
 
+              {/* Submit */}
               <button
                 type="submit"
-                style={{
-                  width: '100%', padding: '16px',
-                  background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)',
-                  color: 'white', border: 'none', borderRadius: 12,
-                  fontSize: '1.05rem', fontWeight: 700, cursor: 'pointer',
-                  transition: 'transform 0.2s, box-shadow 0.2s',
-                  fontFamily: 'Poppins, sans-serif'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 8px 24px rgba(249,115,22,0.25)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-primary-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
-                Kirim Pesan Sekarang
+                <FiSend size={16} />
+                Kirim Pesan
               </button>
             </form>
           </div>
-        </div>
+        </section>
 
-        {/* Peta Lokasi */}
-        <div style={{ marginTop: 80 }}>
-          <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <h2 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--color-text)' }}>
-              Kunjungi Lokasi Kami
-            </h2>
-            <p style={{ color: '#6B7280', marginTop: 8 }}>
-              Kami menantikan kedatangan Anda di pusat toko kami.
-            </p>
+        {/* Google Maps */}
+        <section className="mt-20 border-t border-gray-100 pt-14 md:mt-24 md:pt-20">
+          <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+            <div>
+              <span className="mb-3 block text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+                Lokasi
+              </span>
+
+              <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+                Kunjungi Lokasi Kami
+              </h2>
+
+              <p className="mt-3 text-sm leading-7 text-gray-500">
+                Kami menantikan kedatangan Anda di pusat toko kami.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <FiMapPin className="shrink-0 text-primary" />
+              <span>Malang, Jawa Timur</span>
+            </div>
           </div>
-          
-          <div className="contact-map" style={{
-            borderRadius: 24,
-            overflow: 'hidden',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.08)',
-            border: '4px solid white',
-            height: 480
-          }}>
+
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
             <iframe
               src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3951.5282515022604!2d112.63468171083817!3d-7.944234979102484!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2dd629c24db45ef3%3A0xe58463eb721e5be0!2sWicaksono%20Pusat%20Oleh-oleh%20Khas%20Malang!5e0!3m2!1sid!2sid!4v1787940602474!5m2!1sid!2sid"
               title="Lokasi Toko Wicaksono"
-              width="100%"
-              height="100%"
-              style={{ border: 0 }}
+              className="h-[280px] w-full border-0 sm:h-[360px] lg:h-[420px]"
               allowFullScreen
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
             />
           </div>
-        </div>
-        
+        </section>
+
+        {/* Bottom CTA */}
+        <section className="mt-16 flex flex-col items-start justify-between gap-5 border-t border-gray-100 pt-10 sm:flex-row sm:items-center">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Ingin melihat produk kami?
+            </h2>
+
+            <p className="mt-1 text-sm text-gray-500">
+              Temukan berbagai oleh-oleh khas Malang.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate("catalog")}
+            className="inline-flex items-center gap-2 text-sm font-semibold text-primary transition hover:text-primary-dark"
+          >
+            Lihat Katalog
+            <FiArrowRight size={16} />
+          </button>
+        </section>
       </div>
-    </div>
-  );
+    </main>
+  )
 }

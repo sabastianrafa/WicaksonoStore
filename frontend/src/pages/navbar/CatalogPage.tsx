@@ -1,394 +1,455 @@
-import { useEffect, useState, type CSSProperties } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { FaSearch, FaStar, FaChevronLeft, FaChevronRight, FaTimes } from 'react-icons/fa';
-import { formatPrice } from '../../data';
-import ProductCard from '../../components/ProductCard';
-import { apiFetch, storageUrl } from '../../api/client';
-import type { Page } from '../../App';
+import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "react-router-dom"
+import {
+  FaSearch,
+  FaStar,
+  FaChevronLeft,
+  FaChevronRight,
+  FaChevronUp,
+  FaChevronDown,
+  FaTimes,
+  FaCheck,
+} from "react-icons/fa"
+
+import { formatPrice } from "../../data"
+import ProductCard from "../../components/ProductCard"
+import { apiFetch, storageUrl } from "../../api/client"
+import type { Page } from "../../App"
 
 /* =========================================================
-   TYPES
-========================================================= */
+ * TYPES
+ * ======================================================= */
 
 interface Product {
-  id: number;
-  name: string;
-  category: string;
-  categoryId: number;
-  price: number;
-  originalPrice: number;
-  rating: number;
-  reviews: number;
-  sold: number;
-  stock: number;
-  weight: number;
-  discount: number;
-  image: string;
-  description: string;
-  tags: string[];
+  id: number
+  name: string
+  category: string
+  categoryId: number
+  price: number
+  originalPrice: number
+  rating: number
+  reviews: number
+  sold: number
+  stock: number
+  weight: number
+  discount: number
+  image: string
+  description: string
+  tags: string[]
 }
 
 interface CatalogCategory {
-  id: number;
-  slug: string;
-  name: string;
-  products_count?: number;
+  id: number
+  slug: string
+  name: string
+  products_count?: number
+}
+
+interface CategoryOption {
+  id: number | null
+  name: string
+  count: number
 }
 
 interface Filters {
-  search: string;
-  category: number | null;
-  minPrice: number;
-  maxPrice: number;
-  minRating: number;
-  sort: string;
+  search: string
+  category: number | null
+  minPrice: number
+  maxPrice: number
+  minRating: number
+  sort: string
 }
 
 interface ProductResponse {
-  data?: any[];
-  meta?: { last_page?: number; total?: number };
+  data?: Record<string, any>[]
+  meta?: {
+    current_page?: number
+    last_page?: number
+    per_page?: number
+    total?: number
+  }
+}
+
+interface CategoryResponse {
+  data?: CatalogCategory[]
 }
 
 interface CatalogPageProps {
-  navigate: (page: Page, data?: unknown) => void;
-  onAddToCart: (product: unknown) => void;
+  navigate: (page: Page, data?: unknown) => void
+  onAddToCart: (product: unknown) => void
 }
 
 /* =========================================================
-   KONSTANTA & HELPER
-========================================================= */
+ * CONSTANTS
+ * ======================================================= */
 
-const PER_PAGE = 16;
-const MAX_PRICE = 200000;
+const PER_PAGE = 16
+const CATEGORY_PREVIEW_LIMIT = 6
 
 const DEFAULT_FILTERS: Filters = {
-  search: '',
+  search: "",
   category: null,
   minPrice: 0,
-  maxPrice: MAX_PRICE,
+  maxPrice: 0,
   minRating: 0,
-  sort: 'terlaris',
-};
+  sort: "terlaris",
+}
 
 const SORT_OPTIONS = [
-  ['terlaris', 'Terlaris'],
-  ['termurah', 'Harga Terendah'],
-  ['termahal', 'Harga Tertinggi'],
-  ['rating', 'Rating Tertinggi'],
-  ['terbaru', 'Terbaru'],
-];
+  ["terlaris", "Terlaris"],
+  ["termurah", "Harga Terendah"],
+  ["termahal", "Harga Tertinggi"],
+  ["rating", "Rating Tertinggi"],
+  ["terbaru", "Terbaru"],
+] as const
 
-const PRICE_PRESETS = [
-  [0, 25000],
-  [25000, 50000],
-  [50000, 100000],
-  [100000, 200000],
-];
+const RATING_OPTIONS = [4.5, 4, 3.5, 0] as const
 
-const RATING_OPTIONS = [4.5, 4, 3.5, 0];
+/* =========================================================
+ * HELPERS
+ * ======================================================= */
 
-const normalizeProduct = (item: any): Product => {
-  const imageUrl: string =
-    item.images?.find((img: any) => img.is_primary)?.url ??
-    item.images?.[0]?.url ??
-    item.image ??
-    '';
+function toNumber(value: unknown, fallback = 0): number {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function normalizeProduct(item: Record<string, any>): Product {
+  const primaryImage = item.images?.find((image: any) => image?.is_primary)?.url
+  const firstImage = item.images?.[0]?.url
+  const rawImage = primaryImage ?? firstImage ?? item.image ?? ""
+  const imageUrl = typeof rawImage === "string" ? rawImage.trim() : ""
 
   return {
-    id: Number(item.id),
-    name: item.name ?? '',
-    categoryId: Number(item.category_id ?? item.category?.id ?? 0),
-    category: item.category?.slug ?? item.category?.name ?? item.category ?? 'lainnya',
-    price: Number(item.price ?? 0),
-    originalPrice: Number(item.original_price ?? item.price ?? 0),
-    rating: Number(item.rating ?? item.average_rating ?? 0),
-    reviews: Number(item.review_count ?? item.reviews_count ?? 0),
-    sold: Number(item.sold ?? 0),
-    stock: Number(item.stock ?? 0),
-    weight: Number(item.weight ?? 0),
-    discount: Number(item.discount ?? 0),
-    image: /^https?:\/\//.test(imageUrl) ? imageUrl : storageUrl(imageUrl),
-    description: item.description ?? '',
-    tags: ['baru', 'premium'],
-  };
-};
+    id: toNumber(item.id),
+    name: item.name ?? "",
+    categoryId: toNumber(item.category_id ?? item.category?.id),
+    category:
+      item.category?.slug ??
+      item.category?.name ??
+      (typeof item.category === "string" ? item.category : "lainnya"),
+    price: toNumber(item.price),
+    originalPrice: toNumber(item.original_price ?? item.price),
+    rating: toNumber(item.rating ?? item.average_rating),
+    reviews: toNumber(item.review_count ?? item.reviews_count),
+    sold: toNumber(item.sold),
+    stock: toNumber(item.stock),
+    weight: toNumber(item.weight),
+    discount: toNumber(item.discount),
+    image: imageUrl
+      ? /^https?:\/\//i.test(imageUrl)
+        ? imageUrl
+        : storageUrl(imageUrl)
+      : "",
+    description: item.description ?? "",
+    tags: Array.isArray(item.tags) ? item.tags : [],
+  }
+}
 
-/** Nomor halaman yang ditampilkan; -1 berarti "...". */
+/** Nomor halaman yang ditampilkan; -1 berarti ellipsis (...). */
 function getPaginationPages(current: number, last: number): number[] {
-  if (last <= 7) return Array.from({ length: last }, (_, i) => i + 1);
+  if (last <= 7) {
+    return Array.from({ length: last }, (_, index) => index + 1)
+  }
 
-  const start = Math.max(2, current - 1);
-  const end = Math.min(last - 1, current + 1);
+  const start = Math.max(2, current - 1)
+  const end = Math.min(last - 1, current + 1)
 
   return [
     1,
     ...(current > 4 ? [-1] : []),
-    ...Array.from({ length: end - start + 1 }, (_, i) => start + i),
+    ...Array.from({ length: end - start + 1 }, (_, index) => start + index),
     ...(current < last - 3 ? [-1] : []),
     last,
-  ];
+  ]
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  return "Terjadi kesalahan saat memuat data. Silakan coba lagi."
 }
 
 /* =========================================================
-   STYLE YANG DIPAKAI BERULANG
-========================================================= */
+ * COMPONENT
+ * ======================================================= */
 
-const linkButton: CSSProperties = {
-  background: 'none',
-  border: 'none',
-  cursor: 'pointer',
-  color: '#F97316',
-  fontFamily: 'Poppins',
-};
+export default function CatalogPage({
+  navigate,
+  onAddToCart,
+}: CatalogPageProps) {
+  const [searchParams, setSearchParams] = useSearchParams()
 
-const sectionTitle: CSSProperties = {
-  margin: '0 0 12px',
-  fontSize: '0.85rem',
-  fontWeight: 700,
-  color: '#374151',
-  textTransform: 'uppercase',
-  letterSpacing: 1,
-};
-
-const optionStyle = (active: boolean): CSSProperties => ({
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  textAlign: 'left',
-  padding: '8px 10px',
-  borderRadius: 8,
-  border: 'none',
-  fontFamily: 'Poppins',
-  fontSize: '0.875rem',
-  cursor: 'pointer',
-  background: active ? 'rgba(249,115,22,0.1)' : 'transparent',
-  color: active ? '#F97316' : '#374151',
-  fontWeight: active ? 600 : 400,
-});
-
-const arrowStyle = (disabled: boolean): CSSProperties => ({
-  padding: '8px 14px',
-  borderRadius: 8,
-  border: '1px solid #E5E7EB',
-  background: 'white',
-  fontFamily: 'Poppins',
-  cursor: disabled ? 'not-allowed' : 'pointer',
-  color: disabled ? '#D1D5DB' : '#374151',
-});
-
-const pageStyle = (active: boolean): CSSProperties => ({
-  width: 36,
-  height: 36,
-  borderRadius: 8,
-  border: '1px solid',
-  borderColor: active ? '#F97316' : '#E5E7EB',
-  background: active ? '#F97316' : 'white',
-  color: active ? 'white' : '#374151',
-  fontFamily: 'Poppins',
-  fontWeight: active ? 700 : 400,
-  cursor: 'pointer',
-});
-
-const STYLES = `
-  .catalog-page { max-width: 1280px; margin: 0 auto; padding: 32px 24px; box-sizing: border-box; width: 100%; }
-  .catalog-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; align-items: start; }
-  .catalog-sidebar { min-width: 0; position: sticky; top: 88px; }
-  .catalog-search-row { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
-  .catalog-search-input { padding-left: 40px !important; width: 100%; box-sizing: border-box; }
-  .catalog-sort { width: auto; min-width: 160px; }
-  .catalog-price-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
-  .catalog-price-button { min-width: 0; width: 100%; min-height: 38px; padding: 8px 6px; overflow-wrap: anywhere; white-space: normal; line-height: 1.25; box-sizing: border-box; }
-  .catalog-product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 18px; }
-  .catalog-breadcrumb { display: flex; gap: 8px; align-items: center; margin-bottom: 24px; font-size: .8rem; color: #9CA3AF; flex-wrap: wrap; }
-  .catalog-pagination { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 32px; }
-  @media (max-width: 760px) {
-    .catalog-page { padding: 20px 12px; }
-    .catalog-layout { grid-template-columns: minmax(0, 1fr); gap: 18px; }
-    .catalog-sidebar { position: static; top: auto; padding: 16px !important; }
-    .catalog-search-row { gap: 10px; margin-bottom: 18px; }
-    .catalog-search-input { min-width: 0 !important; }
-    .catalog-sort { width: 100%; min-width: 0; }
-    .catalog-product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-    .catalog-breadcrumb { margin-bottom: 16px; }
-    .catalog-title { font-size: 1.45rem !important; margin-bottom: 18px !important; }
-    .catalog-pagination button { padding-left: 10px !important; padding-right: 10px !important; }
-  }
-  @media (max-width: 360px) {
-    .catalog-page { padding-left: 8px; padding-right: 8px; }
-    .catalog-product-grid { gap: 8px; }
-    .catalog-price-button { font-size: .68rem !important; }
-  }
-`;
-
-/* =========================================================
-   KOMPONEN
-========================================================= */
-
-export default function CatalogPage({ navigate, onAddToCart }: CatalogPageProps) {
-  const [searchParams, setSearchParams] = useSearchParams();
-
-  // HomePage mengirim ?kategori=<id> saat kategori diklik.
   const [filters, setFilters] = useState<Filters>(() => {
-    const id = Number(searchParams.get('kategori'));
-    return { ...DEFAULT_FILTERS, category: id > 0 ? id : null };
-  });
-  const [page, setPage] = useState(1);
-  const [lastPage, setLastPage] = useState(1);
+    const categoryId = Number(searchParams.get("kategori"))
+    return {
+      ...DEFAULT_FILTERS,
+      category: categoryId > 0 ? categoryId : null,
+    }
+  })
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [total, setTotal] = useState(0);
-  const [categories, setCategories] = useState<CatalogCategory[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1)
+  const [lastPage, setLastPage] = useState(1)
+  const [products, setProducts] = useState<Product[]>([])
+  const [total, setTotal] = useState(0)
+  const [categories, setCategories] = useState<CatalogCategory[]>([])
+  const [catalogMaxPrice, setCatalogMaxPrice] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [categoryLoading, setCategoryLoading] = useState(true)
+  const [priceLimitError, setPriceLimitError] = useState("")
+  const [productError, setProductError] = useState("")
+  const [reloadKey, setReloadKey] = useState(0)
+  const [showAllCategories, setShowAllCategories] = useState(false)
+  const [showMobileFilters, setShowMobileFilters] = useState(false)
 
-  // Mengubah filter selalu mengembalikan ke halaman 1.
   const updateFilters = (patch: Partial<Filters>) => {
-    setFilters((prev) => ({ ...prev, ...patch }));
-    setPage(1);
-  };
+    setFilters((previous) => ({ ...previous, ...patch }))
+    setPage(1)
+  }
 
   const changeCategory = (category: number | null) => {
-    updateFilters({ category });
-    // Jaga URL tetap mencerminkan filter, supaya link bisa dibagikan.
+    updateFilters({ category })
     setSearchParams(category === null ? {} : { kategori: String(category) }, {
       replace: true,
-    });
-  };
+    })
+  }
 
   const resetFilters = () => {
-    setFilters(DEFAULT_FILTERS);
-    setPage(1);
-    setSearchParams({}, { replace: true });
-  };
+    setFilters({ ...DEFAULT_FILTERS, maxPrice: catalogMaxPrice ?? 0 })
+    setPage(1)
+    setSearchParams({}, { replace: true })
+    setShowAllCategories(false)
+  }
 
   const goToPage = (target: number) => {
-    if (target < 1 || target > lastPage || target === page) return;
+    if (target < 1 || target > lastPage || target === page) return
+    setPage(target)
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
 
-    setPage(target);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  /* -------------------------------------------------------
+   * FETCH PRODUCTS
+   * Filtering and pagination are handled by Laravel.
+   * ----------------------------------------------------- */
 
-  /* ---------- Data ---------- */
-
-  // Filtering dan pagination dilakukan oleh Laravel.
   useEffect(() => {
-    let cancelled = false;
-    const { search, category, minPrice, maxPrice, minRating, sort } = filters;
+    let cancelled = false
+    const { search, category, minPrice, maxPrice, minRating, sort } = filters
 
     const params = new URLSearchParams({
       page: String(page),
       per_page: String(PER_PAGE),
       sort,
-    });
-    if (search.trim()) params.set('search', search.trim());
-    if (category !== null) params.set('category_id', String(category));
-    if (minPrice > 0) params.set('min_price', String(minPrice));
-    if (maxPrice < MAX_PRICE) params.set('max_price', String(maxPrice));
-    if (minRating > 0) params.set('min_rating', String(minRating));
+    })
 
-    setLoading(true);
+    if (search.trim()) params.set("search", search.trim())
+    if (category !== null) params.set("category_id", String(category))
+    if (minPrice > 0) params.set("min_price", String(minPrice))
+    if (catalogMaxPrice !== null && maxPrice < catalogMaxPrice) {
+      params.set("max_price", String(maxPrice))
+    }
+    if (minRating > 0) params.set("min_rating", String(minRating))
 
-    apiFetch<ProductResponse>(`/products?${params}`)
-      .then((res) => {
-        if (cancelled) return;
+    setLoading(true)
+    setProductError("")
 
-        setProducts((res.data ?? []).map(normalizeProduct));
-        setTotal(res.meta?.total ?? 0);
-        setLastPage(res.meta?.last_page ?? 1);
+    apiFetch<ProductResponse>(`/products?${params.toString()}`)
+      .then((response) => {
+        if (cancelled) return
+
+        const normalizedProducts = (response.data ?? []).map(normalizeProduct)
+        const responseLastPage = Math.max(
+          1,
+          toNumber(response.meta?.last_page, 1),
+        )
+
+        setProducts(normalizedProducts)
+        setTotal(toNumber(response.meta?.total, normalizedProducts.length))
+        setLastPage(responseLastPage)
+
+        // Jika data berubah dan halaman aktif tidak lagi tersedia,
+        // kembalikan ke halaman terakhir yang valid.
+        if (page > responseLastPage) setPage(responseLastPage)
       })
-      .catch((error) => {
-        if (cancelled) return;
-
-        console.error('Gagal memuat produk catalog:', error);
-        setProducts([]);
-        setTotal(0);
-        setLastPage(1);
+      .catch((error: unknown) => {
+        if (cancelled) return
+        console.error("Gagal memuat produk katalog:", error)
+        setProducts([])
+        setTotal(0)
+        setLastPage(1)
+        setProductError(getErrorMessage(error))
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+        if (!cancelled) setLoading(false)
+      })
 
-    // Respons lama (misalnya saat mengetik cepat) diabaikan.
     return () => {
-      cancelled = true;
-    };
-  }, [filters, page]);
+      cancelled = true
+    }
+  }, [filters, page, reloadKey, catalogMaxPrice])
 
   useEffect(() => {
-    apiFetch<{ data?: CatalogCategory[] }>('/categories')
-      .then((res) => setCategories(res.data ?? []))
-      .catch((error) => console.error('Gagal memuat kategori:', error));
-  }, []);
+    let cancelled = false
 
-  /* ---------- Turunan ---------- */
+    setPriceLimitError("")
+    apiFetch<ProductResponse>("/products?page=1&per_page=1&sort=termahal")
+      .then((response) => {
+        if (cancelled) return
 
-  // Total dari products_count per kategori, supaya angka "Semua Kategori"
-  // tidak ikut berubah saat filter lain aktif.
-  const totalActiveProducts = categories.reduce(
-    (sum, category) => sum + (category.products_count ?? 0),
-    0
-  );
+        const highestPrice = toNumber(response.data?.[0]?.price)
+        setCatalogMaxPrice(highestPrice)
+        setFilters((previous) => ({
+          ...previous,
+          maxPrice:
+            previous.maxPrice === 0
+              ? highestPrice
+              : Math.min(previous.maxPrice, highestPrice),
+        }))
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return
+        console.error("Gagal memuat harga produk tertinggi:", error)
+        setPriceLimitError(getErrorMessage(error))
+      })
 
-  const categoryOptions = [
-    { id: null as number | null, name: 'Semua Kategori', count: totalActiveProducts },
-    ...categories.slice(0, 6).map((c) => ({
-      id: c.id as number | null,
-      name: c.name,
-      count: c.products_count ?? 0,
-    })),
-  ];
-  const otherCategories = categories.slice(6);
-  const selectedCategoryName = categories.find((c) => c.id === filters.category)?.name;
+    return () => {
+      cancelled = true
+    }
+  }, [reloadKey])
 
-  /* ---------- Render ---------- */
+  /* -------------------------------------------------------
+   * FETCH CATEGORIES
+   * ----------------------------------------------------- */
+
+  useEffect(() => {
+    let cancelled = false
+
+    apiFetch<CategoryResponse>("/categories")
+      .then((response) => {
+        if (!cancelled) setCategories(response.data ?? [])
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          console.error("Gagal memuat kategori:", error)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setCategoryLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  /* -------------------------------------------------------
+   * DERIVED DATA
+   * ----------------------------------------------------- */
+
+  const categoryOptions = useMemo<CategoryOption[]>(() => {
+    const allProductCount = categories.reduce(
+      (sum, category) => sum + toNumber(category.products_count),
+      0,
+    )
+
+    return [
+      {
+        id: null,
+        name: "Semua Kategori",
+        count: allProductCount,
+      },
+      ...categories.map((category) => ({
+        id: category.id,
+        name: category.name,
+        count: toNumber(category.products_count),
+      })),
+    ]
+  }, [categories])
+
+  const selectedCategoryName = categories.find(
+    (category) => category.id === filters.category,
+  )?.name
+
+  const visibleCategories = useMemo(() => {
+    if (showAllCategories) return categoryOptions
+
+    const preview = categoryOptions.slice(0, CATEGORY_PREVIEW_LIMIT)
+    const selectedCategory = categoryOptions.find(
+      (category) => category.id === filters.category,
+    )
+
+    // Kategori terpilih tetap terlihat meskipun berada di luar preview.
+    if (
+      selectedCategory &&
+      !preview.some((category) => category.id === selectedCategory.id)
+    ) {
+      return [...preview, selectedCategory]
+    }
+
+    return preview
+  }, [categoryOptions, filters.category, showAllCategories])
+
+  const hasActiveFilters =
+    filters.search.trim() !== "" ||
+    filters.category !== null ||
+    filters.minPrice !== DEFAULT_FILTERS.minPrice ||
+    (catalogMaxPrice !== null && filters.maxPrice !== catalogMaxPrice) ||
+    filters.minRating !== DEFAULT_FILTERS.minRating ||
+    filters.sort !== DEFAULT_FILTERS.sort
+
+  const activeFilterCount = [
+    filters.search.trim() !== "",
+    filters.category !== null,
+    filters.minPrice !== DEFAULT_FILTERS.minPrice ||
+      (catalogMaxPrice !== null && filters.maxPrice !== catalogMaxPrice),
+    filters.minRating !== DEFAULT_FILTERS.minRating,
+  ].filter(Boolean).length
+
+  /* -------------------------------------------------------
+   * RENDER
+   * ----------------------------------------------------- */
 
   return (
-    <div className="catalog-page">
-      <style>{STYLES}</style>
-
-      {/* Breadcrumb */}
-      <div className="catalog-breadcrumb">
-        <button onClick={() => navigate('home')} style={{ ...linkButton, fontSize: '0.8rem' }}>
+    <div className="mx-auto box-border w-full max-w-[1280px] px-3 py-5 min-[361px]:px-4 md:px-5 md:py-6 lg:px-6 lg:py-8">
+      <nav
+        className="mb-4 flex flex-wrap items-center gap-2 text-xs text-gray-400 lg:mb-6"
+        aria-label="Breadcrumb"
+      >
+        <button
+          type="button"
+          onClick={() => navigate("home")}
+          className="cursor-pointer border-0 bg-transparent p-0 text-primary hover:text-primary-dark"
+        >
           Beranda
         </button>
-        <span>/</span>
-        <span style={{ color: '#1F2937', fontWeight: 600 }}>Katalog Produk</span>
-      </div>
+        <span aria-hidden="true">/</span>
+        <span className="font-semibold text-gray-800">Katalog Produk</span>
+      </nav>
 
-      <h1
-        className="catalog-title"
-        style={{ fontSize: '1.8rem', fontWeight: 800, color: '#1F2937', margin: '0 0 24px' }}
-      >
+      <h1 className="mb-[18px] text-[1.45rem] font-extrabold text-gray-800 md:mb-6 md:text-[1.6rem] lg:text-[1.8rem]">
         Katalog Produk
       </h1>
 
-      {/* Search + Sort */}
-      <div className="catalog-search-row">
-        <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
-          <span
-            style={{
-              position: 'absolute',
-              left: 12,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              fontSize: 16,
-            }}
-          >
-            <FaSearch aria-hidden="true" />
-          </span>
-
+      <div className="mb-[18px] flex flex-wrap gap-[10px] lg:mb-6 lg:gap-3">
+        <div className="relative min-w-[200px] flex-1">
+          <FaSearch
+            aria-hidden="true"
+            className="pointer-events-none absolute left-[14px] top-1/2 -translate-y-1/2 text-sm text-gray-400"
+          />
           <input
-            className="input-field catalog-search-input"
+            type="search"
+            className="min-h-[42px] w-full rounded-md border border-border bg-white py-[9px] pl-10 pr-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-primary focus:ring-4 focus:ring-primary/10"
             placeholder="Cari produk oleh-oleh..."
+            aria-label="Cari produk"
             value={filters.search}
-            onChange={(e) => updateFilters({ search: e.target.value })}
+            onChange={(event) => updateFilters({ search: event.target.value })}
           />
         </div>
 
         <select
-          className="input-field catalog-sort"
-          style={{ cursor: 'pointer' }}
+          className="min-h-[42px] w-full cursor-pointer rounded-md border border-border bg-white px-3 py-[9px] text-sm text-gray-900 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10 lg:w-auto lg:min-w-[170px]"
+          aria-label="Urutkan produk"
           value={filters.sort}
-          onChange={(e) => updateFilters({ sort: e.target.value })}
+          onChange={(event) => updateFilters({ sort: event.target.value })}
         >
           {SORT_OPTIONS.map(([value, label]) => (
             <option key={value} value={value}>
@@ -398,219 +459,278 @@ export default function CatalogPage({ navigate, onAddToCart }: CatalogPageProps)
         </select>
       </div>
 
-      <div className="catalog-layout">
-        {/* SIDEBAR */}
-        <div
-          className="catalog-sidebar"
-          style={{
-            background: 'white',
-            borderRadius: 14,
-            padding: 24,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-            border: '1px solid rgba(0,0,0,0.05)',
-          }}
+      <div className="grid grid-cols-1 items-start gap-[18px] lg:grid-cols-[250px_minmax(0,1fr)] lg:gap-6">
+
+        <aside
+          className="h-fit min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white lg:sticky lg:top-[88px]"
+          aria-label="Filter produk"
         >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: 20,
-            }}
-          >
-            <h3 style={{ margin: 0, fontWeight: 700, color: '#1F2937' }}>Filter</h3>
-            <button onClick={resetFilters} style={{ ...linkButton, fontSize: '0.8rem' }}>
-              Reset
-            </button>
-          </div>
+          {/* Header Filter */}
+          <div className="flex items-center justify-between gap-3 p-3 sm:p-4">
+            <div className="flex min-w-0 items-center gap-2">
+              <h2 className="text-sm font-semibold text-gray-900">
+                Filter Produk
+              </h2>
 
-          {/* Kategori */}
-          <div style={{ marginBottom: 24 }}>
-            <h4 style={sectionTitle}>Kategori</h4>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {categoryOptions.map(({ id, name, count }) => (
-                <button
-                  key={id ?? 'all'}
-                  onClick={() => changeCategory(id)}
-                  style={optionStyle(filters.category === id)}
-                >
-                  <span>{name}</span>
-                  <span style={{ fontSize: '0.75rem', color: '#9CA3AF' }}>{count}</span>
-                </button>
-              ))}
-
-              {otherCategories.length > 0 && (
-                <select
-                  className="input-field"
-                  value={filters.category ?? ''}
-                  onChange={(e) =>
-                    changeCategory(e.target.value ? Number(e.target.value) : null)
-                  }
-                  style={{ width: '100%', cursor: 'pointer', fontSize: '0.875rem' }}
-                >
-                  <option value="">Lainnya</option>
-                  {otherCategories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.products_count ?? 0})
-                    </option>
-                  ))}
-                </select>
+              {activeFilterCount > 0 && (
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                  {activeFilterCount} aktif
+                </span>
               )}
             </div>
-          </div>
 
-          {/* Harga */}
-          <div style={{ marginBottom: 24 }}>
-            <h4 style={sectionTitle}>Harga</h4>
+            <div className="flex shrink-0 items-center gap-3">
+              <button
+                type="button"
+                onClick={resetFilters}
+                disabled={!hasActiveFilters}
+                className="!text-xs !text-primary transition hover:text-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Reset
+              </button>
 
-            <div className="catalog-price-options">
-              {PRICE_PRESETS.map(([min, max]) => {
-                const active = filters.minPrice === min && filters.maxPrice === max;
+              {/* Toggle Mobile */}
+              <button
+                type="button"
+                onClick={() =>
+                  setShowMobileFilters((previous) => !previous)
+                }
+                aria-expanded={showMobileFilters}
+                aria-controls="catalog-filter-content"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-100 lg:hidden"
+              >
+                {showMobileFilters ? "Tutup" : "Tampilkan Filter"}
 
-                return (
-                  <button
-                    key={`${min}-${max}`}
-                    className="catalog-price-button"
-                    onClick={() => updateFilters({ minPrice: min, maxPrice: max })}
-                    style={{
-                      borderRadius: 6,
-                      border: '1px solid',
-                      borderColor: active ? '#F97316' : '#E5E7EB',
-                      background: active ? 'rgba(249,115,22,0.1)' : 'white',
-                      color: active ? '#F97316' : '#6B7280',
-                      fontSize: '0.7rem',
-                      fontFamily: 'Poppins',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {min === 0
-                      ? `≤ ${formatPrice(max)}`
-                      : `${formatPrice(min)}–${formatPrice(max)}`}
-                  </button>
-                );
-              })}
-            </div>
-
-            <input
-              type="range"
-              min={0}
-              max={MAX_PRICE}
-              step={5000}
-              value={filters.maxPrice}
-              onChange={(e) => updateFilters({ minPrice: 0, maxPrice: Number(e.target.value) })}
-              style={{ width: '100%', accentColor: '#F97316' }}
-            />
-
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: '0.75rem',
-                color: '#9CA3AF',
-                marginTop: 4,
-              }}
-            >
-              <span>Rp 0</span>
-              <span>{formatPrice(filters.maxPrice)}</span>
+                {showMobileFilters ? (
+                  <FaChevronUp size={10} />
+                ) : (
+                  <FaChevronDown size={10} />
+                )}
+              </button>
             </div>
           </div>
 
-          {/* Rating */}
-          <div>
-            <h4 style={sectionTitle}>Rating</h4>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {RATING_OPTIONS.map((rating) => (
-                <button
-                  key={rating}
-                  onClick={() => updateFilters({ minRating: rating })}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '6px 10px',
-                    borderRadius: 8,
-                    border: 'none',
-                    background:
-                      filters.minRating === rating ? 'rgba(249,115,22,0.1)' : 'transparent',
-                    cursor: 'pointer',
-                    fontFamily: 'Poppins',
-                    fontSize: '0.85rem',
-                    color: '#374151',
-                  }}
-                >
-                  <span style={{ color: '#FACC15', display: 'inline-flex', gap: 2 }}>
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <FaStar
-                        key={i}
-                        size={12}
-                        style={{ opacity: rating === 0 || i < Math.floor(rating) ? 1 : 0.25 }}
-                      />
-                    ))}
-                  </span>
-                  <span style={{ color: '#6B7280' }}>{rating === 0 ? 'Semua' : `${rating}+`}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* PRODUK */}
-        <div>
+          {/* Konten Filter */}
           <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: 16,
-              flexWrap: 'wrap',
-              gap: 8,
-            }}
+            id="catalog-filter-content"
+            className={`${
+              showMobileFilters ? "block" : "hidden"
+            } border-t border-gray-100 p-4 lg:block`}
           >
-            <p style={{ margin: 0, color: '#6B7280', fontSize: '0.875rem' }}>
-              Menampilkan <strong style={{ color: '#1F2937' }}>{total}</strong> produk
+            {/* Kategori */}
+            <section className="border-b border-gray-100 pb-5">
+              <h3 className="mb-3 text-xs font-semibold text-gray-800">
+                Kategori
+              </h3>
+
+              <div
+                className="flex flex-col gap-1"
+                aria-busy={categoryLoading}
+              >
+                {visibleCategories.map(({ id, name, count }) => {
+                  const active = filters.category === id
+
+                  return (
+                    <label
+                      key={id ?? "all"}
+                      className="group flex cursor-pointer items-center gap-2.5 py-1.5"
+                    >
+                      <input
+                        type="radio"
+                        name="catalog-category"
+                        value={id ?? "all"}
+                        checked={active}
+                        onChange={() => changeCategory(id)}
+                        className="h-4 w-4 shrink-0 cursor-pointer accent-primary"
+                      />
+
+                      <span
+                        className={`min-w-0 flex-1 text-sm transition ${
+                          active
+                            ? "text-primary"
+                            : "text-gray-600 group-hover:text-gray-900"
+                        }`}
+                      >
+                        {name}
+                      </span>
+
+                      <span className="text-[11px] tabular-nums text-gray-400">
+                        {count}
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+
+              {!categoryLoading && categoryOptions.length > CATEGORY_PREVIEW_LIMIT && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllCategories((previous) => !previous)}
+                  aria-expanded={showAllCategories}
+                  className="mt-3 inline-flex items-center gap-1.5 !text-sm !font-normal text-primary transition hover:text-primary-dark"
+                >
+                  {showAllCategories ? "Show less" : "Show more"}
+
+                  {showAllCategories ? (
+                    <FaChevronUp size={10} />
+                  ) : (
+                    <FaChevronDown size={10} />
+                  )}
+                </button>
+              )}
+            </section>
+
+            {/* Rentang Harga */}
+            <section className="border-b border-gray-100 py-5">
+              <h3 className="mb-4 text-xs font-semibold text-gray-800">
+                Rentang Harga
+              </h3>
+
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-xs text-gray-500">Maksimal</span>
+
+                <span className="text-xs font-semibold text-gray-900">
+                  {formatPrice(filters.maxPrice)}
+                </span>
+              </div>
+
+              <input
+                id="catalog-max-price"
+                type="range"
+                min={0}
+                max={catalogMaxPrice ?? 0}
+                step={5000}
+                value={filters.maxPrice}
+                disabled={catalogMaxPrice === null || catalogMaxPrice === 0}
+                onChange={(event) =>
+                  updateFilters({
+                    minPrice: 0,
+                    maxPrice: Number(event.target.value),
+                  })
+                }
+                className="w-full cursor-pointer accent-primary disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Harga maksimal"
+              />
+
+              <div className="mt-1 flex justify-between text-[10px] text-gray-400">
+                <span>Rp 0</span>
+                <span>{formatPrice(catalogMaxPrice ?? 0)}</span>
+              </div>
+            </section>
+
+            {/* Rating */}
+            <section className="pt-5">
+              <h3 className="mb-3 text-xs font-semibold text-gray-800">
+                Rating Produk
+              </h3>
+
+              <div className="flex flex-col gap-2">
+                {RATING_OPTIONS.map((rating) => {
+                  const active = filters.minRating === rating
+
+                  return (
+                    <button
+                      key={rating}
+                      type="button"
+                      onClick={() =>
+                        updateFilters({ minRating: rating })
+                      }
+                      aria-pressed={active}
+                      className="flex items-center gap-2 text-left"
+                    >
+                      <span className="flex items-center gap-0.5 text-yellow-400">
+                        {Array.from({ length: 5 }, (_, index) => (
+                          <FaStar
+                            key={index}
+                            size={11}
+                            className={
+                              rating === 0 || index < Math.floor(rating)
+                                ? "opacity-100"
+                                : "opacity-25"
+                            }
+                          />
+                        ))}
+                      </span>
+
+                      <span
+                        className={`!text-xs ${
+                          active
+                            ? "font-normal text-primary"
+                            : "text-gray-500"
+                        }`}
+                      >
+                        {rating === 0 ? "Semua rating" : `${rating}+`}
+                      </span>
+
+                      {active && (
+                        <span className="ml-auto text-xs text-primary">
+                          <FaCheck size={11} />
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+          </div>
+        </aside>
+
+        <section aria-label="Daftar produk">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-[10px]">
+            <p className="m-0 text-sm text-gray-500">
+              Menampilkan <strong className="text-gray-800">{total}</strong>{" "}
+              produk
+              {activeFilterCount > 0 && (
+                <span className="ml-1.5 text-xs text-gray-400">
+                  ({activeFilterCount} filter aktif)
+                </span>
+              )}
             </p>
 
             {filters.category !== null && (
               <button
+                type="button"
+                className="inline-flex cursor-pointer items-center gap-[7px] rounded-full border-0 bg-[#FFF1ED] px-[11px] py-[5px] text-xs font-semibold text-primary"
                 onClick={() => changeCategory(null)}
                 title="Hapus filter kategori"
-                style={{
-                  background: 'rgba(249,115,22,0.1)',
-                  color: '#F97316',
-                  border: 'none',
-                  borderRadius: 100,
-                  padding: '4px 12px',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  fontFamily: 'Poppins',
-                  cursor: 'pointer',
-                }}
               >
-                {selectedCategoryName} <FaTimes aria-hidden="true" />
+                {selectedCategoryName ?? "Kategori dipilih"}
+                <FaTimes aria-hidden="true" />
               </button>
             )}
           </div>
 
           {loading ? (
-            <div className="catalog-product-grid">
-              {Array.from({ length: PER_PAGE }, (_, i) => (
+            <div
+              className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,200px),1fr))] gap-[18px] max-[639px]:grid-cols-2 max-[639px]:gap-3 max-[360px]:gap-2"
+              aria-label="Memuat produk"
+            >
+              {Array.from({ length: PER_PAGE }, (_, index) => (
                 <div
-                  key={i}
-                  style={{
-                    height: 310,
-                    background: 'white',
-                    borderRadius: 14,
-                    border: '1px solid #F3F4F6',
-                    animation: 'pulse 1.5s infinite',
-                  }}
+                  className="min-h-[310px] animate-pulse rounded-[14px] border border-divider bg-gradient-to-r from-gray-100 via-gray-50 to-gray-100 max-[639px]:min-h-[260px]"
+                  key={index}
                 />
               ))}
             </div>
+          ) : productError ? (
+            <div
+              className="rounded-[14px] border border-divider bg-white px-5 py-16 text-center"
+              role="alert"
+            >
+              <div className="mb-[14px] text-5xl">⚠️</div>
+              <h3 className="mb-2 mt-0 text-gray-800">Gagal memuat produk</h3>
+              <p className="mb-5 mt-0 text-sm text-gray-500">{productError}</p>
+              <button
+                type="button"
+                className="min-h-10 cursor-pointer rounded-md border border-transparent bg-primary px-6 py-[10px] text-sm font-medium text-white transition hover:bg-primary-dark"
+                onClick={() => setReloadKey((current) => current + 1)}
+              >
+                Coba lagi
+              </button>
+            </div>
           ) : products.length > 0 ? (
             <>
-              <div className="catalog-product-grid">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,200px),1fr))] gap-[18px] max-[639px]:grid-cols-2 max-[639px]:gap-3 max-[360px]:gap-2">
                 {products.map((product) => (
                   <ProductCard
                     key={product.id}
@@ -622,61 +742,85 @@ export default function CatalogPage({ navigate, onAddToCart }: CatalogPageProps)
               </div>
 
               {lastPage > 1 && (
-                <div className="catalog-pagination">
+                <nav
+                  className="mt-8 flex flex-wrap items-center justify-center gap-1.5"
+                  aria-label="Pagination produk"
+                >
                   <button
+                    type="button"
                     onClick={() => goToPage(page - 1)}
                     disabled={page === 1}
-                    style={arrowStyle(page === 1)}
+                    className={`inline-flex h-[38px] w-[38px] cursor-pointer items-center justify-center rounded-lg border border-border p-0 text-gray-700 transition focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-primary disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-300 ${
+                      page !== 1 ? "bg-white hover:bg-gray-50" : ""
+                    }`}
+                    aria-label="Halaman sebelumnya"
                   >
                     <FaChevronLeft aria-hidden="true" />
                   </button>
 
-                  {getPaginationPages(page, lastPage).map((p, i) =>
-                    p === -1 ? (
-                      <span
-                        key={`ellipsis-${i}`}
-                        style={{ width: 36, textAlign: 'center', color: '#9CA3AF' }}
-                      >
-                        ...
-                      </span>
-                    ) : (
-                      <button key={p} onClick={() => goToPage(p)} style={pageStyle(p === page)}>
-                        {p}
-                      </button>
-                    )
+                  {getPaginationPages(page, lastPage).map(
+                    (pageNumber, index) =>
+                      pageNumber === -1 ? (
+                        <span
+                          className="inline-flex w-[30px] items-center justify-center text-gray-400"
+                          key={`ellipsis-${index}`}
+                        >
+                          …
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          key={pageNumber}
+                          onClick={() => goToPage(pageNumber)}
+                          className={`h-[38px] w-[38px] cursor-pointer rounded-lg border font-sans transition focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-primary ${
+                            pageNumber === page
+                              ? "border-primary bg-primary font-bold text-white"
+                              : "border-border bg-white text-gray-700 hover:bg-gray-50"
+                          }`}
+                          aria-current={
+                            pageNumber === page ? "page" : undefined
+                          }
+                          aria-label={`Halaman ${pageNumber}`}
+                        >
+                          {pageNumber}
+                        </button>
+                      ),
                   )}
 
                   <button
+                    type="button"
                     onClick={() => goToPage(page + 1)}
                     disabled={page === lastPage}
-                    style={arrowStyle(page === lastPage)}
+                    className={`inline-flex h-[38px] w-[38px] cursor-pointer items-center justify-center rounded-lg border border-border p-0 text-gray-700 transition focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-primary disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-300 ${
+                      page !== lastPage ? "bg-white hover:bg-gray-50" : ""
+                    }`}
+                    aria-label="Halaman berikutnya"
                   >
                     <FaChevronRight aria-hidden="true" />
                   </button>
-                </div>
+                </nav>
               )}
             </>
           ) : (
-            <div
-              style={{
-                textAlign: 'center',
-                padding: '80px 20px',
-                background: 'white',
-                borderRadius: 14,
-              }}
-            >
-              <div style={{ fontSize: 64, marginBottom: 16 }}>🔍</div>
-              <h3 style={{ color: '#1F2937', margin: '0 0 8px' }}>Produk tidak ditemukan</h3>
-              <p style={{ color: '#9CA3AF', margin: '0 0 20px' }}>
-                Coba kata kunci lain atau ubah filter
+            <div className="rounded-[14px] border border-divider bg-white px-5 py-16 text-center">
+              <div className="mb-[14px] text-5xl">🔍</div>
+              <h3 className="mb-2 mt-0 text-gray-800">
+                Produk tidak ditemukan
+              </h3>
+              <p className="mb-5 mt-0 text-sm text-gray-400">
+                Coba kata kunci lain atau ubah filter pencarian.
               </p>
-              <button className="btn-primary" onClick={resetFilters} style={{ padding: '10px 24px' }}>
+              <button
+                type="button"
+                className="min-h-10 cursor-pointer rounded-md border border-transparent bg-primary px-6 py-[10px] text-sm font-medium text-white transition hover:bg-primary-dark"
+                onClick={resetFilters}
+              >
                 Reset Filter
               </button>
             </div>
           )}
-        </div>
+        </section>
       </div>
     </div>
-  );
+  )
 }
