@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Order;
 use App\Models\Payment;
-use App\Models\PaymentMethod;
 use Illuminate\Database\Seeder;
 
 class PaymentSeeder extends Seeder
@@ -12,14 +11,8 @@ class PaymentSeeder extends Seeder
     public function run(): void
     {
         $orders = Order::all();
-        $paymentMethod = PaymentMethod::query()->where('code', 'midtrans')->first();
-
-        if (! $paymentMethod) {
-            return;
-        }
-
         foreach ($orders as $order) {
-            // Status contoh mengikuti status order; pembayaran baru tetap melalui Midtrans Snap.
+            // Status contoh mengikuti status order; transaksi nyata diproses Midtrans.
             if ($order->order_status === 'pending') {
                 $status = 'pending';
             } elseif ($order->order_status === 'cancelled') {
@@ -32,9 +25,9 @@ class PaymentSeeder extends Seeder
                 ['order_id' => $order->id],
                 [
                     'method' => 'midtrans',
-                    'payment_method_name' => $paymentMethod->name,
-                    'payment_method_type' => $paymentMethod->type,
-                    'payment_method_description' => $paymentMethod->description,
+                    'payment_method_name' => 'Midtrans',
+                    'payment_method_type' => 'gateway',
+                    'payment_method_description' => 'Pembayaran melalui Midtrans.',
                     'amount' => $order->total,
                     'status' => $status,
                     'proof' => null,

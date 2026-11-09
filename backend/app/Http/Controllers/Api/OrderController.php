@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\OrderStatus;
-use App\Models\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Address;
@@ -71,13 +70,7 @@ class OrderController extends Controller
 
         $user = $request->user();
 
-        $paymentMethod = PaymentMethod::query()
-            ->where('code', 'midtrans')
-            ->where('is_active', true)
-            ->configured()
-            ->first();
-
-        if (! $paymentMethod) {
+        if (! filled(config('services.midtrans.server_key'))) {
             return response()->json([
                 'success' => false,
                 'message' => 'Midtrans belum dikonfigurasi. Silakan hubungi admin.',
@@ -149,7 +142,7 @@ class OrderController extends Controller
         $cartItems = $cart->items()->with('product')->get();
 
         try {
-            $order = DB::transaction(function () use ($user, $address, $shippingMethod, $quote, $quotes, $cart, $cartItems, $validated, $paymentMethod) {
+            $order = DB::transaction(function () use ($user, $address, $shippingMethod, $quote, $quotes, $cart, $cartItems, $validated) {
                 $subtotal = 0;
                 $orderItemsData = [];
 
@@ -224,13 +217,10 @@ class OrderController extends Controller
                 // Buat Payment pending
                 Payment::create([
                     'order_id' => $order->id,
-                    'method' => $paymentMethod->code,
-                    'payment_method_name' => $paymentMethod->name,
-                    'payment_method_type' => $paymentMethod->type,
-                    'payment_account_number' => $paymentMethod->account_number,
-                    'payment_account_name' => $paymentMethod->account_name,
-                    'payment_qris_image' => $paymentMethod->qris_image,
-                    'payment_method_description' => $paymentMethod->description,
+                    'method' => 'midtrans',
+                    'payment_method_name' => 'Midtrans',
+                    'payment_method_type' => 'gateway',
+                    'payment_method_description' => 'Pembayaran melalui Midtrans.',
                     'amount' => $grandTotal,
                     'status' => PaymentStatus::PENDING,
                 ]);

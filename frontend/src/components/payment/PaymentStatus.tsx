@@ -58,11 +58,9 @@ export default function PaymentStatus({
               }
 
   return (
-    <section className="flex items-start justify-between gap-4 bg-white p-5 sm:p-6">
+    <section className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="min-w-0">
-        <p className="text-xs font-medium text-gray-400">
-          Status Transaksi
-        </p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Status transaksi</p>
 
         <p className="mt-1 text-sm text-gray-600">
           {status.description}
@@ -70,7 +68,7 @@ export default function PaymentStatus({
       </div>
 
       <span
-        className={`inline-flex shrink-0 items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium ${status.style}`}
+        className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${status.style}`}
       >
         <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
         {status.label}

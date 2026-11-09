@@ -354,7 +354,7 @@ export default function PaymentPage({ navigate }: Props) {
 
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-6 sm:px-6 sm:py-8">
-      <div className="mx-auto w-full max-w-5xl">
+      <div className="mx-auto w-full max-w-6xl">
         <nav
           aria-label="Breadcrumb"
           className="mb-5 flex items-center gap-2 text-xs text-gray-400"
@@ -372,13 +372,19 @@ export default function PaymentPage({ navigate }: Props) {
           </span>
         </nav>
 
-        <header className="mb-6">
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+        <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
+          <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
             Pembayaran
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-slate-500">
             Selesaikan pembayaran pesanan melalui Midtrans.
           </p>
+          </div>
+          <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 shadow-sm">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            Pembayaran aman bersama Midtrans
+          </span>
         </header>
 
         <div className="mb-6 rounded-xl border border-gray-100 bg-white px-3 py-5 shadow-sm sm:px-6">
@@ -410,19 +416,8 @@ export default function PaymentPage({ navigate }: Props) {
         )}
 
         {!loading && details && (
-          <div className="space-y-4">
-            <PaymentSummary
-              order={details.order}
-              payment={details.payment}
-              onRefresh={() => void refreshPayment()}
-              refreshing={refreshing}
-            />
-
-            <PaymentStatus
-              paymentStatus={details.payment.status}
-              orderStatus={details.order.status}
-            />
-
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+            <div className="min-w-0 space-y-4">
             {pageError && (
               <div
                 role="alert"
@@ -504,20 +499,18 @@ export default function PaymentPage({ navigate }: Props) {
             )}
 
             {canPay && (
-              <section className="w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 sm:px-5">
+              <section className="w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-white px-4 py-4 sm:px-5">
                   <div>
-                    <h2 className="text-sm font-semibold text-gray-900">
-                      Pilih metode pembayaran
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Checkout</p>
+                    <h2 className="mt-1 text-base font-semibold text-slate-900">
+                      Selesaikan pembayaran
                     </h2>
-                    <p className="mt-0.5 text-xs text-gray-500">
-                      Pilihan metode pembayaran tersedia di Midtrans.
+                    <p className="mt-1 text-sm text-slate-500">
+                      Pilih metode yang paling nyaman untuk Anda.
                     </p>
                   </div>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-[10px] font-semibold text-green-700">
-                    <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                    Pembayaran aman
-                  </span>
+                  <span className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-500">MIDTRANS</span>
                 </div>
 
                 {startingSnap && (
@@ -532,7 +525,7 @@ export default function PaymentPage({ navigate }: Props) {
 
                 <div
                   id="midtrans-snap-container"
-                  className="min-h-[560px] w-full sm:min-h-[680px]"
+                    className="min-h-[560px] w-full bg-slate-50/60 sm:min-h-[680px]"
                 />
 
                 {snapError && (
@@ -555,10 +548,26 @@ export default function PaymentPage({ navigate }: Props) {
               </section>
             )}
 
-            <p className="pb-4 text-center text-xs text-gray-400">
+            <p className="px-2 pb-2 text-center text-xs leading-relaxed text-slate-400">
               Pembayaran diproses dengan aman melalui Midtrans. Status akhir
               pembayaran mengikuti konfirmasi webhook dari server.
             </p>
+            </div>
+            <aside className="space-y-4 lg:sticky lg:top-6">
+              <PaymentSummary
+                order={details.order}
+                payment={details.payment}
+                onRefresh={() => void refreshPayment()}
+                refreshing={refreshing}
+              />
+              <PaymentStatus
+                paymentStatus={details.payment.status}
+                orderStatus={details.order.status}
+              />
+              <div className="rounded-xl border border-slate-200 bg-white p-4 text-xs leading-relaxed text-slate-500 shadow-sm">
+                Data pembayaran Anda diproses oleh Midtrans. Kami akan memperbarui status pesanan setelah menerima konfirmasi transaksi.
+              </div>
+            </aside>
           </div>
         )}
       </div>
