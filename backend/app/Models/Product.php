@@ -20,6 +20,8 @@ class Product extends Model
         'original_price',
         'stock',
         'weight',
+        'length', 'width', 'height',
+        'length', 'width', 'height',
         'sold',
         'rating',
         'review_count',
@@ -35,6 +37,8 @@ class Product extends Model
             'original_price' => 'decimal:2',
             'rating' => 'decimal:2',
             'is_active' => 'boolean',
+            'length' => 'decimal:2', 'width' => 'decimal:2', 'height' => 'decimal:2',
+            'weight' => 'decimal:2', 'length' => 'decimal:2', 'width' => 'decimal:2', 'height' => 'decimal:2',
         ];
     }
 

@@ -17,6 +17,7 @@ class Order extends Model
         'user_id',
         'address_id',
         'shipping_method_id',
+        'shipping_service_type',
         'order_number',
         'subtotal',
         'shipping_cost',

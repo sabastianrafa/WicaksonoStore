@@ -235,6 +235,8 @@ Route::middleware('auth:sanctum')->group(function () {
             '/shipping-methods',
             [AdminShippingMethodController::class, 'index']
         );
+        Route::get('/shipping-rates', [AdminShippingMethodController::class, 'rates']);
+        Route::put('/shipping-rates', [AdminShippingMethodController::class, 'saveRate']);
 
         Route::get(
             '/shipping-methods/{shippingMethod}',
