@@ -49,6 +49,7 @@ interface ShippingQuote {
   original_cost: number
   shipping_discount: number
   promotion_applied: boolean
+  weight?: { billable_weight: number; actual_weight: number; volumetric_weight: number }
 }
 
 interface ShippingQuoteResponse {
@@ -256,6 +257,7 @@ export default function CheckoutPage({
   }))
 
   const [shippingQuote, setShippingQuote] = useState<ShippingQuote | null>(null)
+  const [tipeLayanan, setTipeLayanan] = useState<'reguler' | 'cargo'>('reguler')
   const [quoteLoading, setQuoteLoading] = useState(false)
   const [shippingError, setShippingError] = useState("")
   const [submittingOrder, setSubmittingOrder] = useState(false)
@@ -512,6 +514,7 @@ export default function CheckoutPage({
             regency_code: location.regency_code,
             district_code: location.district_code,
             village_code: location.village_code,
+            tipe_layanan: tipeLayanan,
           }),
         },
       )
@@ -573,6 +576,7 @@ export default function CheckoutPage({
         body: JSON.stringify({
           address_id: selectedAddressId,
           shipping_method_id: shippingQuote.courier.id,
+          tipe_layanan: tipeLayanan,
         }),
       })
 
@@ -816,6 +820,13 @@ export default function CheckoutPage({
                     </div>
                   )}
 
+                  <div className="mt-6 max-w-xs">
+                    <label className="mb-1 block text-sm font-semibold text-gray-700">Tipe layanan</label>
+                    <select className="input-field" value={tipeLayanan} onChange={(event) => { setTipeLayanan(event.target.value as 'reguler' | 'cargo'); setShippingQuote(null) }}>
+                      <option value="reguler">Reguler (pembagi 6000)</option>
+                      <option value="cargo">Cargo (pembagi 4000)</option>
+                    </select>
+                  </div>
                   <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                     <button
                       type="button"
@@ -897,13 +908,14 @@ export default function CheckoutPage({
                         <p className="mt-1 text-xs text-gray-500">
                           Ke {shippingQuote.location.city},{" "}
                           {shippingQuote.location.province}
+                          {shippingQuote.weight ? ` · ${shippingQuote.weight.billable_weight} kg ditagihkan` : ''}
                           {shippingQuote.courier.estimated_days
                             ? ` · Estimasi ${shippingQuote.courier.estimated_days}`
                             : ""}
                         </p>
                         {shippingQuote.promotion_applied && (
                           <p className="mt-1.5 text-xs font-semibold text-green-700">
-                            Gratis ongkir · Hemat{" "}
+                            Subsidi ongkir · Hemat{" "}
                             {formatPrice(shippingQuote.shipping_discount)}
                           </p>
                         )}
@@ -922,9 +934,7 @@ export default function CheckoutPage({
                               : "text-[#DF401F]"
                           }`}
                         >
-                          {shippingQuote.promotion_applied
-                            ? "GRATIS"
-                            : formatPrice(shippingQuote.cost)}
+                          {formatPrice(shippingQuote.cost)}
                         </p>
                       </div>
                     </div>
@@ -1082,9 +1092,7 @@ export default function CheckoutPage({
                     <span className="text-gray-500">Ongkos kirim</span>
                     <span className="text-right font-medium text-gray-800">
                       {shippingQuote
-                        ? shippingQuote.promotion_applied
-                          ? "GRATIS"
-                          : formatPrice(shippingFee)
+                        ? formatPrice(shippingFee)
                         : "Dihitung setelah alamat dipilih"}
                     </span>
                   </div>

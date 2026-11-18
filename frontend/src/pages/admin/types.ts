@@ -38,6 +38,9 @@ export interface AdminProduct {
   sold: number
   stock: number
   weight: number
+  length: number
+  width: number
+  height: number
   discount: number
   image: string
   description: string
@@ -111,6 +114,8 @@ export interface ShippingMethod {
   is_active: boolean
   sort_order: number
 }
+
+export interface ShippingRate { id: number; shipping_method_id: number; area_code: string; service_type: 'reguler' | 'cargo'; cost_per_kg: number; method?: { id: number; name: string; code: string } }
 
 export interface ShippingPromotion {
   is_active: boolean

@@ -4,11 +4,29 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ShippingMethod;
+use App\Models\ShippingRate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ShippingMethodController extends Controller
 {
+    public function rates(): JsonResponse
+    {
+        return response()->json(['success' => true, 'data' => ShippingRate::with('method:id,name,code')->orderBy('area_code')->orderBy('service_type')->get()]);
+    }
+
+    public function saveRate(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'shipping_method_id' => ['required', 'exists:shipping_methods,id'],
+            'area_code' => ['required', 'string', 'max:20'],
+            'service_type' => ['required', 'in:reguler,cargo'],
+            'cost_per_kg' => ['required', 'numeric', 'min:0'],
+        ]);
+        $rate = ShippingRate::updateOrCreate(array_intersect_key($data, array_flip(['shipping_method_id', 'area_code', 'service_type'])), ['cost_per_kg' => $data['cost_per_kg']]);
+        return response()->json(['success' => true, 'data' => $rate->load('method:id,name,code')]);
+    }
+
     /**
      * Menampilkan semua metode pengiriman untuk admin.
      *

@@ -144,6 +144,9 @@ class ProductController extends Controller
                 'integer',
                 'min:0',
             ],
+            'length' => ['nullable', 'numeric', 'min:0'],
+            'width' => ['nullable', 'numeric', 'min:0'],
+            'height' => ['nullable', 'numeric', 'min:0'],
 
             'weight' => [
                 'required',
@@ -264,6 +267,9 @@ class ProductController extends Controller
                 'integer',
                 'min:0',
             ],
+            'length' => ['sometimes', 'numeric', 'min:0'],
+            'width' => ['sometimes', 'numeric', 'min:0'],
+            'height' => ['sometimes', 'numeric', 'min:0'],
 
             'weight' => [
                 'sometimes',

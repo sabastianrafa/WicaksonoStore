@@ -65,6 +65,7 @@ class OrderController extends Controller
         $validated = $request->validate([
             'address_id' => ['required', 'exists:addresses,id'],
             'shipping_method_id' => ['required', 'exists:shipping_methods,id'],
+            'tipe_layanan' => ['required', 'in:reguler,cargo'],
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -101,7 +102,8 @@ class OrderController extends Controller
                 $address->province_code,
                 $address->regency_code,
                 $address->district_code,
-                $address->village_code
+                $address->village_code,
+                $validated['tipe_layanan']
             );
         } catch (LocationCatalogUnavailable $exception) {
             Log::error('Tidak dapat memvalidasi wilayah alamat ketika membuat pesanan.', [
@@ -177,7 +179,8 @@ class OrderController extends Controller
                     ];
                 }
 
-                $shippingCost = $quotes->pricing($quote, $subtotal)['cost'];
+                $metrics = $quotes->parcelMetrics($cartItems, $validated['tipe_layanan']);
+                $shippingCost = $quotes->pricing($quote, $subtotal, $metrics['billable_weight'])['cost'];
                 $grandTotal = $subtotal + $shippingCost;
 
                 // Buat nomor pesanan unik
@@ -187,6 +190,7 @@ class OrderController extends Controller
                     'user_id' => $user->id,
                     'address_id' => $address->id,
                     'shipping_method_id' => $shippingMethod->id,
+                    'shipping_service_type' => $validated['tipe_layanan'],
                     'order_number' => $orderNumber,
                     'subtotal' => $subtotal,
                     'shipping_cost' => $shippingCost,

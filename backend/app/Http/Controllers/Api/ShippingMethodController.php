@@ -45,6 +45,11 @@ class ShippingMethodController extends Controller
             'regency_code' => ['required', 'string', 'max:20'],
             'district_code' => ['required', 'string', 'max:20'],
             'village_code' => ['required', 'string', 'max:20'],
+            'tipe_layanan' => ['sometimes', 'in:reguler,cargo'],
+            'berat_aktual' => ['sometimes', 'numeric', 'min:0'],
+            'panjang' => ['sometimes', 'numeric', 'min:0'],
+            'lebar' => ['sometimes', 'numeric', 'min:0'],
+            'tinggi' => ['sometimes', 'numeric', 'min:0'],
         ]);
 
         try {
@@ -52,7 +57,8 @@ class ShippingMethodController extends Controller
                 $validated['province_code'],
                 $validated['regency_code'],
                 $validated['district_code'],
-                $validated['village_code']
+                $validated['village_code'],
+                $validated['tipe_layanan'] ?? 'reguler'
             );
         } catch (LocationCatalogUnavailable $exception) {
             Log::error('Tidak dapat memvalidasi wilayah tujuan untuk ongkir.', [
@@ -76,7 +82,9 @@ class ShippingMethodController extends Controller
             ->with('product')
             ->get()
             ->sum(fn ($item) => (float) ($item->product?->price ?? 0) * $item->quantity) ?? 0);
-        $pricing = $quotes->pricing($quote, $subtotal);
+        $items = $request->user()->cart?->items()->with('product')->get() ?? collect();
+        $metrics = $quotes->parcelMetrics($items, $validated['tipe_layanan'] ?? 'reguler', $validated);
+        $pricing = $quotes->pricing($quote, $subtotal, $metrics['billable_weight']);
 
         return response()->json([
             'success' => true,
@@ -93,6 +101,8 @@ class ShippingMethodController extends Controller
                 'original_cost' => $pricing['original_cost'],
                 'shipping_discount' => $pricing['discount'],
                 'promotion_applied' => $pricing['promotion_applied'],
+                'cost_per_kg' => $pricing['cost_per_kg'],
+                'weight' => $metrics,
                 'location' => $quote['location'],
             ],
         ]);

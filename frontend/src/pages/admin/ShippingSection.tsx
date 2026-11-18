@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { apiFetch } from "../../api/client"
 import { formatPrice } from "../../data"
-import type { ShippingMethod, ShippingPromotion } from "./types"
+import type { ShippingMethod, ShippingPromotion, ShippingRate } from "./types"
 import {
   Modal,
   card,
@@ -74,6 +74,15 @@ export default function ShippingSection({
   const [areaLevel, setAreaLevel] = useState<"province" | "regency">("province")
   const [promotionSaving, setPromotionSaving] = useState(false)
   const [locationError, setLocationError] = useState("")
+  const [rates, setRates] = useState<ShippingRate[]>([])
+  const [rateMethodId, setRateMethodId] = useState("")
+  const [rateAreaCode, setRateAreaCode] = useState("*")
+  const [rateType, setRateType] = useState<"reguler" | "cargo">("reguler")
+  const [rateValue, setRateValue] = useState("")
+  const [rateSaving, setRateSaving] = useState(false)
+
+  const loadRates = () => apiFetch<{ data: ShippingRate[] }>("/admin/shipping-rates").then((result) => setRates(result.data))
+  useEffect(() => { loadRates().catch((error) => setLocationError(error instanceof Error ? error.message : "Gagal memuat tarif zona.")) }, [])
 
   useEffect(() => {
     apiFetch<{ data: LocationOption[] }>("/locations/provinces")
@@ -196,6 +205,17 @@ export default function ShippingSection({
     }
   }
 
+  const saveZoneRate = async () => {
+    if (!rateMethodId || !rateValue || !Number.isFinite(Number(rateValue)) || Number(rateValue) < 0) return
+    setRateSaving(true)
+    try {
+      await apiFetch("/admin/shipping-rates", { method: "PUT", body: JSON.stringify({ shipping_method_id: Number(rateMethodId), area_code: rateAreaCode, service_type: rateType, cost_per_kg: Number(rateValue) }) })
+      await loadRates()
+      window.alert("Tarif zona berhasil disimpan.")
+    } catch (error) { window.alert(error instanceof Error ? error.message : "Gagal menyimpan tarif zona.") }
+    finally { setRateSaving(false) }
+  }
+
   return (
     <>
       <div style={card}>
@@ -293,7 +313,7 @@ export default function ShippingSection({
                       fontSize: "0.9rem",
                     }}
                   >
-                    {formatPrice(method.cost)}
+                    {formatPrice(method.cost)} / kg
                   </div>
                   <div style={{ color: "#16A34A", fontSize: "0.72rem" }}>
                     Aktif
@@ -315,6 +335,20 @@ export default function ShippingSection({
       </div>
 
       <div style={{ ...card, marginTop: 18 }}>
+        <h2 style={{ margin: 0, fontWeight: 800, color: '#1F2937' }}>Matriks Tarif Zona</h2>
+        <p style={{ margin: '4px 0 14px', color: '#9CA3AF', fontSize: '0.85rem' }}>Tarif per kg dapat diatur untuk semua wilayah, provinsi, atau kota/kabupaten. Tarif yang lebih spesifik akan digunakan.</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 10 }}>
+          <select className="input-field" value={rateMethodId} onChange={(e) => setRateMethodId(e.target.value)}><option value="">Pilih kurir</option>{methods.filter((m) => m.code !== 'GOSEND').map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select>
+          <input className="input-field" list="shipping-rate-areas" value={rateAreaCode} onChange={(e) => setRateAreaCode(e.target.value)} placeholder="Kode area: * / 35 / 35.73" />
+          <datalist id="shipping-rate-areas"><option value="*">Semua wilayah</option>{provinces.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}</datalist>
+          <select className="input-field" value={rateType} onChange={(e) => setRateType(e.target.value as 'reguler' | 'cargo')}><option value="reguler">Reguler</option><option value="cargo">Cargo</option></select>
+          <input className="input-field" type="number" min="0" value={rateValue} onChange={(e) => setRateValue(e.target.value)} placeholder="Tarif Rp/kg" />
+          <button style={primaryButton} disabled={rateSaving || !rateMethodId || !rateValue} onClick={saveZoneRate}>{rateSaving ? 'Menyimpan…' : 'Simpan tarif zona'}</button>
+        </div>
+        <div style={{ overflowX: 'auto', marginTop: 16 }}><table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}><thead><tr><th style={{ padding: 8 }}>Kurir</th><th style={{ padding: 8 }}>Kode wilayah</th><th style={{ padding: 8 }}>Layanan</th><th style={{ padding: 8 }}>Tarif/kg</th></tr></thead><tbody>{rates.map((r) => <tr key={r.id} style={{ borderTop: '1px solid #F3F4F6' }}><td style={{ padding: 8 }}>{r.method?.name ?? r.shipping_method_id}</td><td style={{ padding: 8 }}>{r.area_code}</td><td style={{ padding: 8 }}>{r.service_type}</td><td style={{ padding: 8 }}>{formatPrice(r.cost_per_kg)}</td></tr>)}{rates.length === 0 && <tr><td colSpan={4} style={emptyCell}>Belum ada tarif zona yang dikonfigurasi.</td></tr>}</tbody></table></div>
+      </div>
+
+      <div style={{ ...card, marginTop: 18 }}>
         <div
           style={{
             display: "flex",
@@ -326,7 +360,7 @@ export default function ShippingSection({
         >
           <div>
             <h2 style={{ margin: 0, fontWeight: 800, color: "#1F2937" }}>
-              Promo Gratis Ongkir
+              Promo Subsidi Ongkir
             </h2>
             <p
               style={{
@@ -335,7 +369,7 @@ export default function ShippingSection({
                 fontSize: "0.85rem",
               }}
             >
-              Gratis ongkir otomatis diberikan jika subtotal memenuhi minimum
+              Subsidi hingga Rp10.000 diberikan jika subtotal memenuhi minimum
               dan alamat termasuk wilayah terpilih.
             </p>
           </div>
@@ -527,7 +561,7 @@ export default function ShippingSection({
           </div>
 
           <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Tarif (Rp)</label>
+            <label style={labelStyle}>Tarif default per kilogram (Rp/kg)</label>
             <input
               className="input-field"
               type="number"

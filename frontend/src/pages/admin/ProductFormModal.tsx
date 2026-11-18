@@ -18,6 +18,9 @@ interface ProductForm {
   originalPrice: string
   stock: string
   weight: string
+  length: string
+  width: string
+  height: string
   discount: string
   isActive: boolean
   description: string
@@ -138,6 +141,7 @@ export default function ProductFormModal({
         originalPrice: String(product.originalPrice ?? product.price ?? ""),
         stock: String(product.stock ?? 0),
         weight: product.weight > 0 ? String(product.weight) : "",
+        length: String(product.length ?? 0), width: String(product.width ?? 0), height: String(product.height ?? 0),
         discount: String(product.discount ?? 0),
         isActive: product.is_active,
         description: product.description ?? "",
@@ -151,6 +155,7 @@ export default function ProductFormModal({
       originalPrice: "",
       stock: "",
       weight: "",
+      length: "0", width: "0", height: "0",
       discount: "0",
       isActive: true,
       description: "",
@@ -461,6 +466,7 @@ export default function ProductFormModal({
             original_price: originalPrice,
             stock,
             weight,
+            length: Number(form.length), width: Number(form.width), height: Number(form.height),
             discount,
             is_active: form.isActive,
           }),
@@ -567,6 +573,12 @@ export default function ProductFormModal({
               placeholder="Masukkan nama produk"
               className="input-field"
             />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
+            {([['length', 'Panjang (cm)'], ['width', 'Lebar (cm)'], ['height', 'Tinggi (cm)']] as const).map(([field, label]) => (
+              <div key={field}><label style={labelStyle}>{label}</label><input type="number" min="0" step="0.1" value={form[field]} onChange={(event) => setField(field, event.target.value)} className="input-field" /></div>
+            ))}
           </div>
 
           <div style={{ marginBottom: 16 }}>
